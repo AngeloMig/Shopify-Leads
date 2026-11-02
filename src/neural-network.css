@@ -1905,3 +1905,14 @@
     transition: none;
   }
 }
+
+.research-model-options > summary {
+  width: fit-content;
+  padding: 6px 2px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.research-model-options > summary:hover {
+  color: var(--text);
+}

@@ -15,6 +15,7 @@ import {
   hasFrontendOpportunity,
 } from "../shared/lead-intelligence.js";
 import { savePublicEmails } from "./lib/contacts.js";
+import { checkMailDomains } from "./lib/mail-domain.js";
 import { scanContactPages } from "./modules/contact-audit.js";
 import { scanRepresentativePages } from "./modules/representative-pages.js";
 import { lighthouseIdentity } from "../shared/audit-presentation.js";
@@ -1203,11 +1204,17 @@ export async function executeJob(
           }
         : null,
     );
+    const emails = pages.flatMap((page) => page.emails);
+    const mail = {
+      ...previousScore[0]?.breakdown?.mail,
+      ...(await checkMailDomains(emails)),
+    };
     const priority = leadScore({
       findings,
       performance,
       activity,
-      emails: pages.flatMap((page) => page.emails),
+      emails,
+      mail,
       contact_url: homepage.contact_url,
       catalog,
       fit,
@@ -1225,7 +1232,7 @@ export async function executeJob(
       cro: null,
       activity,
       priority: priority.priority,
-      breakdown: { ...priority, catalog, fit, timing, technologies },
+      breakdown: { ...priority, catalog, fit, timing, technologies, mail },
     };
     await insert("lead_scores", {
       organization_id: org,

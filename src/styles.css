@@ -527,6 +527,13 @@ a {
   background: oklch(0.64 0.14 45);
   border: 1px solid var(--surface);
 }
+.notification-dot.urgent {
+  width: 7px;
+  height: 7px;
+  top: 4px;
+  right: 5px;
+  background: var(--red);
+}
 .demo-banner {
   padding: 9px 32px;
   border-bottom: 1px solid oklch(0.33 0.02 195);
@@ -2623,6 +2630,63 @@ tbody tr.selected {
 }
 .notification-list > button:last-child {
   border: 0;
+}
+.notification-list > button.critical > svg:first-child {
+  color: var(--red);
+}
+.notification-list > button.warning > svg:first-child {
+  color: var(--amber);
+}
+.digest {
+  margin: 0 17px 17px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.digest h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.digest dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.digest dt {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.digest dd {
+  margin: 2px 0 0;
+  font-size: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.digest ol {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.digest li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+.digest li > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.digest li > b {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 .notification-list > button > span {
   flex: 1;

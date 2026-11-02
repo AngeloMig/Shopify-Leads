@@ -610,43 +610,6 @@
   font-size: 12.5px;
   background: oklch(0.218 0.017 25);
 }
-.research-dock {
-  position: fixed;
-  z-index: 30;
-  bottom: 22px;
-  right: 24px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: min(440px, calc(100vw - 32px));
-  background: oklch(0.29 0.035 207);
-  color: #fff;
-  padding: 14px 18px;
-  border-radius: var(--radius-card);
-  text-align: left;
-}
-.research-dock > span {
-  min-width: 0;
-}
-.research-dock strong {
-  font-size: 13px;
-  font-weight: 500;
-  display: block;
-}
-.research-dock small {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 11.5px;
-  color: oklch(0.84 0.025 200);
-  margin-top: 3px;
-}
-.research-dock > span:last-child {
-  font-size: 12.5px;
-  white-space: nowrap;
-  margin-left: 12px;
-}
 .research-run-outcome {
   font-size: 13px;
   line-height: 1.6;
@@ -770,17 +733,6 @@
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
-  }
-}
-@media (max-width: 600px) {
-  .research-dock {
-    bottom: 12px;
-    right: 16px;
-    left: 16px;
-    max-width: none;
-  }
-  .research-dock > span:last-child {
-    margin-left: auto;
   }
 }
 /* The task map takes the full research workspace; runs remain within reach. */

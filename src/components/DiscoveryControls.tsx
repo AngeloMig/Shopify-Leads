@@ -17,14 +17,9 @@ export function DiscoveryControls({
       <div>
         <strong>Scheduled discovery is {scheduled ? "on" : "off"}</strong>
         <p>
-          Stop queued and running discovery and turn off all discovery
-          schedules. Audits already queued continue; cancel them in Automation
-          Jobs.
+          Stopping cancels discovery runs and turns off their schedules. Queued
+          audits still finish.
         </p>
-        <small>
-          A provider request already in progress may finish and count toward
-          usage.
-        </small>
       </div>
       <Button variant="danger" size="sm" disabled={busy} onClick={onStop}>
         {stopping ? (

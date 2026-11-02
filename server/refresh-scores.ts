@@ -1,8 +1,9 @@
 import { db, checked } from "./lib/db.js";
 import { uuid } from "./lib/validation.js";
+import { checkMailDomains } from "./lib/mail-domain.js";
 import { leadScore } from "../shared/lead-score.js";
 
-/** Recalculates saved scores from retained evidence; makes no provider requests. */
+/** Recalculates saved scores from retained evidence. Its only lookups are free DNS mail checks. */
 const org = uuid.parse(process.argv[2]);
 const dryRun = process.argv.includes("--dry-run");
 const leads = await checked(
@@ -11,7 +12,12 @@ const leads = await checked(
 const suppressed = await checked(
   db().from("suppression_list").select("domain").eq("organization_id", org),
 );
-const scored: { domain: string; before: number; after: number }[] = [];
+const scored: {
+  domain: string;
+  before: number;
+  after: number;
+  noMail: string[];
+}[] = [];
 for (const lead of leads) {
   const [store, scores, findings, contacts, reviews] = await Promise.all([
     checked(
@@ -60,13 +66,16 @@ for (const lead of leads) {
   const row = scores[0];
   if (!row) continue;
   const breakdown = row.breakdown ?? {};
+  const emails = contacts
+    .filter((c) => /^mailto:[^?\s]+@[^?\s]+$/i.test(c.route))
+    .map((c) => ({ email: c.route.slice(7) }));
+  const mail = { ...breakdown.mail, ...(await checkMailDomains(emails)) };
   const result = leadScore({
     findings,
     performance: row.performance,
     activity: store.activity,
-    emails: contacts
-      .filter((c) => /^mailto:[^?\s]+@[^?\s]+$/i.test(c.route))
-      .map((c) => ({ email: c.route.slice(7) })),
+    emails,
+    mail,
     contact_url: store.contact_url,
     catalog: breakdown.catalog ?? null,
     fit: breakdown.fit ?? null,
@@ -82,6 +91,7 @@ for (const lead of leads) {
     domain: store.domain,
     before: breakdown.researchScore ?? 0,
     after: result.researchScore,
+    noMail: Object.keys(mail).filter((domain) => mail[domain] === "none"),
   });
   if (!dryRun)
     await checked(
@@ -89,7 +99,7 @@ for (const lead of leads) {
         .from("lead_scores")
         .update({
           priority: result.priority,
-          breakdown: { ...breakdown, ...result },
+          breakdown: { ...breakdown, ...result, mail },
         })
         .eq("organization_id", org)
         .eq("id", row.id),
@@ -97,7 +107,9 @@ for (const lead of leads) {
 }
 scored.sort((a, b) => b.after - a.after);
 for (const s of scored)
-  console.info(`${String(s.after).padStart(3)} (was ${s.before})  ${s.domain}`);
+  console.info(
+    `${String(s.after).padStart(3)} (was ${s.before})  ${s.domain}${s.noMail.length ? `  no mail: ${s.noMail.join(", ")}` : ""}`,
+  );
 console.info(
   `${dryRun ? "Dry run, nothing saved" : "Saved"}: ${scored.length} scores.`,
 );

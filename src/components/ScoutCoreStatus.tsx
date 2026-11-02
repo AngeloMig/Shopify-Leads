@@ -27,10 +27,10 @@ export default function ScoutCoreStatus({
         <span>
           Core <strong>{state.label}</strong>
         </span>
-        <small>Light follows work · bursts are visual</small>
+        <small>Its glow shows activity, not results.</small>
       </div>
       <label>
-        Core palette{" "}
+        Colors{" "}
         <select
           value={appearance.palette}
           onChange={(e) => onPalette(e.target.value as CorePalette)}

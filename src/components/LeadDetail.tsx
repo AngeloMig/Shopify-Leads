@@ -20,6 +20,8 @@ import { explainFinding } from "../../shared/finding-explanation";
 import {
   leadIntelligence,
   contactCategory,
+  mailStatus,
+  type MailChecks,
 } from "../../shared/lead-intelligence";
 import { countryNames, industries, lostReasons } from "../../shared/types";
 import { leadScoreFor } from "../../shared/lead-score";
@@ -30,16 +32,19 @@ import { Priority, flags } from "./LeadTable";
 import { PageSpeedAudit, type ScoreDevice } from "./PageSpeedAudit";
 function PublicContactRow({
   contact,
+  mail,
   preferred,
   busy,
   onPrefer,
 }: {
   contact: PublicEmail;
+  mail?: MailChecks;
   preferred: boolean;
   busy: boolean;
   onPrefer: (email: string) => void;
 }) {
   const category = contactCategory(contact.email);
+  const status = mailStatus(contact.email, mail);
   return (
     <div className="detail-contact">
       <div className="contact-address">
@@ -49,6 +54,18 @@ function PublicContactRow({
           {contact.observed_at
             ? ` · Found ${formatDate(contact.observed_at)}`
             : ""}
+          {status === "ok" && (
+            <span title="This domain has a mail server. The mailbox itself isn't confirmed.">
+              {" "}
+              · Domain takes mail
+            </span>
+          )}
+          {status === "none" && (
+            <span className="contact-mail-none">
+              {" "}
+              · Domain takes no mail
+            </span>
+          )}
         </span>
       </div>
       <div className="contact-controls">
@@ -274,37 +291,35 @@ export function LeadDetail({
         </section>
         <section className="lead-score" aria-label="Why this score">
           <div className="lead-score-head">
-            <h3>Why this score</h3>
-            <p>
-              <strong>{score.researchScore}</strong>/100
+            <p className="lead-score-total">
+              <strong>{score.researchScore}</strong>
+              <span>/100</span>
             </p>
-          </div>
-          <div className="lead-score-bar" aria-hidden="true">
-            {score.parts.map((part) => (
-              <span key={part.key} style={{ flexGrow: part.max }}>
-                <i style={{ width: `${(part.points / part.max) * 100}%` }} />
-              </span>
-            ))}
-          </div>
-          {score.blockers.length > 0 && (
-            <p className="lead-score-gate">
-              Priority stays at 0 until: {score.blockers.join(", ")}.
-            </p>
-          )}
-          <dl className="lead-score-parts">
-            {score.parts.map((part) => (
-              <div
-                key={part.key}
+            <div>
+              <h3>Why this score</h3>
+              <p
                 className={
-                  part.points === part.max
-                    ? "full"
-                    : part.points > 0
-                      ? "partial"
-                      : "empty"
+                  score.eligible
+                    ? "lead-score-status ready"
+                    : "lead-score-status"
                 }
               >
+                {score.eligible
+                  ? `Priority ${score.grade}`
+                  : score.grade === "Hold"
+                    ? `Hold · needs ${score.blockers.join(" and ")}`
+                    : `Priority ${score.grade} after ${score.blockers.join(" and ")}`}
+              </p>
+            </div>
+          </div>
+          <dl className="lead-score-parts">
+            {score.parts.map((part) => (
+              <div key={part.key}>
                 <dt>{part.label}</dt>
                 <dd>{part.reason}</dd>
+                <dd className="lead-score-meter" aria-hidden="true">
+                  <i style={{ width: `${(part.points / part.max) * 100}%` }} />
+                </dd>
                 <dd className="lead-score-points">
                   {part.points}
                   <span>/{part.max}</span>
@@ -312,19 +327,34 @@ export function LeadDetail({
               </div>
             ))}
           </dl>
+          {score.raise.length > 0 && (
+            <div className="lead-score-raise">
+              <h4>Raise this score</h4>
+              <ul>
+                {score.raise.map((step) => (
+                  <li key={step.label}>
+                    {step.label}
+                    <b>up to +{step.points}</b>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {lead.catalog && (
             <p className="lead-catalog">
-              Public catalog: {lead.catalog.product_count}
-              {lead.catalog.count_capped ? "+" : ""} products
-              {lead.catalog.median_price !== null &&
-                ` · typical price ${lead.catalog.median_price}`}
-              {" · "}
+              <span>
+                {lead.catalog.product_count}
+                {lead.catalog.count_capped ? "+" : ""} products
+              </span>
+              {lead.catalog.median_price !== null && (
+                <span>Typical price {lead.catalog.median_price}</span>
+              )}
               <a
                 href={lead.catalog.source_url}
                 target="_blank"
                 rel="noreferrer"
               >
-                Source <ExternalLink size={12} />
+                Public catalog <ExternalLink size={12} />
               </a>
             </p>
           )}
@@ -419,6 +449,7 @@ export function LeadDetail({
             <>
               <PublicContactRow
                 contact={intelligence.emails[0]}
+                mail={lead.mail_checks}
                 preferred={
                   lead.preferred_email === intelligence.emails[0].email
                 }
@@ -437,6 +468,7 @@ export function LeadDetail({
                     <PublicContactRow
                       key={contact.email}
                       contact={contact}
+                      mail={lead.mail_checks}
                       preferred={lead.preferred_email === contact.email}
                       busy={busy}
                       onPrefer={(email) =>
@@ -457,8 +489,8 @@ export function LeadDetail({
           )}
           {!!lead.emails?.length && (
             <p>
-              Published on the store’s website. Mailbox deliverability has not
-              been checked.
+              Published on the store’s website. Domains are checked for a mail
+              server, but individual mailboxes aren’t confirmed.
             </p>
           )}
         </section>

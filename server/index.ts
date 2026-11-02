@@ -18,6 +18,7 @@ import {
   rankedEmails,
 } from "../shared/lead-intelligence.js";
 import { registerWorkspaceRoutes } from "./workspace-routes.js";
+import { deliverAlerts } from "./lib/alerts.js";
 import { registerJobActivityRoutes } from "./job-activity-routes.js";
 import { createReport, reportVersion } from "./modules/report.js";
 import { publishSavedReport } from "./lib/stored-report.js";
@@ -371,11 +372,13 @@ async function snapshot(org: string, ids?: string[]) {
       const catalog = sc?.breakdown?.catalog ?? null;
       const fit = sc?.breakdown?.fit ?? null;
       const timing = sc?.breakdown?.timing ?? [];
+      const mail = sc?.breakdown?.mail ?? {};
       const priority = leadScore({
         findings: leadFindings,
         performance: sc?.performance ?? null,
         activity: s.activity ?? null,
         emails,
+        mail,
         contact_url: s.contact_url,
         catalog,
         fit,
@@ -420,6 +423,7 @@ async function snapshot(org: string, ids?: string[]) {
         catalog,
         fit,
         timing_signals: timing,
+        mail_checks: mail,
         outcome: l.outcome ?? null,
         outcome_reason: l.outcome_reason ?? null,
         outcome_at: l.outcome_at ?? null,
@@ -972,6 +976,18 @@ app.use(
     });
   },
 );
+// A stopped worker can't report itself, so the API watches for that one alert.
+if (configured() && process.env.ALERT_WEBHOOK_URL)
+  setInterval(() => {
+    void deliverAlerts("api", (a) => a.key === "worker_offline", {
+      digest: false,
+    }).catch((e) =>
+      console.error(
+        "Alert delivery failed:",
+        e instanceof Error ? e.message : "unknown",
+      ),
+    );
+  }, 300000);
 const port = Number(process.env.PORT) || 3001;
 app.listen(port, () =>
   console.info(

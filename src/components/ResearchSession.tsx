@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RunStar } from "./research-network-model";
 import {
+  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Check,
@@ -16,7 +17,6 @@ import {
   Pause,
   Play,
   RefreshCw,
-  ShieldCheck,
   Square,
   X,
   AlertCircle,
@@ -68,6 +68,9 @@ export function ResearchSession({
   busy,
   onAll,
   onReports,
+  mode = "full",
+  sample,
+  onLead,
 }: {
   jobs: Job[];
   selected: string;
@@ -79,10 +82,14 @@ export function ResearchSession({
   busy: boolean;
   onAll: () => void;
   onReports: () => void;
+  /** "compact" is the map alone, for the main Automation Jobs page. */
+  mode?: "full" | "compact";
+  sample?: Job["type"];
+  onLead?: () => void;
 }) {
-  const [preview, setPreview] = useState<Job["type"] | null>(null),
+  const [preview, setPreview] = useState<Job["type"] | null>(sample ?? null),
     [tick, setTick] = useState(0),
-    [playing, setPlaying] = useState(false),
+    [playing, setPlaying] = useState(!!sample),
     [previewBase, setPreviewBase] = useState(Date.now()),
     [detail, setDetail] = useState<RunDetail | null>(null),
     [error, setError] = useState(""),
@@ -126,9 +133,6 @@ export function ResearchSession({
       }),
     [ordered],
   );
-  const choices = ordered.slice(0, 5);
-  if (chosen && !choices.some((j) => j.id === chosen.id))
-    choices[choices.length - 1] = chosen;
   useEffect(() => {
     const key = preview ?? chosen?.id ?? "";
     if (loadedKey.current !== key) {
@@ -317,53 +321,91 @@ export function ResearchSession({
     }
   }
   return (
-    <section className="research-session" aria-label="Research run workspace">
+    <section
+      className={`research-session ${mode === "compact" ? "is-compact" : ""}`}
+      aria-label={mode === "compact" ? "Live job map" : "Job details"}
+    >
       <header className="research-header">
         <div>
           <span className="research-mark">
             <Compass size={19} />
           </span>
           <div>
-            <h2>Research workspace</h2>
-            <p>Watch the work. Explore the evidence.</p>
+            <button className="research-back" onClick={onAll}>
+              <ArrowLeft size={13} />
+              All jobs
+            </button>
+            <h2>{preview ? "Sample run" : target.label}</h2>
+            <p>
+              {preview
+                ? "See how a job looks while Scout works."
+                : `${job?.type === "audit" ? "Website audit" : "Store discovery"} · ${title}`}
+            </p>
           </div>
         </div>
         <div className="research-header-actions">
-          {!preview && job && isActive(job) && (
+          {preview && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => startPreview("discovery")}
+              >
+                <Play size={13} />
+                Sample discovery
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => startPreview("audit")}
+              >
+                <Play size={13} />
+                Sample audit
+              </Button>
+            </>
+          )}
+          {!preview && onLead && job?.status === "completed" && (
+            <Button size="sm" onClick={onLead}>
+              Open lead
+            </Button>
+          )}
+          {!preview && data?.report_id && (
+            <Button size="sm" variant="outline" onClick={onReports}>
+              <FileText size={13} />
+              View reports
+            </Button>
+          )}
+          {!preview && job && ["blocked", "failed"].includes(job.status) && (
             <Button
               variant="outline"
               size="sm"
               disabled={busy}
-              aria-label="Stop selected research run"
-              onClick={() => onCancel(job)}
+              onClick={() => onRetry(job)}
             >
-              <Square size={12} />
-              Stop run
+              <RefreshCw size={13} />
+              Resume
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => startPreview("discovery")}
-          >
-            <Play size={13} />
-            Preview discovery
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => startPreview("audit")}
-          >
-            <Play size={13} />
-            Preview audit
-          </Button>
+          {!preview &&
+            job &&
+            ["running", "queued", "blocked"].includes(job.status) && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                aria-label="Stop this job"
+                onClick={() => onCancel(job)}
+              >
+                <Square size={12} />
+                Stop job
+              </Button>
+            )}
         </div>
       </header>
       {preview && (
         <div className="research-preview-notice" role="status">
           <span>
-            <strong>Interactive preview</strong> · Fictional stores and
-            measurements. No provider requests.
+            <strong>Sample run</strong> · Fictional data. Starts no real work.
           </span>
           <div className="research-preview-controls">
             <button
@@ -393,62 +435,14 @@ export function ResearchSession({
               <ChevronRight size={14} />
               Next event
             </button>
-            <button
-              onClick={() => {
-                setPreview(null);
-                setPlaying(false);
-              }}
-              aria-label="Close interactive preview"
-            >
+            <button onClick={onAll} aria-label="Close sample run">
               <X size={15} />
-              <span>Back to your runs</span>
+              <span>Back to jobs</span>
             </button>
           </div>
         </div>
       )}
       <div className="research-layout">
-        <aside className="research-runs" aria-label="Choose a research run">
-          <div className="research-runs-title">
-            <span>Your runs</span>
-            <span>{jobs.filter(isActive).length} active</span>
-          </div>
-          {choices.map((j) => (
-            <button
-              className={`research-run ${!preview && job?.id === j.id ? "selected" : ""}`}
-              key={j.id}
-              onClick={() => {
-                onSelect(j.id);
-                setPreview(null);
-                setPlaying(false);
-              }}
-              aria-pressed={!preview && job?.id === j.id}
-            >
-              <span className={`research-run-dot ${j.status}`} />
-              <span>
-                <strong>{targetFor(j).label}</strong>
-                <small>
-                  {j.type === "audit" ? "Website audit" : "Store discovery"} ·{" "}
-                  {j.status === "blocked" ? "Needs attention" : j.status}
-                </small>
-              </span>
-              <ChevronRight size={13} />
-            </button>
-          ))}
-          {!choices.length && (
-            <p className="research-no-runs">
-              Your discovery and audit runs will appear here. Try a preview to
-              explore the workspace.
-            </p>
-          )}
-          <button className="research-all-runs" onClick={onAll}>
-            All run history
-            <ArrowRight size={13} />
-          </button>
-          <p className="research-run-note">
-            <ShieldCheck size={13} />
-            Progress comes from the worker. This view never starts an audit.
-          </p>
-        </aside>
         <div className="research-main" aria-busy={loading && !data}>
           <div className={`research-focus ${active ? "is-working" : ""}`}>
             <div className="research-focus-top">
@@ -467,7 +461,11 @@ export function ResearchSession({
                     ? "LIVE"
                     : error
                       ? "RECONNECTING"
-                      : "RUN STATUS"}
+                      : job?.status === "queued"
+                        ? "QUEUED"
+                        : job?.status === "running"
+                          ? "NOT CONNECTED"
+                          : "FINISHED"}
               </span>
             </div>
             <ResearchNetwork
@@ -531,10 +529,10 @@ export function ResearchSession({
                     : job?.status === "running" && !connected
                       ? "Worker offline"
                       : job?.status === "running"
-                        ? "Connected · polling 3s"
+                        ? "Live"
                         : job?.status === "queued"
-                          ? "Waiting for worker"
-                          : "Recorded history"
+                          ? "Waiting to start"
+                          : "Saved run"
               }
               receivedAt={preview ? null : receivedAt}
               onReport={() => void openFinishedReport()}
@@ -829,7 +827,7 @@ export function ResearchSession({
                         onClick={() => startPreview(job?.type ?? "audit")}
                       >
                         <Play size={13} />
-                        Try an interactive preview
+                        Play a sample run
                       </Button>
                     )}
                   </div>
@@ -971,7 +969,7 @@ export function ResearchSession({
                 <>
                   <Button size="sm" variant="ghost" onClick={() => void copy()}>
                     <Copy size={13} />
-                    {copied ? "Copied" : "Copy run summary"}
+                    {copied ? "Copied" : "Copy summary"}
                   </Button>
                   {publicActivityUrl(target.url) && (
                     <a
@@ -986,40 +984,6 @@ export function ResearchSession({
                   )}
                 </>
               ) : null}
-            </div>
-            <div>
-              {!preview &&
-                job &&
-                ["running", "queued", "blocked"].includes(job.status) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => onCancel(job)}
-                  >
-                    <Square size={12} />
-                    Stop this run
-                  </Button>
-                )}
-              {!preview &&
-                job &&
-                ["blocked", "failed"].includes(job.status) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => onRetry(job)}
-                  >
-                    <RefreshCw size={13} />
-                    Resume job
-                  </Button>
-                )}
-              {!preview && data?.report_id && (
-                <Button size="sm" variant="outline" onClick={onReports}>
-                  <FileText size={13} />
-                  View reports
-                </Button>
-              )}
             </div>
           </footer>
         </div>

@@ -1,3 +1,4 @@
+import { targetFor } from "./job-activity.js";
 import type { Job } from "./types.js";
 export type OperationsSnapshot = {
   server_time: string;
@@ -59,12 +60,14 @@ export const philippineTime = (value: string) =>
     minute: "2-digit",
     hour12: true,
   }).format(new Date(value)) + " PHT";
+export const workerOnline = (
+  worker: { state: string; last_seen: string },
+  at: number,
+) => worker.state !== "stopped" && at - Date.parse(worker.last_seen) < 90000;
 export function onlineWorkers(data: OperationsSnapshot | null) {
   return (
-    data?.workers.filter(
-      (w) =>
-        w.state !== "stopped" &&
-        Date.parse(data.server_time) - Date.parse(w.last_seen) < 90000,
+    data?.workers.filter((w) =>
+      workerOnline(w, Date.parse(data.server_time)),
     ) ?? []
   );
 }
@@ -76,7 +79,8 @@ export function jobPresentation(job: Job, data: OperationsSnapshot | null) {
   if (job.status === "failed")
     return {
       label: "Failed",
-      detail: "Automatic attempts exhausted. Review the error before resuming.",
+      detail:
+        "Scout tried several times and stopped. Check what went wrong, then resume.",
     };
   if (job.status === "blocked")
     return {
@@ -143,5 +147,107 @@ export function jobPresentation(job: Job, data: OperationsSnapshot | null) {
     detail: active.some((w) => w.state === "working")
       ? "Waiting for the current job to finish."
       : "Ready for the worker.",
+  };
+}
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+/** Blocked jobs wait for someone; failures stop nagging after a day, like alerts. */
+export const needsAttention = (job: Job, at: number) =>
+  job.status === "blocked" ||
+  (job.status === "failed" &&
+    !!job.completed_at &&
+    at - Date.parse(job.completed_at) < 86400000);
+export type AutomationStatus = {
+  tone: "loading" | "first" | "idle" | "running" | "waiting" | "problem";
+  title: string;
+  detail: string;
+  action: "watch" | "attention" | "worker" | null;
+};
+/** The one sentence that answers "is Scout working, and what do I do next?" */
+export function automationStatus(
+  jobs: Job[],
+  data: OperationsSnapshot | null,
+): AutomationStatus {
+  if (!data)
+    return {
+      tone: "loading",
+      title: "Checking Scout…",
+      detail: "Loading status and usage.",
+      action: null,
+    };
+  const at = Date.parse(data.server_time);
+  const online = onlineWorkers(data),
+    running = jobs.filter((j) => j.status === "running"),
+    queued = jobs.filter((j) => j.status === "queued"),
+    attention = jobs.filter((j) => needsAttention(j, at));
+  if (!online.length)
+    return {
+      tone: "problem",
+      title: "Worker is offline",
+      detail:
+        running.length + queued.length
+          ? `${plural(running.length + queued.length, "job")} will wait until it's back.`
+          : "Scheduled runs won't start until it's back.",
+      action: "worker",
+    };
+  if (online.every((w) => w.state === "paused"))
+    return {
+      tone: "waiting",
+      title: "Worker is paused",
+      detail: "Queued jobs wait until it resumes.",
+      action: null,
+    };
+  if (running[0]) {
+    const label = targetFor(running[0]).label;
+    return {
+      tone: "running",
+      title:
+        running[0].type === "discovery"
+          ? `Finding stores: ${label}`
+          : `Auditing ${label}`,
+      detail:
+        [
+          queued.length && `${queued.length} more waiting`,
+          attention.length &&
+            `${attention.length} need${attention.length === 1 ? "s" : ""} attention`,
+        ]
+          .filter(Boolean)
+          .join(" · ") || "Scout keeps working with this page closed.",
+      action: "watch",
+    };
+  }
+  if (attention.length)
+    return {
+      tone: "problem",
+      title: `${plural(attention.length, "job")} need${attention.length === 1 ? "s" : ""} attention`,
+      detail: "Review them below, then resume or cancel.",
+      action: "attention",
+    };
+  if (queued[0]) {
+    const next = jobPresentation(queued[0], data);
+    return {
+      tone: "waiting",
+      title: `${plural(queued.length, "job")} waiting: ${next.label.toLowerCase()}`,
+      detail: next.detail,
+      action: null,
+    };
+  }
+  if (!jobs.length)
+    return {
+      tone: "first",
+      title: "Scout hasn't run yet",
+      detail: "Start a discovery to find your first stores.",
+      action: null,
+    };
+  const next = data.schedules
+    .filter((s) => s.enabled)
+    .map((s) => s.next_run_at)
+    .sort()[0];
+  return {
+    tone: "idle",
+    title: "Scout is ready",
+    detail: next
+      ? `Next run ${philippineTime(next)}.`
+      : "No runs scheduled. Start one any time.",
+    action: null,
   };
 }

@@ -321,17 +321,21 @@ export default function ResearchNetwork({
       <div className="task-network-toolbar">
         <span>
           <Network size={15} />
-          <strong>Scout neural workspace</strong>
+          <strong>Run map</strong>
           <small>{modelView && !staticView ? "3D" : "2D"}</small>
         </span>
         <div>
           <button onClick={() => setPaused((p) => !p)} aria-pressed={paused}>
             <span>{paused ? <Play size={13} /> : <Pause size={13} />}</span>
-            {paused ? "Resume animation" : "Pause animation"}
+            {paused ? "Resume" : "Pause"}
           </button>
-          <button onClick={() => onFollow(!follow)} aria-pressed={follow}>
+          <button
+            onClick={() => onFollow(!follow)}
+            aria-pressed={follow}
+            title="Keep the map on whatever Scout is doing now"
+          >
             <Focus size={13} />
-            Follow live activity
+            Follow live
           </button>
           {(modelView || flat) && (
             <button
@@ -394,10 +398,10 @@ export default function ResearchNetwork({
                 ? typeof detail.job.payload.result === "string" &&
                   detail.job.payload.result.startsWith("Screened out")
                   ? "Screening finished — store did not qualify"
-                  : `${tasks.filter((t) => t.state === "completed").length} recorded tasks completed`
+                  : `${tasks.filter((t) => t.state === "completed").length} tasks completed`
                 : (current?.latest.message ??
                   latest?.message ??
-                  "Waiting for recorded task activity")}
+                  "No task activity yet")}
           </strong>
           <span>
             {done && typeof detail?.job.payload.result === "string"
@@ -412,9 +416,9 @@ export default function ResearchNetwork({
           {preview ? "Sample playback" : streamState}
           <small>
             {receivedAt
-              ? `${active && now - receivedAt > 12000 ? "Updates delayed · " : ""}Received ${pht(new Date(receivedAt).toISOString())} PHT`
+              ? `${active && now - receivedAt > 12000 ? "Updates delayed · " : ""}Updated ${pht(new Date(receivedAt).toISOString())} PHT`
               : latest
-                ? `Recorded ${pht(latest.at)} PHT`
+                ? `Last update ${pht(latest.at)} PHT`
                 : "No updates yet"}
           </small>
         </span>
@@ -523,23 +527,19 @@ export default function ResearchNetwork({
               onInteract={() => onFollow(false)}
             />
           )}
-          <div className="task-map-footer">
-            <span>
-              {paused
-                ? "Animation paused · task updates continue"
-                : reduced
-                  ? "Reduced motion · task updates continue"
-                  : active
-                    ? "Signals follow recorded events"
-                    : "Recorded task history"}{" "}
-              · {follow ? "Following activity" : "Inspecting history"}
-            </span>
-          </div>
+          {(paused || reduced) && (
+            <div className="task-map-footer">
+              <span>
+                {paused ? "Animation paused" : "Reduced motion"} · task updates
+                continue
+              </span>
+            </div>
+          )}
         </div>
         <aside className="task-inspector" aria-label="Task inspector">
           <div className="task-inspector-heading">
             <Focus size={14} />
-            <span>{focus ? "Task inspector" : "Stage inspector"}</span>
+            <span>{focus ? "Task details" : "Stage details"}</span>
           </div>
           {focus ? (
             <>
@@ -702,15 +702,12 @@ export default function ResearchNetwork({
             </>
           ) : (
             <>
-              <h4>{selected ? workStages[selected] : "Ready for Scout"}</h4>
-              <p>
-                No individual task activity has been recorded here yet. New runs
-                include task details as work happens.
-              </p>
+              <h4>{selected ? workStages[selected] : "Nothing to show yet"}</h4>
+              <p>Pick a stage or task on the map once this run has activity.</p>
             </>
           )}
           <button className="task-evidence-link" onClick={onEvidence}>
-            View saved evidence
+            View evidence
             <ArrowUpRight size={13} />
           </button>
         </aside>

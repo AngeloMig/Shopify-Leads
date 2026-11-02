@@ -3,12 +3,14 @@ import {
   evaluateFit,
   summarizeCatalog,
   type CatalogEvidence,
+  type FitResult,
 } from "../shared/catalog";
 import {
   detectTiming,
   leadScore,
   type LeadScoreInput,
 } from "../shared/lead-score";
+import { rankedEmails } from "../shared/lead-intelligence";
 import {
   queryPerformance,
   rejectionPolicy,
@@ -355,6 +357,55 @@ describe("Lead score", () => {
   });
 });
 
+describe("Raising a score", () => {
+  const known: FitResult = { status: "fits", reasons: [] };
+  const email = [{ email: "info@x.example" }];
+  const steps = (over: Partial<LeadScoreInput>) =>
+    leadScore({ ...base, ...over }).raise.map((step) => step.label);
+  it("points leads with no catalog at a re-audit, with the most it could add", () => {
+    const [first] = leadScore({ ...base, emails: email }).raise;
+    expect(first.label).toBe("Re-audit to read its catalog");
+    expect(first.points).toBe(29);
+  });
+  it("suggests an ideal client only once the catalog is known", () => {
+    expect(steps({ catalog: catalog(), emails: email })).toEqual([
+      "Set an ideal client on this campaign",
+    ]);
+    expect(steps({ catalog: catalog(), fit: known, emails: email })).toEqual(
+      [],
+    );
+  });
+  it("suggests finding an email only when none is published", () =>
+    expect(steps({ catalog: catalog(), fit: known })).toEqual([
+      "Find a public business email",
+    ]));
+  it("grades research separately from the gates", () => {
+    const score = leadScore({
+      ...base,
+      permissionApproved: false,
+      catalog: catalog(),
+      fit: known,
+      emails: email,
+      findings: [
+        { kind: "verified", severity: "high", category: "SEO" },
+        { kind: "verified", severity: "low", category: "Images" },
+      ],
+    });
+    expect(score.grade).toBe("A");
+    expect(score.priority).toBe(0);
+  });
+  it("words activity without repeating the timing evidence", () =>
+    expect(
+      part(
+        {
+          ...base,
+          catalog: catalog({ newest_published_at: new Date().toISOString() }),
+        },
+        "activity",
+      ).reason,
+    ).toBe("Added a product in the last 90 days."));
+});
+
 describe("Score gates", () => {
   it("names only the checks still holding priority at 0", () => {
     expect(leadScore(base).blockers).toEqual([]);
@@ -400,4 +451,68 @@ describe("Search learning from real outcomes", () => {
   });
   it("still works on rows from before outcomes existed", () =>
     expect(queryPerformance([row("old")])[0].yield).toBe(4));
+});
+describe("mail domain checks in the score", () => {
+  const scored = (over: Partial<LeadScoreInput>) => {
+    const result = leadScore({
+      findings: [],
+      performance: null,
+      activity: null,
+      countryVerified: true,
+      shopifyVerified: true,
+      permissionApproved: false,
+      suppressed: false,
+      emails: [{ email: "hello@shop.example" }],
+      contact_url: "https://shop.example/contact",
+      ...over,
+    });
+    return {
+      part: result.parts.find((part) => part.key === "contact")!,
+      raise: result.raise.map((step) => step.label),
+    };
+  };
+  const find = "Find a public business email";
+  it("gives an unchecked or passing domain full credit", () => {
+    expect(scored({}).part.points).toBe(10);
+    expect(scored({ mail: { "shop.example": "unknown" } }).part.points).toBe(
+      10,
+    );
+    expect(scored({ mail: { "shop.example": "ok" } }).part.points).toBe(10);
+  });
+  it("gives an email on a dead domain no credit and says so", () => {
+    const { part, raise } = scored({ mail: { "shop.example": "none" } });
+    expect(part.points).toBe(5);
+    expect(part.reason).toContain("takes no mail");
+    expect(raise).toContain(find);
+    const noPage = scored({
+      contact_url: null,
+      mail: { "shop.example": "none" },
+    });
+    expect(noPage.part.points).toBe(0);
+  });
+  it("keeps the credit when another email still works", () => {
+    const { part, raise } = scored({
+      emails: [{ email: "a@dead.example" }, { email: "hello@shop.example" }],
+      mail: { "dead.example": "none", "shop.example": "ok" },
+    });
+    expect(part.points).toBe(10);
+    expect(raise).not.toContain(find);
+  });
+});
+describe("rankedEmails with mail checks", () => {
+  const email = (address: string) => ({
+    email: address,
+    source_url: "https://shop.example",
+  });
+  it("moves dead domains down, unless someone chose that address", () => {
+    const emails = [email("hello@dead.example"), email("support@shop.example")];
+    const mail = { "dead.example": "none", "shop.example": "ok" } as const;
+    expect(rankedEmails(emails, null, mail)[0].email).toBe(
+      "support@shop.example",
+    );
+    expect(rankedEmails(emails, "hello@dead.example", mail)[0].email).toBe(
+      "hello@dead.example",
+    );
+    expect(rankedEmails(emails)[0].email).toBe("hello@dead.example");
+  });
 });

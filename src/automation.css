@@ -234,3 +234,500 @@
     justify-content: flex-start;
   }
 }
+
+/* Running indicator: the Automation Jobs core, small, in the page corner. */
+.automation-orb {
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.automation-orb-label {
+  display: grid;
+  gap: 2px;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(6px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+  pointer-events: none;
+}
+.automation-orb:hover .automation-orb-label,
+.automation-orb:focus-visible .automation-orb-label {
+  opacity: 1;
+  transform: none;
+}
+.automation-orb-label strong {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.automation-orb-label small {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.automation-orb-core {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  transition: transform 0.16s ease;
+}
+.automation-orb:hover .automation-orb-core {
+  transform: scale(1.06);
+}
+.automation-orb:focus-visible .automation-orb-core {
+  outline: 2px solid #a2ffe2;
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+@media (max-width: 640px) {
+  .automation-orb {
+    right: 14px;
+    bottom: 14px;
+  }
+}
+
+/* Automation Jobs: status, then what needs you, then what's running, then history. */
+.auto-page {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.auto-page > .panel {
+  margin: 0;
+}
+.auto-page header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.auto-page h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.auto-page header > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.auto-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+.auto-status > i {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.auto-status.running > i,
+.auto-status.idle > i {
+  background: #a2ffe2;
+}
+.auto-status.running > i {
+  box-shadow: 0 0 10px #a2ffe2;
+}
+.auto-status.waiting > i {
+  background: var(--amber);
+}
+.auto-status.problem > i {
+  background: var(--red);
+}
+.auto-status > div {
+  flex: 1;
+  min-width: min(240px, 100%);
+}
+.auto-status strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.auto-status small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.auto-status dl {
+  margin: 0;
+  text-align: right;
+}
+.auto-status dt {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.auto-status dd {
+  margin: 1px 0 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.auto-worker-help {
+  margin: 0;
+  padding: 0 18px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.auto-first,
+.auto-attention,
+.auto-running,
+.auto-today,
+.auto-schedules,
+.auto-missing {
+  padding: 16px 18px;
+}
+.auto-missing p {
+  margin: 6px 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.auto-first ol {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+  padding: 0;
+  list-style: none;
+}
+.auto-first li {
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.auto-first li > svg {
+  color: #a2ffe2;
+}
+.auto-first li > strong {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.auto-first > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.auto-attention-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--border);
+}
+.auto-attention header + .auto-attention-row {
+  margin-top: 11px;
+}
+.auto-attention-row > svg {
+  flex: none;
+  color: var(--amber);
+}
+.auto-attention-row > div {
+  flex: 1;
+  min-width: min(220px, 100%);
+}
+.auto-attention-row strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.auto-attention-row small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.auto-running article {
+  padding-top: 12px;
+}
+.auto-running article > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.auto-running h3 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.auto-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 10px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+.auto-stages li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.auto-stages li::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--muted);
+}
+.auto-stages li.completed::before,
+.auto-stages li.active::before {
+  border-color: #a2ffe2;
+  background: #a2ffe2;
+}
+.auto-stages li.active {
+  color: var(--ink);
+}
+.auto-stages li.attention::before {
+  border-color: var(--red);
+  background: var(--red);
+}
+.auto-latest {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.auto-map {
+  margin-top: 14px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.auto-today > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.auto-today button {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  text-align: left;
+}
+.auto-today button:hover {
+  background: var(--border);
+}
+.auto-today button strong {
+  font-size: 22px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.auto-today button span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.auto-jobs > header {
+  padding: 14px 18px;
+}
+.auto-jobs .job-filters {
+  padding: 0;
+  border: 0;
+  margin: 0;
+}
+.auto-jobs-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.auto-jobs .job-row {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+.auto-none {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 24px 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.auto-pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 18px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.auto-schedules > summary {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+}
+.auto-schedules > summary > span {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.auto-schedules > p {
+  margin: 10px 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.auto-schedules > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.auto-schedules > div > strong {
+  font-weight: 500;
+  color: var(--ink);
+}
+.auto-confirm {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px;
+}
+.research-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.research-back:hover {
+  color: var(--ink);
+}
+/* The live map on the main page: just the map, at a fixed height. */
+.research-session.is-compact {
+  margin: 0;
+}
+.research-session.is-compact .research-header,
+.research-session.is-compact .research-preview-notice,
+.research-session.is-compact .research-focus-top,
+.research-session.is-compact .research-focus-bottom,
+.research-session.is-compact .research-tabs,
+.research-session.is-compact #research-activity-panel,
+.research-session.is-compact #research-evidence-panel,
+.research-session.is-compact .research-footer,
+.research-session.is-compact .task-network-toolbar,
+.research-session.is-compact .task-current,
+.research-session.is-compact .task-map-legend,
+.research-session.is-compact .scout-core-status,
+.research-session.is-compact .research-view-switch,
+.research-session.is-compact .task-map-footer,
+.research-session.is-compact .task-inspector,
+.research-session.is-compact .research-model-top,
+.research-session.is-compact .semantic-view-controls,
+.research-session.is-compact .neural-signal-key,
+.research-session.is-compact .semantic-path-summary,
+.research-session.is-compact .research-model-options {
+  display: none;
+}
+.research-session.is-compact
+  .research-model-canvas.semantic-canvas:not(.is-immersive),
+.research-session.is-compact .task-map {
+  height: 380px;
+  min-height: 0;
+}
+/* Phones get the 2D map, which is too tall here; Watch live opens it. */
+@media (max-width: 900px) {
+  .auto-map {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .auto-first ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .auto-today > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .auto-status dl {
+    text-align: left;
+  }
+  .auto-jobs-actions {
+    width: 100%;
+  }
+  .research-session.is-compact
+    .research-model-canvas.semantic-canvas:not(.is-immersive),
+  .research-session.is-compact .task-map {
+    height: 300px;
+  }
+}
+.auto-schedules .discovery-controls {
+  margin: 10px 0 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+}
+.research-session.is-compact,
+.research-session.is-compact .research-layout,
+.research-session.is-compact .research-main,
+.research-session.is-compact .research-focus,
+.research-session.is-compact .task-neural,
+.research-session.is-compact .task-workspace-body,
+.research-session.is-compact .task-map-column,
+.research-session.is-compact .research-model {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}

@@ -6,6 +6,7 @@ import { executeJob } from "./pipeline.js";
 import { purgeExpiredResearch } from "./retention.js";
 import { recordJobFailure } from "./lib/job-activity.js";
 import { failureDecision } from "./lib/job-errors.js";
+import { deliverAlerts } from "./lib/alerts.js";
 const worker = randomUUID();
 await writeFile(
   process.env.SCOUT_WORKER_ID_FILE || "/tmp/scout-worker-id",
@@ -71,6 +72,7 @@ const reportHeartbeat = async (
 await reportHeartbeat();
 const healthTimer = setInterval(() => void reportHeartbeat(), 20000);
 let lastRetentionCheck = 0;
+let lastAlertCheck = 0;
 while (!stopping) {
   try {
     if (paused) {
@@ -85,6 +87,17 @@ while (!stopping) {
         ),
       );
       lastRetentionCheck = Date.now();
+    }
+    if (Date.now() - lastAlertCheck > 300000) {
+      lastAlertCheck = Date.now();
+      await deliverAlerts("worker", (a) => a.key !== "worker_offline", {
+        digest: true,
+      }).catch((e) =>
+        console.error(
+          "Alert delivery failed:",
+          e instanceof Error ? e.message : "unknown",
+        ),
+      );
     }
     await checked(db().rpc("enqueue_due_schedules"));
     const jobs = await checked(db().rpc("claim_job", { worker }));

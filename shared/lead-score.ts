@@ -1,5 +1,9 @@
 import { daysSince, type CatalogEvidence, type FitResult } from "./catalog.js";
-import { contactCategory } from "./lead-intelligence.js";
+import {
+  contactCategory,
+  mailStatus,
+  type MailChecks,
+} from "./lead-intelligence.js";
 import { scorePriority } from "./scoring.js";
 import type { Finding, Lead, PublicEmail } from "./types.js";
 
@@ -88,6 +92,7 @@ export type LeadScoreInput = {
   performance: number | null;
   activity: number | null;
   emails?: Pick<PublicEmail, "email">[];
+  mail?: MailChecks | null;
   contact_url?: string | null;
   catalog?: CatalogEvidence | null;
   fit?: FitResult | null;
@@ -185,7 +190,11 @@ function activity(input: LeadScoreInput): Part {
   const label = "Store activity";
   const age = daysSince(input.catalog?.newest_published_at);
   if (age !== null && age <= 90)
-    return { label, strength: 1, reason: `Added a product ${age} days ago.` };
+    return {
+      label,
+      strength: 1,
+      reason: "Added a product in the last 90 days.",
+    };
   if (age !== null && age > 365)
     return { label, strength: 0.25, reason: `No new product for ${age} days.` };
   return (input.activity ?? 0) >= 50
@@ -196,9 +205,15 @@ function activity(input: LeadScoreInput): Part {
       }
     : { label, strength: 0, reason: "Public selling signals are weak." };
 }
+/** An email earns nothing once its domain is shown to take no mail. Unknown still counts. */
+const usableEmails = (input: LeadScoreInput) =>
+  (input.emails ?? []).filter(
+    (e) => mailStatus(e.email, input.mail) !== "none",
+  );
 function contact(input: LeadScoreInput): Part {
   const label = "Contact route";
-  const categories = (input.emails ?? []).map((e) => contactCategory(e.email));
+  const usable = usableEmails(input);
+  const categories = usable.map((e) => contactCategory(e.email));
   if (categories.includes("General business"))
     return {
       label,
@@ -217,13 +232,22 @@ function contact(input: LeadScoreInput): Part {
       strength: 0.6,
       reason: "A public email is published; its role is unclear.",
     };
+  const dead = !!input.emails?.length;
   return input.contact_url
     ? {
         label,
         strength: 0.5,
-        reason: "Contact page only; no public email found.",
+        reason: dead
+          ? "Contact page only; the published email's domain takes no mail."
+          : "Contact page only; no public email found.",
       }
-    : { label, strength: 0, reason: "No public contact route found." };
+    : {
+        label,
+        strength: 0,
+        reason: dead
+          ? "The published email's domain takes no mail."
+          : "No public contact route found.",
+      };
 }
 const scoreWeights = {
   service_fit: 20,
@@ -233,6 +257,36 @@ const scoreWeights = {
   contact: 10,
   feasible_scope: 15,
 };
+/** Things a researcher can actually do, with the most points each could add. */
+function raiseScore(
+  input: LeadScoreInput,
+  earnedPoints: Record<keyof typeof scoreWeights, number>,
+) {
+  const room = (key: keyof typeof scoreWeights) =>
+    scoreWeights[key] - earnedPoints[key];
+  const steps: { label: string; points: number }[] = [];
+  if (!input.catalog)
+    steps.push({
+      label: "Re-audit to read its catalog",
+      points:
+        room("activity") +
+        room("timing") +
+        Math.max(0, 16 - earnedPoints.service_fit),
+    });
+  else if (!input.fit || input.fit.status === "not_set")
+    steps.push({
+      label: "Set an ideal client on this campaign",
+      points: room("service_fit"),
+    });
+  if (!usableEmails(input).length)
+    steps.push({
+      label: "Find a public business email",
+      points: room("contact"),
+    });
+  return steps
+    .filter((step) => step.points > 0)
+    .sort((a, b) => b.points - a.points);
+}
 const gateLabels = {
   country: "country check",
   platform: "Shopify check",
@@ -265,6 +319,14 @@ export function leadScore(input: LeadScoreInput) {
   });
   return {
     ...result,
+    /** The priority band this research earns, whether or not its gates pass yet. */
+    grade:
+      result.researchScore >= 70
+        ? "A"
+        : result.researchScore >= 50
+          ? "B"
+          : "Hold",
+    raise: raiseScore(input, result.components),
     /** What still holds priority at 0, in plain words. */
     blockers: (Object.keys(gateLabels) as (keyof typeof gateLabels)[])
       .filter((gate) => !result.gates[gate])
@@ -284,6 +346,7 @@ export const leadScoreFor = (lead: Lead) =>
     performance: lead.performance,
     activity: lead.activity,
     emails: lead.emails,
+    mail: lead.mail_checks,
     contact_url: lead.contact_url,
     catalog: lead.catalog,
     fit: lead.fit,

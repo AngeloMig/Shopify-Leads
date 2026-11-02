@@ -1,6 +1,4 @@
 import {
-  lazy,
-  Suspense,
   useEffect,
   useRef,
   useState,
@@ -27,7 +25,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Clock3,
   Compass,
@@ -44,7 +41,6 @@ import {
   MousePointer2,
   Play,
   Plus,
-  RefreshCw,
   Search,
   Settings,
   ShieldCheck,
@@ -59,11 +55,12 @@ import {
   Mail,
   LockKeyhole,
   PlugZap,
-  Square,
 } from "lucide-react";
 import { hasFrontendOpportunity } from "../shared/lead-intelligence";
-import { jobPresentation, type OperationsSnapshot } from "../shared/automation";
-import { demoSnapshot } from "./demo";
+import { demoAlerts, demoSnapshot } from "./demo";
+import { AutomationOrb } from "./components/AutomationOrb";
+import { AutomationPage } from "./components/AutomationPage";
+import type { AlertFeed } from "../shared/alerts";
 import { api, supabase, number, formatDate, downloadBlob } from "./lib";
 import {
   defaultSettings,
@@ -79,15 +76,8 @@ import { DiscoveryWorkbench } from "./components/DiscoveryWorkbench";
 import { OperationsStatus } from "./components/OperationsStatus";
 import { DiscoveryForm } from "./components/DiscoveryForm";
 import { DiscoveryControls } from "./components/DiscoveryControls";
-import { DiscoveryFunnel } from "./components/DiscoveryFunnel";
-import { targetFor } from "../shared/job-activity";
 import { Button } from "./components/ui/button";
 import { Dialog } from "./components/ui/dialog";
-const ResearchSession = lazy(() =>
-  import("./components/ResearchSession").then((module) => ({
-    default: module.ResearchSession,
-  })),
-);
 const empty: Snapshot = {
   leads: [],
   jobs: [],
@@ -145,32 +135,19 @@ export default function App() {
     [showGuide, setShowGuide] = useState(false),
     [showSearch, setShowSearch] = useState(false),
     [showNotifications, setShowNotifications] = useState(false),
+    [alertFeed, setAlertFeed] = useState<AlertFeed | null>(null),
     [search, setSearch] = useState(""),
     [commandLeads, setCommandLeads] = useState<Lead[]>([]),
     [commandLoading, setCommandLoading] = useState(false),
     [commandError, setCommandError] = useState(""),
     [mobileNav, setMobileNav] = useState(false),
     [period, setPeriod] = useState(28),
-    [jobFilter, setJobFilter] = useState("all"),
-    [jobPage, setJobPage] = useState(0),
-    [jobsPerPage, setJobsPerPage] = useState(5),
     [jobAction, setJobAction] = useState<string | null>(null),
-    [operations, setOperations] = useState<OperationsSnapshot | null>(null),
-    [watchedRun, setWatchedRun] = useState(""),
     [campaignId, setCampaignId] = useState(""),
     [newCampaign, setNewCampaign] = useState<DiscoverySettings | undefined>(),
     [leadRevision, setLeadRevision] = useState(0);
-  const researchPanel = useRef<HTMLDivElement>(null);
   function watchRun(job: Job) {
-    setWatchedRun(job.id);
-    if (location.pathname !== "/jobs") navigate("/jobs");
-    else
-      researchPanel.current?.scrollIntoView({
-        block: "start",
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-      });
+    navigate(`/jobs/${job.id}`);
   }
   const location = useLocation(),
     navigate = useNavigate();
@@ -179,12 +156,14 @@ export default function App() {
     campaignId === "new"
       ? newCampaign
       : (data.settings.find((s) => s.id === campaignId) ?? data.settings[0]);
+  const routePath = location.pathname.startsWith("/jobs/")
+    ? "/jobs"
+    : location.pathname;
   const page =
-    navigation.find((n) => n.path === location.pathname)?.label ??
+    navigation.find((n) => n.path === routePath)?.label ??
     (location.pathname === "/settings" ? "Settings" : "Overview");
   const refreshBusy = useRef(false);
   const activeUser = useRef<string | null>(null);
-  const jobsPanel = useRef<HTMLElement>(null);
   function notify(message: string) {
     setToast(message);
   }
@@ -219,7 +198,6 @@ export default function App() {
         activeUser.current = s?.user.id ?? null;
         setLiveData(empty);
         setCommandLeads([]);
-        setJobPage(0);
         setSelectedLead(null);
         setNoWorkspace(false);
         setLoadError("");
@@ -238,6 +216,21 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+  useEffect(() => {
+    setAlertFeed(demo ? demoAlerts : null);
+    if (demo || !session) return;
+    let current = true;
+    const load = () =>
+      void api<AlertFeed>("/alerts")
+        .then((feed) => current && setAlertFeed(feed))
+        .catch(() => {});
+    load();
+    const timer = setInterval(load, 60000);
+    return () => {
+      current = false;
+      clearInterval(timer);
+    };
+  }, [demo, session?.user.id]);
   useEffect(() => {
     void fetch("/api/status")
       .then((r) => r.json())
@@ -314,7 +307,6 @@ export default function App() {
     }
   }, [data.leads]);
   function switchMode(value: boolean) {
-    setJobPage(0);
     setDemo(value);
     localStorage.setItem("scout-mode", value ? "demo" : "live");
     setLoadError("");
@@ -438,10 +430,8 @@ export default function App() {
     try {
       await api(`/jobs/${job.id}/retry`, {}, "POST");
       await refresh();
-      setJobFilter("all");
-      setJobPage(0);
       watchRun(job);
-      notify("Job requeued. Follow its progress in the research workspace.");
+      notify("Job requeued. Follow its progress here.");
     } catch (e) {
       notify((e as Error).message);
     } finally {
@@ -541,6 +531,27 @@ export default function App() {
       setJobAction(null);
     }
   }
+  async function bulkJobs(jobs: Job[], action: "cancel" | "retry") {
+    if (jobAction) return;
+    if (demo) return notify("Connect a live workspace to change real jobs.");
+    setJobAction("bulk");
+    let done = 0;
+    for (const job of jobs)
+      try {
+        await api(`/jobs/${job.id}/${action}`, {}, "POST");
+        done++;
+      } catch {
+        // Reported as a count below; one failure shouldn't stop the others.
+      }
+    await refresh();
+    setJobAction(null);
+    const verb = action === "cancel" ? "Cancelled" : "Resumed";
+    notify(
+      done === jobs.length
+        ? `${verb} ${done} ${done === 1 ? "job" : "jobs"}.`
+        : `${verb} ${done} of ${jobs.length} jobs. The rest couldn't be changed.`,
+    );
+  }
   const pending = data.leads.filter(
       (l) => l.permission === "unknown" && !l.suppressed,
     ),
@@ -548,23 +559,6 @@ export default function App() {
     running = data.jobs.filter(
       (j) => j.status === "running" || j.status === "queued",
     );
-  const filteredJobs = data.jobs.filter(
-    (job) => jobFilter === "all" || job.status === jobFilter,
-  );
-  const jobPageCount = Math.max(
-    1,
-    Math.ceil(filteredJobs.length / jobsPerPage),
-  );
-  // Polling and cancellation can shrink a filtered view while it is open.
-  const currentJobPage = Math.min(jobPage, jobPageCount - 1);
-  const visibleJobs = filteredJobs.slice(
-    currentJobPage * jobsPerPage,
-    (currentJobPage + 1) * jobsPerPage,
-  );
-  function changeJobPage(next: number) {
-    setJobPage(next);
-    jobsPanel.current?.scrollIntoView({ block: "start" });
-  }
   if (!sessionReady)
     return (
       <div className="app-loader">
@@ -763,7 +757,11 @@ export default function App() {
               onClick={() => setShowNotifications(true)}
             >
               <Bell size={18} />
-              {pending.length > 0 && <i className="notification-dot" />}
+              {(alertFeed ? alertFeed.alerts.length : pending.length) > 0 && (
+                <i
+                  className={`notification-dot${alertFeed?.alerts.some((a) => a.severity !== "info") ? " urgent" : ""}`}
+                />
+              )}
             </button>
             <button
               className="top-avatar"
@@ -829,13 +827,13 @@ export default function App() {
                     "/reports":
                       "Evidence-backed audit reports, ready for a thoughtful conversation.",
                     "/jobs":
-                      "Follow every discovery and audit, from queue to completion.",
+                      "Scout finds Shopify stores, audits them, and adds qualified ones to Leads.",
                     "/outreach":
                       "Review contact eligibility and country-specific evidence before any outreach.",
                     "/settings":
                       "Configure your research workflow, integrations, and automation.",
                   } as Record<string, string>
-                )[location.pathname] ?? "Explore your research workspace."}
+                )[routePath] ?? "Explore your research workspace."}
               </p>
             </div>
             <div className="page-actions">
@@ -1308,193 +1306,34 @@ export default function App() {
               </div>
             </section>
           )}
-          {location.pathname === "/jobs" && (
-            <>
-              <div ref={researchPanel} className="research-panel-anchor">
-                <Suspense
-                  fallback={
-                    <section
-                      className="research-session research-loading"
-                      role="status"
-                    >
-                      Loading the research workspace…
-                    </section>
-                  }
-                >
-                  <ResearchSession
-                    jobs={data.jobs}
-                    selected={watchedRun}
-                    onSelect={setWatchedRun}
-                    operations={operations}
-                    live={!demo}
-                    onCancel={(j) => void stopResearch(j)}
-                    onRetry={(j) => void retryResearch(j)}
-                    busy={jobAction !== null}
-                    onAll={() =>
-                      jobsPanel.current?.scrollIntoView({
-                        block: "start",
-                        behavior: window.matchMedia(
-                          "(prefers-reduced-motion: reduce)",
-                        ).matches
-                          ? "auto"
-                          : "smooth",
-                      })
-                    }
-                    onReports={() => navigate("/reports")}
-                  />
-                </Suspense>
-              </div>
-              <OperationsStatus
-                key={data.organization.id}
-                live={!demo}
-                detailed
-                onChange={setOperations}
-              />
-              <DiscoveryControls
-                scheduled={data.settings.some((s) => s.enabled)}
-                busy={jobAction !== null}
-                stopping={jobAction === "discovery"}
-                onStop={() => void stopResearch()}
-              />
-              <section className="panel" ref={jobsPanel}>
-                <div className="panel-heading">
-                  <div>
-                    <h2>Automation activity</h2>
-                    <p>
-                      {demo
-                        ? "Sample job states show how background work is tracked."
-                        : "The worker processes this queue independently of your browser."}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      demo
-                        ? notify(
-                            "Sample activity is static. Connect a live workspace to run background jobs.",
-                          )
-                        : void refresh()
-                    }
-                  >
-                    <RefreshCw size={14} className={loading ? "spin" : ""} />
-                    Refresh
-                  </Button>
-                </div>
-                <div className="job-filters">
-                  {[
-                    "all",
-                    "running",
-                    "queued",
-                    "completed",
-                    "failed",
-                    "blocked",
-                    "cancelled",
-                  ].map((status) => (
-                    <button
-                      className={jobFilter === status ? "active" : ""}
-                      aria-pressed={jobFilter === status}
-                      key={status}
-                      onClick={() => {
-                        setJobFilter(status);
-                        setJobPage(0);
-                      }}
-                    >
-                      {status === "blocked" ? "Needs attention" : status}
-                      <span>
-                        {
-                          data.jobs.filter(
-                            (j) => status === "all" || j.status === status,
-                          ).length
-                        }
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="job-list">
-                  {visibleJobs.map((j) => (
-                    <JobRow
-                      key={j.id}
-                      job={j}
-                      demo={demo}
-                      busy={jobAction !== null}
-                      cancelling={jobAction === j.id}
-                      resuming={jobAction === `retry:${j.id}`}
-                      onCancel={() => void stopResearch(j)}
-                      onRetry={() => void retryResearch(j)}
-                      operations={operations}
-                      onWatch={() => watchRun(j)}
-                    />
-                  ))}
-                  {!filteredJobs.length && (
-                    <Empty
-                      icon={Workflow}
-                      title="No jobs in this view"
-                      text="Start a discovery run or choose another status filter."
-                      action={() => setShowDiscovery(true)}
-                      actionLabel="New discovery"
-                    />
-                  )}
-                </div>
-                <div className="jobs-pagination">
-                  <div>
-                    <span role="status" aria-live="polite">
-                      Showing{" "}
-                      {filteredJobs.length
-                        ? currentJobPage * jobsPerPage + 1
-                        : 0}
-                      –
-                      {Math.min(
-                        (currentJobPage + 1) * jobsPerPage,
-                        filteredJobs.length,
-                      )}{" "}
-                      of {filteredJobs.length} jobs
-                    </span>
-                    {data.jobs.length === 100 && (
-                      <small>Latest 100 jobs loaded</small>
-                    )}
-                  </div>
-                  <label>
-                    Per page
-                    <select
-                      aria-label="Jobs per page"
-                      value={jobsPerPage}
-                      onChange={(event) => {
-                        setJobsPerPage(Number(event.target.value));
-                        changeJobPage(0);
-                      }}
-                    >
-                      {[5, 10, 20].map((size) => (
-                        <option key={size} value={size}>
-                          {size}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <nav aria-label="Automation jobs pagination">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentJobPage === 0}
-                      onClick={() => changeJobPage(currentJobPage - 1)}
-                    >
-                      <ChevronLeft size={14} /> Previous
-                    </Button>
-                    <span>
-                      Page {currentJobPage + 1} of {jobPageCount}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentJobPage + 1 >= jobPageCount}
-                      onClick={() => changeJobPage(currentJobPage + 1)}
-                    >
-                      Next <ChevronRight size={14} />
-                    </Button>
-                  </nav>
-                </div>
-              </section>
-            </>
+          {routePath === "/jobs" && (
+            <AutomationPage
+              key={data.organization.id}
+              jobs={data.jobs}
+              loaded={demo || liveData !== empty}
+              leads={data.leads}
+              scheduled={data.settings.some((s) => s.enabled)}
+              demo={demo}
+              jobId={location.pathname.split("/")[2] ?? null}
+              search={location.search}
+              busy={jobAction !== null}
+              jobAction={jobAction}
+              loading={loading}
+              navigate={navigate}
+              onRefresh={() =>
+                demo
+                  ? notify(
+                      "Sample jobs are static. Connect a live workspace to run real ones.",
+                    )
+                  : void refresh()
+              }
+              onCancel={(j) => void stopResearch(j)}
+              onRetry={(j) => void retryResearch(j)}
+              onBulk={(jobs, action) => void bulkJobs(jobs, action)}
+              onStopDiscovery={() => void stopResearch()}
+              onNewDiscovery={() => setShowDiscovery(true)}
+              onOpenLead={setSelectedLead}
+            />
           )}
           {location.pathname === "/outreach" && (
             <>
@@ -1539,28 +1378,6 @@ export default function App() {
         onSuppress={suppress}
         demo={demo}
       />
-      {!demo &&
-        location.pathname !== "/jobs" &&
-        data.jobs.some((j) => j.status === "running") &&
-        (() => {
-          const job = data.jobs.find((j) => j.status === "running")!;
-          return (
-            <button className="research-dock" onClick={() => watchRun(job)}>
-              <Compass size={21} />
-              <span>
-                <strong>
-                  {job.type === "audit"
-                    ? "Website audit in progress"
-                    : "Discovery in progress"}
-                </strong>
-                <small>{targetFor(job).domain ?? targetFor(job).label}</small>
-              </span>
-              <span>
-                Watch run <ArrowUpRight size={12} />
-              </span>
-            </button>
-          );
-        })()}
       <Dialog
         open={showDiscovery}
         onOpenChange={setShowDiscovery}
@@ -1742,23 +1559,50 @@ export default function App() {
         }
       >
         <div className="notification-list">
-          <button
-            onClick={() => {
-              setShowNotifications(false);
-              navigate("/outreach");
-            }}
-          >
-            <ShieldCheck size={20} />
-            <span>
-              <strong>
-                {pending.length} prospects need eligibility review
-              </strong>
-              <small>
-                Check permission and country evidence before outreach.
-              </small>
-            </span>
-            <ChevronRight size={16} />
-          </button>
+          {alertFeed?.alerts.map((alert) => {
+            const Icon =
+              alert.severity !== "info"
+                ? AlertCircle
+                : alert.key === "new_leads"
+                  ? Store
+                  : ShieldCheck;
+            return (
+              <button
+                key={alert.key}
+                className={alert.severity}
+                onClick={() => {
+                  setShowNotifications(false);
+                  navigate(alert.path);
+                }}
+              >
+                <Icon size={20} />
+                <span>
+                  <strong>{alert.title}</strong>
+                  <small>{alert.detail}</small>
+                </span>
+                <ChevronRight size={16} />
+              </button>
+            );
+          })}
+          {!alertFeed && (
+            <button
+              onClick={() => {
+                setShowNotifications(false);
+                navigate("/outreach");
+              }}
+            >
+              <ShieldCheck size={20} />
+              <span>
+                <strong>
+                  {pending.length} prospects need eligibility review
+                </strong>
+                <small>
+                  Check permission and country evidence before outreach.
+                </small>
+              </span>
+              <ChevronRight size={16} />
+            </button>
+          )}
           <button
             onClick={() => {
               setShowNotifications(false);
@@ -1767,13 +1611,55 @@ export default function App() {
           >
             <Workflow size={20} />
             <span>
-              <strong>{running.length} queued or running jobs</strong>
+              <strong>
+                {running.length} queued or running{" "}
+                {running.length === 1 ? "job" : "jobs"}
+              </strong>
               <small>Review progress and any worker errors.</small>
             </span>
             <ChevronRight size={16} />
           </button>
         </div>
+        {alertFeed && (
+          <section className="digest" aria-label="Last 24 hours">
+            <h3>Last 24 hours</h3>
+            <dl>
+              <div>
+                <dt>New leads</dt>
+                <dd>{alertFeed.digest.new_leads}</dd>
+              </div>
+              <div>
+                <dt>Audits</dt>
+                <dd>{alertFeed.digest.audits_completed}</dd>
+              </div>
+              <div>
+                <dt>Failed</dt>
+                <dd>{alertFeed.digest.failed_jobs}</dd>
+              </div>
+              <div>
+                <dt>To review</dt>
+                <dd>{alertFeed.digest.awaiting_review}</dd>
+              </div>
+            </dl>
+            {alertFeed.digest.top_leads.length > 0 && (
+              <ol>
+                {alertFeed.digest.top_leads.map((lead) => (
+                  <li key={lead.id}>
+                    <span>{lead.name}</span>
+                    {lead.score !== null && <b>{lead.score}</b>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        )}
       </Dialog>
+      {routePath !== "/jobs" && (
+        <AutomationOrb
+          jobs={data.jobs.filter((job) => job.status === "running")}
+          onOpen={watchRun}
+        />
+      )}
       {toast && (
         <div className="toast" role="status">
           <CheckCircle2 size={18} />
@@ -1892,146 +1778,6 @@ function PipelineChart({
         </AreaChart>
       </ResponsiveContainer>
     </div>
-  );
-}
-function JobRow({
-  job,
-  demo,
-  busy,
-  cancelling,
-  resuming,
-  onCancel,
-  onRetry,
-  operations,
-  onWatch,
-}: {
-  job: Job;
-  demo: boolean;
-  busy: boolean;
-  cancelling: boolean;
-  resuming: boolean;
-  onCancel: () => void;
-  onRetry: () => void;
-  operations: OperationsSnapshot | null;
-  onWatch: () => void;
-}) {
-  const presentation = jobPresentation(job, demo ? null : operations);
-  return (
-    <article className="job-row">
-      <div className={`job-icon ${job.status === "failed" ? "red" : ""}`}>
-        {job.type === "discovery" ? (
-          <Compass size={22} />
-        ) : (
-          <Activity size={22} />
-        )}
-      </div>
-      <div className="job-main">
-        <div>
-          <h3>
-            {job.type === "discovery" ? "Store discovery" : "Website audit"}
-            {` · ${targetFor(job).label}`}
-          </h3>
-          <span
-            className={`badge ${job.status === "completed" ? "green" : job.status === "failed" ? "red" : job.status === "running" ? "teal" : job.status === "blocked" ? "amber" : ""}`}
-          >
-            {demo ? "Sample " : ""}
-            {presentation.label}
-          </span>
-        </div>
-        <p>
-          <span title={job.id}>Run {job.id.slice(0, 8)}</span> ·{" "}
-          {formatDate(job.created_at)} · Attempt {job.attempts}/
-          {job.max_attempts}
-        </p>
-        {presentation.detail && (
-          <p className="job-wait-reason" role="status">
-            {presentation.detail}
-          </p>
-        )}
-        {Number(job.payload.resumed_samples) > 0 && (
-          <p className="job-resume-note">
-            Reused {Number(job.payload.resumed_samples)} saved PageSpeed
-            measurements (up to 24 hours old). Original test times are retained.
-          </p>
-        )}
-        {typeof job.payload.result === "string" && (
-          <details className="research-run-outcome">
-            <summary>{job.payload.result.split(". ")[0]}</summary>
-            <p>{job.payload.result}</p>
-          </details>
-        )}
-        {job.type === "discovery" && (
-          <details className="research-run-outcome">
-            <summary>Discovery breakdown</summary>
-            <DiscoveryFunnel value={job.payload.funnel} />
-          </details>
-        )}
-        <div className="job-progress">
-          <span>
-            <i style={{ width: `${job.progress}%` }} />
-          </span>
-          <small>{job.progress}%</small>
-        </div>
-        <div className="job-times">
-          Started:{" "}
-          {job.started_at
-            ? new Date(job.started_at).toLocaleString()
-            : "Not started"}{" "}
-          · {job.status === "cancelled" ? "Cancelled" : "Completed"}:{" "}
-          {job.completed_at ? new Date(job.completed_at).toLocaleString() : "—"}{" "}
-          · Provider requests:{" "}
-          {Object.entries(job.api_usage)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join(", ") || "None"}
-        </div>
-        {job.error && (
-          <details
-            className="job-diagnostic"
-            open={job.status === "blocked" || job.status === "failed"}
-          >
-            <summary>Technical details</summary>
-            <p className="job-error">
-              <AlertCircle size={13} />
-              {job.error}
-            </p>
-          </details>
-        )}
-      </div>
-      <div className="job-controls">
-        <Button variant="ghost" size="sm" onClick={onWatch}>
-          <Activity size={14} />
-          {job.status === "running" ? "Watch run" : "View run"}
-        </Button>
-        {(job.status === "blocked" || job.status === "failed") && (
-          <Button variant="outline" size="sm" disabled={busy} onClick={onRetry}>
-            {resuming && <LoaderCircle size={14} className="spin" />}
-            {resuming
-              ? "Resuming…"
-              : job.error_code === "search_limit"
-                ? "New discovery run"
-                : "Resume job"}
-          </Button>
-        )}
-        {(job.status === "queued" ||
-          job.status === "running" ||
-          job.status === "blocked") && (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={busy}
-            onClick={onCancel}
-            aria-label={`Cancel ${job.type === "discovery" ? "discovery" : "audit"} job ${job.id}`}
-          >
-            {cancelling ? (
-              <LoaderCircle size={14} className="spin" />
-            ) : (
-              <Square size={14} />
-            )}
-            {cancelling ? "Cancelling…" : "Cancel job"}
-          </Button>
-        )}
-      </div>
-    </article>
   );
 }
 function Empty({

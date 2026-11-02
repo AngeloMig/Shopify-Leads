@@ -445,16 +445,17 @@ export default function ResearchModel({
         <span>
           <i className={working ? "on" : ""} />
           {working
-            ? "Live task signals"
+            ? "Live activity"
             : tracing
-              ? "Path preview · recorded evidence"
+              ? "Tracing a saved path"
               : exploring || orbiting
-                ? "Model exploration · starts no job"
-                : "Recorded overview · select a path"}
+                ? "Animation only · starts no work"
+                : "Saved run · click a path to inspect it"}
         </span>
-        <span>{tasks.length} recorded tasks</span>
+        <span>{tasks.length} tasks</span>
         <button
           className="neural-play-control"
+          title="Plays the animation. Starts no work."
           aria-pressed={exploring}
           disabled={working}
           onClick={() => {
@@ -463,7 +464,7 @@ export default function ResearchModel({
           }}
         >
           {exploring ? <Pause size={13} /> : <Play size={13} />}
-          {exploring ? "Stop motion" : "Explore motion"}
+          {exploring ? "Stop" : "Animate"}
         </button>
       </div>
       <div className="semantic-view-controls" aria-label="Network detail level">
@@ -480,8 +481,8 @@ export default function ResearchModel({
             {mode === "overview"
               ? "Overview"
               : mode === "stage"
-                ? "Stage focus"
-                : "Task focus"}
+                ? "Stage"
+                : "Task"}
           </button>
         ))}
         <label>
@@ -780,7 +781,7 @@ export default function ResearchModel({
       <div className="neural-signal-key" aria-label="Neural map legend">
         <span>
           <i className="done" />
-          Recorded result
+          Result
         </span>
         <span>
           <i className="issue" />
@@ -788,12 +789,8 @@ export default function ResearchModel({
         </span>
         <span>
           <i className="preview" />
-          Visual exploration
+          Decoration only
         </span>
-        <small>
-          {neuronCount.toLocaleString("en-US")} visual neurons · Core → stage →
-          task → result
-        </small>
       </div>
       <div className="semantic-path-summary" aria-live="polite">
         <Focus size={13} />
@@ -804,73 +801,80 @@ export default function ResearchModel({
               ? hoverTask.state === "completed"
                 ? resultSummary(hoverTask)
                 : hoverTask.latest.message
-              : "Hover a link to trace its route. Select a task to inspect its evidence."}
+              : "Hover a line to see its route. Click a task for its evidence."}
           </span>
         </div>
       </div>
-      <div className="research-model-controls">
-        <div>
-          <button onClick={trace} title="Trace a recorded route; starts no job">
-            <Zap size={13} /> Trace a pulse
-          </button>
-          <button
-            aria-pressed={orbiting}
-            onClick={() => {
-              if (paused) onResume();
-              setOrbiting((v) => !v);
-            }}
-          >
-            <Orbit size={14} /> Auto orbit
-          </button>
-          <button aria-pressed={tissue} onClick={() => setTissue((v) => !v)}>
-            {tissue ? <Eye size={14} /> : <EyeOff size={14} />} Neural tissue
-          </button>
-          <label className="neural-density-control">
-            Visual neurons
-            <select
-              aria-label="Visual neuron density"
-              value={neuronCount}
-              onChange={(e) => setNeuronCount(Number(e.target.value))}
+      <details className="research-model-options">
+        <summary>View options</summary>
+        <div className="research-model-controls">
+          <div>
+            <button
+              onClick={trace}
+              title="Trace a saved route. Starts no work."
             >
-              {neuralDensities.map((count) => (
-                <option key={count} value={count}>
-                  {count.toLocaleString("en-US")}
-                </option>
-              ))}
-            </select>
-          </label>
+              <Zap size={13} /> Trace a pulse
+            </button>
+            <button
+              aria-pressed={orbiting}
+              onClick={() => {
+                if (paused) onResume();
+                setOrbiting((v) => !v);
+              }}
+            >
+              <Orbit size={14} /> Auto orbit
+            </button>
+            <button aria-pressed={tissue} onClick={() => setTissue((v) => !v)}>
+              {tissue ? <Eye size={14} /> : <EyeOff size={14} />} Background
+              neurons
+            </button>
+            <label className="neural-density-control">
+              Neuron count
+              <select
+                aria-label="Visual neuron density"
+                value={neuronCount}
+                onChange={(e) => setNeuronCount(Number(e.target.value))}
+              >
+                {neuralDensities.map((count) => (
+                  <option key={count} value={count}>
+                    {count.toLocaleString("en-US")}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div aria-label="Neural model camera">
+            <button
+              aria-label="Rotate model left"
+              onClick={() => command("left")}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              aria-label="Rotate model right"
+              onClick={() => command("right")}
+            >
+              <ChevronRight size={14} />
+            </button>
+            <button aria-label="Zoom model out" onClick={() => command("out")}>
+              <Minus size={14} />
+            </button>
+            <button aria-label="Zoom model in" onClick={() => command("in")}>
+              <Plus size={14} />
+            </button>
+            <button
+              aria-label="Reset model view"
+              onClick={() => command("reset")}
+            >
+              <RotateCcw size={14} />
+            </button>
+          </div>
         </div>
-        <div aria-label="Neural model camera">
-          <button
-            aria-label="Rotate model left"
-            onClick={() => command("left")}
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <button
-            aria-label="Rotate model right"
-            onClick={() => command("right")}
-          >
-            <ChevronRight size={14} />
-          </button>
-          <button aria-label="Zoom model out" onClick={() => command("out")}>
-            <Minus size={14} />
-          </button>
-          <button aria-label="Zoom model in" onClick={() => command("in")}>
-            <Plus size={14} />
-          </button>
-          <button
-            aria-label="Reset model view"
-            onClick={() => command("reset")}
-          >
-            <RotateCcw size={14} />
-          </button>
-        </div>
-      </div>
-      <p className="research-model-hint">
-        Drag to orbit · click a link to follow it · double-click a stage to zoom
-        in · arrow keys walk the links
-      </p>
+        <p className="research-model-hint">
+          Drag to rotate · click a line to follow it · double-click a stage to
+          zoom in
+        </p>
+      </details>
     </div>
   );
 }

@@ -46,14 +46,22 @@ export const hasFrontendOpportunity = (lead: Pick<Lead, "findings">) =>
         f.category,
       ),
   );
+/** Saved per email domain. "unknown" means the lookup failed or hasn't run. */
+export type MailStatus = "ok" | "none" | "unknown";
+export type MailChecks = Record<string, MailStatus>;
+export const mailStatus = (email: string, mail?: MailChecks | null) =>
+  mail?.[email.split("@")[1]?.toLowerCase()] ?? "unknown";
 export function rankedEmails(
   emails: PublicEmail[] = [],
   preferred?: string | null,
+  mail?: MailChecks | null,
 ) {
+  const dead = (email: string) => Number(mailStatus(email, mail) === "none");
   return [...emails].sort(
     (a, b) =>
       Number(b.email.toLowerCase() === preferred?.toLowerCase()) -
         Number(a.email.toLowerCase() === preferred?.toLowerCase()) ||
+      dead(a.email) - dead(b.email) ||
       contactWeight[contactCategory(a.email)] -
         contactWeight[contactCategory(b.email)] ||
       a.email.localeCompare(b.email),
@@ -119,7 +127,11 @@ export function leadIntelligence(lead: Lead, at = Date.now()) {
   const stale =
     !!lead.audited_at &&
     at - new Date(lead.audited_at).getTime() > 30 * 86400000;
-  const emails = rankedEmails(lead.emails, lead.preferred_email);
+  const emails = rankedEmails(
+    lead.emails,
+    lead.preferred_email,
+    lead.mail_checks,
+  );
   const review = lead.suppressed
     ? "Suppressed"
     : lead.permission === "approved"

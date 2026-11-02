@@ -5,6 +5,7 @@ import { uuid } from "./lib/validation.js";
 import { normalizeDomain, validateTarget } from "./lib/network.js";
 import { discoveryHistory } from "./lib/discovery-history.js";
 import { enqueue } from "./pipeline.js";
+import { workspaceAlerts } from "./lib/alerts.js";
 import type { Lead } from "../shared/types.js";
 import { industries } from "../shared/types.js";
 import { queryPerformance } from "../shared/discovery-search.js";
@@ -191,6 +192,12 @@ export function registerWorkspaceRoutes(
         details: patch,
       });
       res.json((await load(res.locals.org, [String(req.params.id)]))[0]);
+    }),
+  );
+  app.get(
+    "/api/alerts",
+    route(async (_req, res) => {
+      res.json(await workspaceAlerts(res.locals.org));
     }),
   );
   app.get(

@@ -414,12 +414,15 @@ export function LeadTable({
                   {lead.emails?.length ? (
                     <div className="email-cell">
                       <a
-                        href={`mailto:${rankedEmails(lead.emails, lead.preferred_email)[0].email}`}
+                        href={`mailto:${rankedEmails(lead.emails, lead.preferred_email, lead.mail_checks)[0].email}`}
                       >
                         <Mail size={13} />
                         {
-                          rankedEmails(lead.emails, lead.preferred_email)[0]
-                            .email
+                          rankedEmails(
+                            lead.emails,
+                            lead.preferred_email,
+                            lead.mail_checks,
+                          )[0].email
                         }
                       </a>
                       <button

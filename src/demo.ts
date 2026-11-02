@@ -1,5 +1,8 @@
 import type { Snapshot, Lead, Finding } from "../shared/types";
 import { defaultSettings } from "../shared/types";
+import { buildAlerts, type AlertFeed, type Digest } from "../shared/alerts";
+import { leadScoreFor } from "../shared/lead-score";
+import type { OperationsSnapshot } from "../shared/automation";
 const rows: [
   string,
   string,
@@ -232,6 +235,17 @@ export const demoLeads: Lead[] = rows.map((r, i) => {
     notes: "",
     owner: i < 4 ? "Alex Chen" : "",
     contact_url: `https://${r[1]}/pages/contact`,
+    emails:
+      i < 4
+        ? [
+            {
+              email: `hello@${r[1]}`,
+              source_url: `https://${r[1]}/pages/contact`,
+              observed_at: new Date().toISOString(),
+            },
+          ]
+        : [],
+    mail_checks: i < 4 ? { [r[1]]: i === 3 ? "none" : "ok" } : {},
     permission: r[8] > 0 ? "approved" : "unknown",
     suppressed: false,
     color: colors[i % colors.length],
@@ -278,6 +292,84 @@ export const demoLeads: Lead[] = rows.map((r, i) => {
         : [],
   };
 });
+const demoDigest: Digest = {
+  since: new Date(Date.now() - 86400000).toISOString(),
+  new_leads: 4,
+  audits_completed: 6,
+  failed_jobs: 1,
+  awaiting_review: demoLeads.length,
+  top_leads: demoLeads.slice(0, 3).map((lead) => ({
+    id: lead.id,
+    name: lead.name,
+    score: leadScoreFor(lead).researchScore,
+  })),
+};
+export const demoAlerts: AlertFeed = {
+  digest: demoDigest,
+  alerts: buildAlerts({
+    at: Date.now(),
+    workers: [{ state: "working", last_seen: new Date().toISOString() }],
+    blocks: [
+      {
+        provider: "PageSpeed",
+        reason:
+          "SYNTHETIC EXAMPLE: rate limit reached; retrying after a pause.",
+        blocked_until: new Date(Date.now() + 3600000).toISOString(),
+      },
+    ],
+    usage: { units: 42 },
+    budgets: { daily_api_budget: 100 },
+    failures: [
+      { error: "SYNTHETIC EXAMPLE: the store timed out three times." },
+    ],
+    digest: demoDigest,
+  }),
+};
+export const demoOperations: OperationsSnapshot = {
+  server_time: new Date().toISOString(),
+  workers: [
+    {
+      worker_id: "sample-worker",
+      last_seen: new Date().toISOString(),
+      state: "working",
+      job_id: "sample-discovery-01",
+    },
+  ],
+  usage: { units: 42, discovery_units: 12, audit_units: 30 },
+  budgets: {
+    daily_api_budget: 100,
+    discovery_daily_budget: 40,
+    audit_daily_budget: 60,
+    max_audit_backlog: 5,
+    scheduled_runs_per_day: 1,
+  },
+  blocks: [],
+  queue: [],
+  schedules: [
+    {
+      id: "sample-schedule",
+      name: "US · Home & furniture",
+      enabled: false,
+      next_run_at: new Date(Date.now() + 8 * 3600000).toISOString(),
+      interval_hours: 24,
+    },
+  ],
+  summary: {
+    since: new Date(Date.now() - 6 * 3600000).toISOString(),
+    store_tracking_since: new Date(Date.now() - 6 * 3600000).toISOString(),
+    stores_found: 18,
+    audits_completed: 6,
+    new_leads: 4,
+    leads_with_email: 3,
+    previously_researched: 5,
+    duplicate_results: 2,
+    duplicate_tracking_searches: 1,
+    searches_total: 2,
+    failures: 1,
+    needs_attention: 1,
+    audit_backlog: 0,
+  },
+};
 export const demoSnapshot: Snapshot = {
   leads: demoLeads,
   jobs: [

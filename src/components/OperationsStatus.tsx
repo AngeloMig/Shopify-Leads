@@ -6,15 +6,7 @@ import {
   type OperationsSnapshot,
 } from "../../shared/automation";
 import { Button } from "./ui/button";
-export function OperationsStatus({
-  live,
-  detailed = false,
-  onChange,
-}: {
-  live: boolean;
-  detailed?: boolean;
-  onChange?: (data: OperationsSnapshot) => void;
-}) {
+export function OperationsStatus({ live }: { live: boolean }) {
   const [data, setData] = useState<OperationsSnapshot | null>(null),
     [error, setError] = useState(""),
     [actionError, setActionError] = useState(""),
@@ -28,7 +20,6 @@ export function OperationsStatus({
         .then((d) => {
           if (active) {
             setData(d);
-            onChange?.(d);
             setError("");
           }
         })
@@ -41,7 +32,7 @@ export function OperationsStatus({
       active = false;
       clearInterval(timer);
     };
-  }, [live, onChange, revision]);
+  }, [live, revision]);
   if (!live) return null;
   const online = onlineWorkers(data);
   const working = online.some((w) => w.state === "working"),
@@ -66,34 +57,33 @@ export function OperationsStatus({
                   : paused
                     ? "Worker paused"
                     : working
-                      ? "Worker processing jobs"
-                      : "Worker online"}
+                      ? "Worker running a job"
+                      : "Worker ready"}
           </strong>
           <small>
             {error ||
               (!data
-                ? "Loading the latest heartbeat and request usage."
+                ? "Loading status and usage."
                 : !online.length
-                  ? "Start Scout’s worker on your Mac. Queued work is retained."
-                  : `${online.length} worker${online.length === 1 ? "" : "s"} connected · heartbeat within 90 seconds`)}
+                  ? "Start it on your Mac. Queued jobs will wait."
+                  : "The background process that runs your jobs.")}
           </small>
         </div>
         <div>
           <strong>
             Discovery {data?.usage.discovery_units ?? 0} /{" "}
-            {data?.budgets.discovery_daily_budget ?? "shared cap"}
+            {data?.budgets.discovery_daily_budget ?? "shared limit"}
           </strong>
-          <small>requests today (UTC)</small>
+          <small>requests used today</small>
         </div>
         <div>
           <strong>
             Audits {data?.usage.audit_units ?? 0} /{" "}
-            {data?.budgets.audit_daily_budget ?? "shared cap"}
+            {data?.budgets.audit_daily_budget ?? "shared limit"}
           </strong>
           <small>
-            {data?.usage.units ?? 0} /{" "}
-            {data?.budgets.daily_api_budget ?? "shared cap"} total requests
-            today (UTC)
+            {data?.usage.units ?? 0} / {data?.budgets.daily_api_budget ?? "—"}{" "}
+            total today
           </small>
         </div>
       </section>
@@ -149,75 +139,6 @@ export function OperationsStatus({
             </Button>
           </section>
         ))}
-      {detailed && data?.summary && (
-        <section
-          className="panel automation-summary"
-          aria-label="Automation results summary"
-        >
-          <div className="automation-summary-heading">
-            <div>
-              <h2>Results for this request day</h2>
-              <p>
-                Since {philippineTime(data.summary.since)} · resets at 8:00 AM
-                PHT
-              </p>
-            </div>
-            <span>
-              {data.summary.audit_backlog} audits in queue ·{" "}
-              {data.summary.needs_attention} need attention
-            </span>
-          </div>
-          <dl className="automation-summary-grid">
-            {[
-              ["New stores tracked", data.summary.stores_found],
-              ["Published audits", data.summary.audits_completed],
-              ["New leads", data.summary.new_leads],
-              ["New leads with email", data.summary.leads_with_email],
-              ["Previously researched", data.summary.previously_researched],
-              [
-                "Duplicate results",
-                data.summary.duplicate_tracking_searches
-                  ? data.summary.duplicate_results
-                  : "Not recorded",
-              ],
-              ["Failed jobs", data.summary.failures],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="automation-summary-note">
-            Store and duplicate tracking starts with this update; older missing
-            counts stay unrecorded. Contacts are public-source evidence, not
-            mailbox validation.
-          </p>
-          <details className="automation-schedules">
-            <summary>Schedules & queue controls</summary>
-            <p>
-              New discovery runs wait at {data.budgets.max_audit_backlog ?? 5}{" "}
-              queued/running audits; active runs may finish their batch. Each
-              campaign can schedule up to{" "}
-              {data.budgets.scheduled_runs_per_day ?? 1} run(s) per UTC day.
-              Audits take priority.
-            </p>
-            {data.schedules.map((schedule) => (
-              <div key={schedule.id}>
-                <strong>{schedule.name}</strong>
-                <span>
-                  {!schedule.enabled
-                    ? "Schedule off"
-                    : Date.parse(schedule.next_run_at) <=
-                        Date.parse(data.server_time)
-                      ? "Due · runs when worker and queue allow"
-                      : `Next eligible ${philippineTime(schedule.next_run_at)}`}
-                </span>
-              </div>
-            ))}
-          </details>
-        </section>
-      )}
     </>
   );
 }
