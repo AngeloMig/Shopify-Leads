@@ -87,6 +87,8 @@ export type Lead = {
   report_id?: string;
   shopify_verified: boolean;
   findings: Finding[];
+  /** From a list: findings have no url, evidence or recommendation text yet. */
+  evidence_summary?: true;
   recommendations?: Recommendation[];
   notes: string;
   owner: string;

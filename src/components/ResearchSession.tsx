@@ -199,6 +199,8 @@ export function ResearchSession({
   }, [preview, tick]);
   const data = preview ? previewRun(preview, tick, previewBase) : detail;
   const job = data?.job ?? chosen;
+  // Job lists carry only the latest events; the full log arrives with the detail.
+  const awaitingActivity = live && !data && !!job;
   const work = readWork(job?.payload.work),
     target =
       data?.target ??
@@ -803,7 +805,17 @@ export function ResearchSession({
                     </div>
                   </article>
                 ))}
-                {!shown.length && (
+                {!shown.length && awaitingActivity && (
+                  <div className="research-feed-empty">
+                    <Clock3 size={22} />
+                    <strong>
+                      {error
+                        ? "This run’s activity couldn’t be loaded"
+                        : "Loading this run’s activity…"}
+                    </strong>
+                  </div>
+                )}
+                {!shown.length && !awaitingActivity && (
                   <div className="research-feed-empty">
                     <Clock3 size={22} />
                     <strong>

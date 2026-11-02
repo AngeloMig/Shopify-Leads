@@ -239,8 +239,18 @@ export default function App() {
   }, []);
   useEffect(() => {
     void refresh();
-    const timer = setInterval(() => void refresh(), 15000);
-    return () => clearInterval(timer);
+    // A hidden tab catches up when it's shown again instead of polling unseen.
+    const timer = setInterval(() => {
+      if (!document.hidden) void refresh();
+    }, 15000);
+    const onVisible = () => {
+      if (!document.hidden) void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [demo, session?.access_token]);
   useEffect(() => {
     if (!toast) return;
@@ -1086,6 +1096,7 @@ export default function App() {
               onOpen={setSelectedLead}
               onReport={(l) => void report(l)}
               live={!demo}
+              ready={liveData !== empty || !!loadError}
               workspaceId={data.organization.id}
               queries={data.settings}
               revision={`${leadRevision}-${data.jobs.map((j) => `${j.id}:${j.status}`).join(",")}`}

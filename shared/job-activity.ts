@@ -126,6 +126,19 @@ export function readWork(value: unknown): JobWork | null {
     events,
   };
 }
+/** Only the events job lists read: the latest one, and what `stageState` looks at. */
+export function listWork(value: unknown, attempt: number): JobWork | null {
+  const work = readWork(value);
+  if (!work) return null;
+  const kept = new Map<WorkStage, WorkEvent>();
+  for (const e of work.events)
+    if (e.attempt === attempt && e.scope !== "task") kept.set(e.stage, e);
+  const latest = work.events.at(-1);
+  return {
+    ...work,
+    events: work.events.filter((e) => e === latest || kept.get(e.stage) === e),
+  };
+}
 export const stagesFor = (type: Job["type"]): WorkStage[] =>
   type === "discovery"
     ? ["prepare", "search", "verify", "queue"]

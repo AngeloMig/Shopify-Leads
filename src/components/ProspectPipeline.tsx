@@ -46,11 +46,30 @@ const views = [
   ["won", "Won"],
   ["lost", "Lost"],
 ];
+function readStoredViews(key: string): {
+  filters: Filters;
+  saved: { name: string; filters: Filters }[];
+} {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || "null");
+    const f = value?.filters;
+    return {
+      filters:
+        f && views.some((v) => v[0] === f.view)
+          ? { ...defaults, ...f, q: typeof f.q === "string" ? f.q : "" }
+          : defaults,
+      saved: Array.isArray(value?.saved) ? value.saved.slice(0, 8) : [],
+    };
+  } catch {
+    return { filters: defaults, saved: [] };
+  }
+}
 export function ProspectPipeline({
   leads,
   onOpen,
   onReport,
   live,
+  ready,
   workspaceId,
   queries,
   revision,
@@ -59,23 +78,27 @@ export function ProspectPipeline({
   onOpen: (l: Lead) => void;
   onReport: (l: Lead) => void;
   live: boolean;
+  /** False until the workspace is known; this remounts when it arrives. */
+  ready: boolean;
   workspaceId: string;
   queries: { id?: string; name: string }[];
   revision: string;
 }) {
+  // App remounts this per workspace, so the key can't change during its lifetime.
   const storageKey = `scout-lead-views-v1:${live ? "live" : "demo"}:${workspaceId}`;
-  const [filters, setFilters] = useState<Filters>(defaults),
-    [saved, setSaved] = useState<{ name: string; filters: Filters }[]>([]),
+  const [stored] = useState(() => readStoredViews(storageKey));
+  const [filters, setFilters] = useState<Filters>(stored.filters),
+    [saved, setSaved] = useState(stored.saved),
     [viewName, setViewName] = useState(""),
     [page, setPage] = useState(0),
     [size, setSize] = useState(10),
     [rows, setRows] = useState<Lead[]>([]),
     [total, setTotal] = useState(0),
-    [loading, setLoading] = useState(false),
+    [loading, setLoading] = useState(live),
     [error, setError] = useState(""),
     [exporting, setExporting] = useState(false),
     [selected, setSelected] = useState<string[]>([]),
-    [search, setSearch] = useState(""),
+    [search, setSearch] = useState(stored.filters.q),
     [importOpen, setImportOpen] = useState(false),
     [copiedEmail, setCopiedEmail] = useState(""),
     [reload, setReload] = useState(0);
@@ -95,27 +118,8 @@ export function ProspectPipeline({
     }
   }
   useEffect(() => {
-    try {
-      const value = JSON.parse(localStorage.getItem(storageKey) || "null");
-      setSaved(Array.isArray(value?.saved) ? value.saved.slice(0, 8) : []);
-      const f = value?.filters;
-      setFilters(
-        f && views.some((v) => v[0] === f.view)
-          ? { ...defaults, ...f }
-          : defaults,
-      );
-      setSearch(typeof f?.q === "string" ? f.q : "");
-    } catch {
-      setSaved([]);
-      setFilters(defaults);
-      setSearch("");
-    }
-    setPage(0);
-    setSelected([]);
-  }, [storageKey]);
-  useEffect(() => {
     const timer = setTimeout(
-      () => setFilters((f) => ({ ...f, q: search })),
+      () => setFilters((f) => (f.q === search ? f : { ...f, q: search })),
       300,
     );
     return () => clearTimeout(timer);
@@ -134,7 +138,7 @@ export function ProspectPipeline({
     change(next);
   }
   useEffect(() => {
-    if (!live) return;
+    if (!live || !ready) return;
     let active = true;
     setLoading(true);
     setError("");
@@ -143,26 +147,30 @@ export function ProspectPipeline({
       page: String(page),
       size: String(size),
     });
-    void api<{ leads: Lead[]; total: number }>(`/leads?${params}`)
-      .then((result) => {
-        if (!active) return;
-        if (page > 0 && page * size >= result.total) {
-          setPage(Math.max(0, Math.ceil(result.total / size) - 1));
-          return;
-        }
-        setRows(result.leads);
-        setTotal(result.total);
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    // Deferred so a cleanup in the same tick (StrictMode's remount) sends nothing.
+    const timer = setTimeout(() => {
+      void api<{ leads: Lead[]; total: number }>(`/leads?${params}`)
+        .then((result) => {
+          if (!active) return;
+          if (page > 0 && page * size >= result.total) {
+            setPage(Math.max(0, Math.ceil(result.total / size) - 1));
+            return;
+          }
+          setRows(result.leads);
+          setTotal(result.total);
+        })
+        .catch((e) => {
+          if (active) setError(e.message);
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    });
     return () => {
       active = false;
+      clearTimeout(timer);
     };
-  }, [live, workspaceId, filters, page, size, revision, reload]);
+  }, [live, ready, workspaceId, filters, page, size, revision, reload]);
   const local = useMemo(
     () =>
       leads

@@ -6,6 +6,7 @@ import { normalizeDomain, validateTarget } from "./lib/network.js";
 import { discoveryHistory } from "./lib/discovery-history.js";
 import { enqueue } from "./pipeline.js";
 import { workspaceAlerts } from "./lib/alerts.js";
+import type { LeadEvidence } from "./workspace-snapshot.js";
 import type { Lead } from "../shared/types.js";
 import { industries } from "../shared/types.js";
 import { queryPerformance } from "../shared/discovery-search.js";
@@ -17,7 +18,7 @@ const route =
   };
 export function registerWorkspaceRoutes(
   app: Express,
-  load: (org: string, ids: string[]) => Promise<Lead[]>,
+  load: (org: string, ids: string[], evidence: LeadEvidence) => Promise<Lead[]>,
   admin: (res: Response) => void,
 ) {
   app.get(
@@ -99,7 +100,7 @@ export function registerWorkspaceRoutes(
         ({ data, error, count } = await search(false));
       if (error) throw new Error(error.message);
       const ids = (data ?? []).map((x) => x.id);
-      const leads = await load(res.locals.org, ids);
+      const leads = await load(res.locals.org, ids, "summary");
       res.json({
         leads: ids.map((id) => leads.find((l) => l.id === id)).filter(Boolean),
         total: count ?? 0,
@@ -111,7 +112,11 @@ export function registerWorkspaceRoutes(
   app.get(
     "/api/leads/:id",
     route(async (req, res) => {
-      const leads = await load(res.locals.org, [uuid.parse(req.params.id)]);
+      const leads = await load(
+        res.locals.org,
+        [uuid.parse(req.params.id)],
+        "full",
+      );
       if (!leads[0]) return res.status(404).json({ error: "Lead not found" });
       res.json(leads[0]);
     }),
@@ -191,7 +196,9 @@ export function registerWorkspaceRoutes(
         action: "profile_updated",
         details: patch,
       });
-      res.json((await load(res.locals.org, [String(req.params.id)]))[0]);
+      res.json(
+        (await load(res.locals.org, [String(req.params.id)], "full"))[0],
+      );
     }),
   );
   app.get(

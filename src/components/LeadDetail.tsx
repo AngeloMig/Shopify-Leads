@@ -90,7 +90,7 @@ function PublicContactRow({
   );
 }
 export function LeadDetail({
-  lead,
+  lead: listed,
   onClose,
   onReport,
   onAudit,
@@ -128,7 +128,41 @@ export function LeadDetail({
       history: Record<string, unknown>[];
       metrics: PsiSample[];
     } | null>(null),
-    [historyError, setHistoryError] = useState("");
+    [historyError, setHistoryError] = useState(""),
+    [evidence, setEvidence] = useState<Lead | null>(null),
+    [evidenceError, setEvidenceError] = useState(""),
+    [evidenceAttempt, setEvidenceAttempt] = useState(0);
+  // Lists send findings without their evidence; everything else stays live from them.
+  const lead = useMemo(
+    () =>
+      listed &&
+      evidence?.id === listed.id &&
+      evidence.audited_at === listed.audited_at
+        ? {
+            ...listed,
+            findings: evidence.findings,
+            recommendations: evidence.recommendations,
+            evidence_summary: undefined,
+          }
+        : listed,
+    [listed, evidence],
+  );
+  const evidencePending = !!lead?.evidence_summary;
+  useEffect(() => {
+    setEvidenceError("");
+    if (!listed?.evidence_summary || demo) return;
+    let active = true;
+    void api<Lead>(`/leads/${listed.id}`)
+      .then((full) => {
+        if (active) setEvidence(full);
+      })
+      .catch((e) => {
+        if (active) setEvidenceError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [listed?.id, listed?.audited_at, demo, evidenceAttempt]);
   useEffect(() => {
     setTab("findings");
     setNotes(lead?.notes ?? "");
@@ -584,7 +618,29 @@ export function LeadDetail({
                 each improvement.
               </p>
             </div>
-            {lead.findings.length ? (
+            {evidencePending && lead.findings.length ? (
+              <div className="empty-state" role="status">
+                {evidenceError ? (
+                  <>
+                    <AlertTriangle />
+                    <h3>The full evidence couldn’t be loaded</h3>
+                    <p className="error-message">{evidenceError}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEvidenceAttempt((n) => n + 1)}
+                    >
+                      Try again
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <LoaderCircle className="spin" />
+                    <h3>Loading the full evidence…</h3>
+                  </>
+                )}
+              </div>
+            ) : lead.findings.length ? (
               issues.map((f) => {
                 const explanation = explainFinding(
                   f,
