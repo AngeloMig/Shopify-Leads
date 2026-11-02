@@ -100,6 +100,22 @@ const navigation = [
   { label: "Automation Jobs", path: "/jobs", icon: Workflow },
   { label: "Outreach Review", path: "/outreach", icon: ShieldCheck },
 ];
+// Lets the leads list load, with this workspace's saved filters, alongside the first snapshot.
+const workspaceKey = (user: string) => `scout-last-workspace:${user}`;
+function rememberedWorkspace(user?: string) {
+  try {
+    return (user && localStorage.getItem(workspaceKey(user))) || "";
+  } catch {
+    return "";
+  }
+}
+function rememberWorkspace(user: string, id: string) {
+  try {
+    localStorage.setItem(workspaceKey(user), id);
+  } catch {
+    /* Without it the list just waits for the first snapshot. */
+  }
+}
 function loadDemo() {
   try {
     const saved = localStorage.getItem("scout-demo-leads");
@@ -152,6 +168,9 @@ export default function App() {
   const location = useLocation(),
     navigate = useNavigate();
   const data = demo ? demoData : liveData;
+  const leadsWorkspace =
+    data.organization.id ||
+    (demo ? "" : rememberedWorkspace(session?.user.id));
   const activeSettings =
     campaignId === "new"
       ? newCampaign
@@ -176,6 +195,7 @@ export default function App() {
       const result = await api<Snapshot>("/snapshot");
       if (activeUser.current !== requestedUser) return;
       setLiveData(result);
+      rememberWorkspace(requestedUser, result.organization.id);
       setNoWorkspace(false);
       setLoadError("");
     } catch (e) {
@@ -1091,15 +1111,23 @@ export default function App() {
           )}
           {location.pathname === "/leads" && (
             <ProspectPipeline
-              key={`${demo}-${data.organization.id}`}
+              key={`${demo}-${leadsWorkspace}`}
               leads={data.leads}
               onOpen={setSelectedLead}
               onReport={(l) => void report(l)}
               live={!demo}
-              ready={liveData !== empty || !!loadError}
-              workspaceId={data.organization.id}
+              ready={!!leadsWorkspace || !!loadError}
+              workspaceId={leadsWorkspace}
               queries={data.settings}
-              revision={`${leadRevision}-${data.jobs.map((j) => `${j.id}:${j.status}`).join(",")}`}
+              // Only a finished audit adds or changes a lead.
+              revision={
+                !demo && liveData === empty
+                  ? null
+                  : `${leadRevision}-${data.jobs
+                      .filter((j) => j.type === "audit" && j.status === "completed")
+                      .map((j) => j.id)
+                      .join(",")}`
+              }
             />
           )}
           {(location.pathname === "/discovery" ||

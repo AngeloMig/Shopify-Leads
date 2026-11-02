@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -78,11 +78,12 @@ export function ProspectPipeline({
   onOpen: (l: Lead) => void;
   onReport: (l: Lead) => void;
   live: boolean;
-  /** False until the workspace is known; this remounts when it arrives. */
+  /** False until the workspace is known; this remounts if it turns out different. */
   ready: boolean;
   workspaceId: string;
   queries: { id?: string; name: string }[];
-  revision: string;
+  /** Changes when the list may have new data; null until that's known. */
+  revision: string | null;
 }) {
   // App remounts this per workspace, so the key can't change during its lifetime.
   const storageKey = `scout-lead-views-v1:${live ? "live" : "demo"}:${workspaceId}`;
@@ -137,40 +138,56 @@ export function ProspectPipeline({
     setSearch(next.q);
     change(next);
   }
-  useEffect(() => {
-    if (!live || !ready) return;
-    let active = true;
+  const query = new URLSearchParams({
+    ...filters,
+    page: String(page),
+    size: String(size),
+  }).toString();
+  const request = useRef<{ query: string; stale: boolean } | null>(null);
+  function load(query: string) {
+    const current = { query, stale: false };
+    request.current = current;
     setLoading(true);
     setError("");
-    const params = new URLSearchParams({
-      ...filters,
-      page: String(page),
-      size: String(size),
-    });
+    void api<{ leads: Lead[]; total: number }>(`/leads?${query}`)
+      .then((result) => {
+        if (request.current !== current) return;
+        if (page > 0 && page * size >= result.total) {
+          setPage(Math.max(0, Math.ceil(result.total / size) - 1));
+          return;
+        }
+        setRows(result.leads);
+        setTotal(result.total);
+      })
+      .catch((e) => {
+        if (request.current === current) setError(e.message);
+      })
+      .finally(() => {
+        if (request.current !== current) return;
+        request.current = null;
+        if (current.stale) load(query);
+        else setLoading(false);
+      });
+  }
+  useEffect(() => {
+    if (!live || !ready) return;
     // Deferred so a cleanup in the same tick (StrictMode's remount) sends nothing.
-    const timer = setTimeout(() => {
-      void api<{ leads: Lead[]; total: number }>(`/leads?${params}`)
-        .then((result) => {
-          if (!active) return;
-          if (page > 0 && page * size >= result.total) {
-            setPage(Math.max(0, Math.ceil(result.total / size) - 1));
-            return;
-          }
-          setRows(result.leads);
-          setTotal(result.total);
-        })
-        .catch((e) => {
-          if (active) setError(e.message);
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
-    });
+    const timer = setTimeout(() => load(query));
     return () => {
-      active = false;
       clearTimeout(timer);
+      request.current = null;
     };
-  }, [live, ready, workspaceId, filters, page, size, revision, reload]);
+  }, [live, ready, workspaceId, query, reload]);
+  // New data refreshes the current view without dropping a response on its way.
+  const seenRevision = useRef(revision);
+  useEffect(() => {
+    if (seenRevision.current === revision) return;
+    const first = seenRevision.current === null;
+    seenRevision.current = revision;
+    if (first || !live || !ready) return;
+    if (request.current) request.current.stale = true;
+    else load(query);
+  }, [revision]);
   const local = useMemo(
     () =>
       leads

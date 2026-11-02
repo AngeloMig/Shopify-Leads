@@ -47,20 +47,14 @@ export async function loadLeads(
 ) {
   let leadQuery = db()
     .from("leads")
-    .select("*")
+    .select("*,store:discovered_stores(*)")
     .eq("organization_id", org)
     .order("updated_at", { ascending: false });
   if (ids) leadQuery = leadQuery.in("id", ids.length ? ids : [noId]);
   const leadRows = await checked(leadQuery.limit(ids ? 100 : 500));
   const storeIds = leadRows.length ? leadRows.map((l) => l.store_id) : [noId];
   const auditIds = leadRows.length ? leadRows.map((l) => l.audit_id) : [noId];
-  const stores = await checked(
-    db()
-      .from("discovered_stores")
-      .select("*")
-      .eq("organization_id", org)
-      .in("id", storeIds),
-  );
+  const stores = leadRows.flatMap((l) => (l.store ? [l.store] : []));
   const domains = stores.length
     ? stores.map((s) => s.domain)
     : ["no-loaded-domain.invalid"];
@@ -134,7 +128,7 @@ export async function loadLeads(
     ]);
   return leadRows
     .map((l): Lead | null => {
-      const s = stores.find((s) => s.id === l.store_id);
+      const s = l.store;
       if (!s) return null;
       const sc = scores.find((s) => s.audit_id === l.audit_id);
       const permission = reviews.find((r) => r.store_id === s.id);
