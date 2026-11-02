@@ -1,0 +1,23 @@
+services:
+  web:
+    build:
+      context: .
+      target: app
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+        VITE_ENABLE_DEMO: ${VITE_ENABLE_DEMO:-false}
+    env_file: .env
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+  worker:
+    build:
+      context: .
+      target: app
+    env_file: .env
+    command: ["npm", "run", "worker"]
+    init: true
+    restart: unless-stopped
+    # For optional browser diagnostics, build target: browser-worker instead.
+    # Run one worker replica until distributed per-domain crawl pacing is added.

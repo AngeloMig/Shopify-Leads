@@ -1,0 +1,19 @@
+# Run this on your existing always-on server, from the project directory.
+services:
+  scout-worker:
+    build:
+      context: .
+      target: app
+    env_file: .env
+    command: ["npm", "run", "worker"]
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 15m
+    healthcheck:
+      test: ["CMD", "node", "--import", "tsx", "server/check-worker.ts"]
+      interval: 60s
+      timeout: 15s
+      start_period: 45s
+      retries: 3
+    # Optional browser diagnostics need target: browser-worker.
+    # Keep a single worker until distributed per-domain crawl pacing is added.

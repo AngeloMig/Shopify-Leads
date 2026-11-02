@@ -1,0 +1,211 @@
+.pagespeed-audit {
+  container-type: inline-size;
+  color: var(--ink);
+  background: transparent;
+  min-width: 0;
+}
+.pagespeed-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.pagespeed-heading h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+.pagespeed-heading p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+.pagespeed-devices {
+  display: flex;
+  gap: 4px;
+}
+.pagespeed-devices button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  min-height: 40px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pagespeed-devices button:hover {
+  background: var(--surface-2);
+}
+.pagespeed-devices button[aria-pressed="true"] {
+  border-bottom-color: var(--primary);
+  color: var(--primary);
+}
+.pagespeed-devices button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.pagespeed-gauges {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 26px 0 22px;
+}
+.pagespeed-category {
+  --gauge: #6f7f85;
+  --gauge-ink: #b4c3c7;
+  --gauge-tint: #1a2327;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+  min-width: 0;
+}
+.pagespeed-poor {
+  --gauge: #f33;
+  --gauge-ink: #ff8f85;
+  --gauge-tint: #331a1a;
+}
+.pagespeed-average {
+  --gauge: #fa3;
+  --gauge-ink: #ffc078;
+  --gauge-tint: #33260f;
+}
+.pagespeed-good {
+  --gauge: #0c6;
+  --gauge-ink: #5fe0a0;
+  --gauge-tint: #0e2f22;
+}
+.pagespeed-gauge {
+  position: relative;
+  width: min(100%, 88px);
+  aspect-ratio: 1;
+  color: var(--gauge-ink);
+}
+.pagespeed-gauge svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.pagespeed-gauge-track {
+  fill: var(--gauge-tint);
+  stroke: var(--gauge);
+  stroke-opacity: 0.13;
+  stroke-width: 7;
+}
+.pagespeed-gauge-value {
+  fill: none;
+  stroke: var(--gauge);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+.pagespeed-gauge > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 30px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.pagespeed-category > strong {
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.pagespeed-category > small {
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--gauge-ink);
+}
+.pagespeed-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-bottom: 18px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.pagespeed-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.pagespeed-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+}
+.pagespeed-range-poor {
+  background: #f33;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.pagespeed-range-average {
+  background: #fa3;
+}
+.pagespeed-range-good {
+  background: #0c6;
+  border-radius: 50%;
+}
+.pagespeed-source {
+  border-top: 1px solid var(--border);
+  padding: 12px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 16px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.pagespeed-source p {
+  margin: 0;
+}
+.pagespeed-source a {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--primary-dark);
+}
+.pagespeed-source .pagespeed-scope {
+  width: 100%;
+  font-size: 10px;
+}
+.lead-dialog .pagespeed-audit {
+  margin: 0 24px 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.research-evidence-panel .pagespeed-audit {
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+@container (max-width: 420px) {
+  .pagespeed-gauges {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 24px;
+  }
+  .pagespeed-devices button {
+    min-height: 44px;
+  }
+  .pagespeed-legend {
+    gap: 16px;
+  }
+}
+@media (max-width: 600px) {
+  .lead-dialog .pagespeed-audit {
+    margin-inline: 16px;
+  }
+}

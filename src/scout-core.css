@@ -1,0 +1,107 @@
+.scout-core-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+  margin: 8px 0 16px;
+  padding: 14px 0;
+  border-block: 1px solid #436064;
+  color: #d8e9e7;
+  font-size: 11px;
+}
+.scout-core-state {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1 1 220px;
+}
+.scout-core-state > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--core-state);
+}
+.scout-core-state strong {
+  color: var(--core-state);
+  margin-left: 5px;
+  font-size: 12px;
+}
+.scout-core-state small {
+  color: #aec7c8;
+  flex-basis: 100%;
+  padding-left: 15px;
+  font-size: 10px;
+}
+.scout-core-status > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.scout-core-status select {
+  font: inherit;
+  color: #e6f5f0;
+  background: #213b40;
+  border: 1px solid #577175;
+  border-radius: 6px;
+  padding: 6px 9px;
+  max-width: 155px;
+}
+.scout-core-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  flex-basis: 100%;
+}
+.scout-core-evidence button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: none;
+  color: #aec7c8;
+  padding: 4px 0;
+  font: inherit;
+  cursor: pointer;
+}
+.scout-core-evidence button.ready {
+  color: #a2ffe2;
+}
+.scout-core-evidence button:hover {
+  color: #fff;
+}
+.scout-core-status :focus-visible {
+  outline: 2px solid #a2ffe2;
+  outline-offset: 4px;
+}
+.flow-core-mark .scout-core-glyph {
+  overflow: visible;
+  color: var(--core-state);
+  stroke: currentColor;
+  fill: none;
+  filter: drop-shadow(0 0 2px currentColor);
+}
+.flow-core-mark .scout-core-glyph [data-beam] {
+  stroke-width: 0.7;
+  stroke-linecap: round;
+}
+.flow-core-mark .scout-core-glyph [data-collision] {
+  stroke: #e3fff6;
+  stroke-width: 1;
+}
+.flow-core-mark .scout-core-glyph [data-engine] {
+  stroke-width: 0.7;
+}
+.flow-core.working .flow-core-mark > .scout-core-glyph {
+  animation: none;
+}
+@media (max-width: 700px) {
+  .scout-core-status {
+    gap: 12px;
+  }
+  .scout-core-evidence {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+  }
+}

@@ -1,0 +1,812 @@
+/* A workflow board with real task history and measured connections. */
+.task-flow-map {
+  container: flowmap / inline-size;
+  background: #102c35;
+  min-width: 0;
+}
+.flow-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px;
+  border-bottom: 1px solid #34525b;
+}
+.flow-toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #d3e9e5;
+}
+.flow-toolbar strong {
+  font-weight: 500;
+}
+.flow-toolbar > div > span {
+  color: #b4cdd1;
+  font-size: 11px;
+  margin-left: 3px;
+}
+.flow-toolbar > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #547c79;
+  border-radius: 6px;
+  background: #234943;
+  color: #ceffe8;
+  font-size: 11px;
+}
+.flow-toolbar > button[aria-pressed="true"] {
+  background: #2a5b53;
+}
+.flow-find {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 16px;
+  align-items: center;
+}
+.flow-find label {
+  min-width: 130px;
+  flex: 1 1 160px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 36px;
+  border: 1px solid #42626c;
+  border-radius: 6px;
+  padding: 0 9px;
+  color: #afcdd0;
+}
+.flow-find label:focus-within {
+  outline: 2px solid #a2ffe2;
+  outline-offset: 2px;
+}
+.flow-find input {
+  background: transparent;
+  color: #e2f1ee;
+  border: 0;
+  outline: none;
+  min-width: 0;
+  width: 100%;
+  font-size: 11px;
+  padding: 8px 0;
+}
+.flow-find input::placeholder {
+  color: #b2cbd0;
+}
+.flow-find label > button {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  min-height: 28px;
+  flex: none;
+  border-radius: 4px;
+}
+.flow-find > div {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.flow-find > div > button {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  min-height: 36px;
+  font-size: 11px;
+  color: #bfd5d7;
+  border-radius: 5px;
+}
+.flow-find > div > button[aria-pressed="true"] {
+  background: #294c53;
+  color: #e2f6ed;
+}
+.flow-find > div > button > span {
+  font-size: 10px;
+  color: #b3d0d1;
+  font-variant-numeric: tabular-nums;
+}
+.flow-viewport {
+  max-height: 740px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #587b7d #102c35;
+  overscroll-behavior: contain;
+}
+.flow-graph {
+  position: relative;
+  isolation: isolate;
+  padding: 4px 16px 20px;
+  min-width: 0;
+}
+.flow-connections {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+}
+.flow-connections path {
+  fill: none;
+  stroke: #416c72;
+  stroke-width: 1.4;
+  transition: stroke 180ms ease-out;
+}
+.flow-connections path.selected {
+  stroke: #94d4c0;
+  stroke-width: 2;
+}
+.flow-connections path.attention {
+  stroke: #ceab73;
+}
+.flow-core {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-height: 102px;
+  padding: 10px 8px 28px;
+}
+.flow-core-mark {
+  width: 54px;
+  height: 54px;
+  flex: none;
+  color: #a2ffe2;
+}
+.flow-core-mark svg {
+  height: 100%;
+  width: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.9;
+}
+.flow-core-mark svg > circle:first-child {
+  opacity: 0.45;
+}
+.flow-core-mark .seed {
+  fill: #b7ffe8;
+  stroke: none;
+}
+.flow-core-mark path {
+  opacity: 0.55;
+}
+.flow-core-orbit {
+  transform-origin: 32px 32px;
+}
+.flow-core.working .flow-core-orbit {
+  animation: flow-core-orbit 0.8s linear infinite;
+}
+.flow-core > strong {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #ddfff0;
+  letter-spacing: -0.025em;
+}
+.flow-core > strong > span {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #b3d0d2;
+  margin-top: 3px;
+}
+.flow-core > div:last-child {
+  min-width: 0;
+  font-size: 11px;
+  color: #d3e9e3;
+  padding-left: 14px;
+  border-left: 1px solid #365a60;
+}
+.flow-core small {
+  display: block;
+  font-size: 10px;
+  line-height: 1.6;
+  margin-top: 4px;
+  color: #b2cdd0;
+}
+.flow-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 28px 24px;
+  position: relative;
+}
+.flow-stage {
+  position: relative;
+  min-width: 0;
+  border: 1px solid #3b5b64;
+  background: #14343e;
+  border-radius: 8px;
+  transition: border-color 180ms ease-out;
+}
+.flow-stage.selected {
+  border-color: #7db5a9;
+}
+.flow-stage-port {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #648e97;
+  border: 1px solid #9ac2c4;
+  top: -5px;
+  left: calc(50% - 4px);
+}
+.flow-stage.selected .flow-stage-port {
+  background: #b6ffe5;
+  border-color: #b6ffe5;
+}
+.flow-stage.active .flow-stage-port {
+  background: #b6ffe5;
+}
+.flow-stage > header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px 8px 12px;
+}
+.flow-stage > header > button:first-child {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  gap: 9px;
+  min-width: 0;
+  flex: 1;
+  min-height: 46px;
+  border-radius: 5px;
+}
+.flow-stage > header > button:first-child > span:last-child {
+  min-width: 0;
+}
+.flow-stage header strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e0f5ee;
+  font-weight: 500;
+}
+.flow-stage header small {
+  display: block;
+  font-size: 10px;
+  line-height: 1.6;
+  color: #b3cdd0;
+  margin-top: 3px;
+}
+.flow-stage-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  color: #b5e9d9;
+  background: #244c52;
+  flex: none;
+}
+.flow-stage header > button:last-child {
+  width: 30px;
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  color: #c0d9d8;
+}
+.flow-stage header > button:last-child svg {
+  transition: transform 180ms ease-out;
+}
+.flow-stage header > button[aria-expanded="false"] svg {
+  transform: rotate(-90deg);
+}
+.flow-stage-progress {
+  display: flex;
+  height: 2px;
+  margin: 0 12px 6px;
+  background: #34565d;
+  overflow: hidden;
+}
+.flow-stage-progress i {
+  background: #83cfb5;
+}
+.flow-stage-progress b {
+  background: #e6bd80;
+}
+.flow-task-list {
+  padding: 0 8px 6px 10px;
+}
+.flow-task {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 72px;
+  position: relative;
+  padding: 5px 3px 5px 10px;
+  border-radius: 6px;
+  transition: background-color 160ms ease-out;
+}
+.flow-task + .flow-task {
+  border-top: 1px solid #294d56;
+}
+.flow-task.selected {
+  background: #214a50;
+}
+.flow-task-twig {
+  position: absolute;
+  left: -1px;
+  top: 0;
+  width: 18px;
+  height: 100%;
+  stroke: #4c7177;
+  stroke-width: 1;
+  fill: none;
+  pointer-events: none;
+}
+.flow-task:last-of-type .flow-task-twig {
+  clip-path: inset(0 0 48% 0);
+}
+.flow-task.selected .flow-task-twig {
+  stroke: #a2e9d0;
+}
+.flow-task-main {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  text-align: left;
+  min-width: 0;
+  flex: 1;
+  border-radius: 5px;
+  padding: 8px 4px;
+  min-height: 60px;
+}
+.flow-task-main > span:last-child {
+  flex: 1;
+  min-width: 0;
+}
+.flow-task-main strong {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: #daeee8;
+  overflow-wrap: anywhere;
+}
+.flow-task-main small {
+  display: block;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #b7cfd2;
+  margin-top: 3px;
+}
+.flow-task-resource {
+  display: block;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #adcbd0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 3px;
+}
+.flow-task-state {
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  margin-top: 1px;
+  flex: none;
+  border: 1px solid #64868c;
+  border-radius: 50%;
+  color: #afced1;
+  background: #1b3c44;
+}
+.flow-task-state > i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.flow-task.completed .flow-task-state {
+  color: #adf3d9;
+  border-color: #72ae99;
+}
+.flow-task.failed .flow-task-state,
+.flow-task.interrupted .flow-task-state {
+  color: #ffc0b6;
+  border-color: #ae7e79;
+}
+.flow-task.retrying .flow-task-state {
+  color: #efc78f;
+  border-color: #a98d62;
+}
+.flow-task.failed .flow-task-main small,
+.flow-task.interrupted .flow-task-main small {
+  color: #ffc0b6;
+}
+.flow-task.retrying .flow-task-main small {
+  color: #efc78f;
+}
+.can-animate .flow-task.running .flow-task-state,
+.can-animate .flow-task.starting .flow-task-state,
+.can-animate .flow-task.waiting .flow-task-state {
+  animation: flow-wait 2.8s ease-in-out infinite;
+}
+.flow-task-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid #43686f;
+  background: #173a44;
+  border-radius: 6px;
+  width: 62px;
+  min-height: 48px;
+  padding: 5px 3px;
+  flex: none;
+  color: #b4d9d6;
+  margin-left: 4px;
+}
+.flow-task-result > strong {
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #d6ede4;
+  font-variant-numeric: tabular-nums;
+}
+.flow-task-result > strong > small {
+  font-size: 9px;
+  color: #b1cbd0;
+}
+.flow-task-result > span {
+  font-size: 9px;
+}
+.flow-task.selected .flow-task-result {
+  border-color: #83bcae;
+}
+.flow-task-arrival {
+  position: absolute;
+  inset: 2px;
+  border: 1px solid #a2ffe2;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  animation: flow-arrival 1.5s ease-out both;
+}
+.flow-task-arrival.returned::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 64px;
+  border: 1px solid #a2ffe2;
+  border-radius: 6px;
+}
+.flow-task-arrival.preview {
+  border-color: #73cce4;
+}
+.is-exploring .flow-task.selected .flow-task-arrival.preview {
+  animation: flow-arrival 2.8s ease-out infinite;
+}
+.flow-packet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d4ffeb;
+  pointer-events: none;
+  offset-anchor: center;
+  offset-distance: 0%;
+  opacity: 0;
+  animation: flow-travel 1.6s linear both;
+}
+.flow-packet.returning {
+  animation-direction: reverse;
+}
+.flow-packet.preview {
+  background: #73cce4;
+  animation-duration: 2.8s;
+  animation-iteration-count: infinite;
+}
+.flow-selection {
+  display: flex;
+  gap: 9px;
+  padding: 14px 16px;
+  border-top: 1px solid #345760;
+  background: #173840;
+  color: #c8e8dd;
+}
+.flow-selection > svg {
+  flex: none;
+  margin-top: 3px;
+}
+.flow-selection > div {
+  min-width: 0;
+}
+.flow-selection strong {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.6;
+  display: block;
+  overflow-wrap: anywhere;
+}
+.flow-selection span,
+.flow-selection small {
+  display: block;
+  color: #bdd3d4;
+  font-size: 11px;
+  line-height: 1.6;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+.flow-selection small > button {
+  text-decoration: underline;
+  border-radius: 3px;
+  padding: 2px;
+}
+.flow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border-top: 1px solid #2d4d57;
+  font-size: 10px;
+  color: #bad1d4;
+}
+.flow-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.flow-legend i {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.flow-legend .complete {
+  background: #83cfb5;
+}
+.flow-legend .working {
+  background: #b8e1e2;
+}
+.flow-legend .issue {
+  background: #efc27f;
+}
+.flow-legend .preview {
+  background: #73cce4;
+}
+.flow-show-more {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 4px;
+  min-height: 36px;
+  width: 100%;
+  border-radius: 5px;
+  font-size: 11px !important;
+  color: #c5f5e2 !important;
+}
+.flow-show-more > span {
+  color: #afcdd1;
+  font-size: 10px;
+  margin-left: auto;
+}
+.flow-empty {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #b2cdd1;
+  padding: 16px 9px;
+  margin: 0;
+}
+@keyframes flow-core-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes flow-travel {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  8%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+@keyframes flow-arrival {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.75;
+  }
+}
+@keyframes flow-wait {
+  50% {
+    border-color: #b6ffe4;
+    color: #dcfff0;
+  }
+}
+@container flowmap (max-width:520px) {
+  .flow-stage-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .flow-graph {
+    padding-inline: 16px;
+  }
+  .flow-core {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 26px;
+  }
+  .flow-core > div:last-child {
+    font-size: 10px;
+    padding-left: 10px;
+    flex: 1;
+  }
+  .flow-find > label {
+    flex-basis: 100%;
+  }
+  .flow-stage > header {
+    padding: 10px;
+  }
+  .flow-task-main {
+    padding-block: 9px;
+    min-height: 64px;
+  }
+  .flow-task-main small,
+  .flow-task-resource {
+    font-size: 11px;
+  }
+  .flow-task-result {
+    width: 68px;
+    min-height: 52px;
+  }
+  .flow-show-more {
+    min-height: 44px;
+  }
+  .flow-stage header > button:last-child {
+    width: 36px;
+    min-height: 44px;
+  }
+  .flow-viewport {
+    max-height: 760px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-flow-map *,
+  .task-flow-map *::before,
+  .task-flow-map *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+.flow-core-port {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #94d4c0;
+  bottom: 16px;
+  left: calc(50% - 3px);
+}
+.flow-task-result.poor > strong {
+  color: #ff9696;
+}
+.flow-task-result.average > strong {
+  color: #ffc66d;
+}
+.flow-task-result.good > strong {
+  color: #8ee7b7;
+}
+.flow-task-main:hover + .flow-task-result {
+  border-color: #9cc7ba;
+}
+.flow-task-main:focus-visible,
+.flow-task-result:focus-visible {
+  outline-offset: 1px;
+}
+.can-animate .flow-task.running .flow-task-twig path,
+.can-animate .flow-task.starting .flow-task-twig path,
+.is-exploring .flow-task.selected .flow-task-twig path {
+  stroke: #a7e8d0;
+  stroke-dasharray: 3 8;
+  animation: flow-branch-signal 1.4s linear infinite;
+}
+.is-exploring .flow-task.selected .flow-task-twig path {
+  stroke: #73cce4;
+}
+@keyframes flow-branch-signal {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-flow-map .flow-task-twig path {
+    animation: none !important;
+  }
+}
+.flow-stage-grid {
+  padding-top: 20px;
+}
+.flow-show-fewer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px;
+  min-height: 36px;
+  border-radius: 5px;
+  font-size: 11px !important;
+  color: #bdd5d5 !important;
+}
+.flow-show-fewer svg {
+  transform: rotate(180deg);
+}
+
+/* Collider motion is tied to active worker tasks, with a calmer exploration speed. */
+.flow-core.preview-motion .flow-core-orbit {
+  animation: flow-core-orbit 14s linear infinite;
+}
+.flow-collider-track {
+  transform-origin: 32px 32px;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+  color: #a2ffe2;
+}
+.flow-collider-track.reverse {
+  color: #73cce4;
+}
+.flow-collider-track > circle:first-child {
+  opacity: 0.65;
+}
+.flow-collider-track .collider-bead {
+  fill: currentColor;
+  stroke: none;
+}
+.flow-core.working .flow-collider-track {
+  opacity: 1;
+  animation: flow-core-orbit 0.46s linear infinite;
+}
+.flow-core.working .flow-collider-track.reverse {
+  animation-duration: 0.64s;
+  animation-direction: reverse;
+}
+.flow-core.working .flow-core-mark > svg {
+  animation: flow-core-charge 1.9s ease-in-out infinite;
+}
+@keyframes flow-core-charge {
+  0%,
+  100% {
+    transform: translate(-1px, 0) rotate(-4deg) scale(1.02);
+  }
+  50% {
+    transform: translate(2px, -3px) rotate(4deg) scale(1.08);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-flow-map .flow-collider-track,
+  .task-flow-map .flow-core-mark > svg {
+    animation: none !important;
+    transition: none !important;
+  }
+}

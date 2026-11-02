@@ -1,0 +1,236 @@
+.automation-summary {
+  margin-bottom: 24px;
+}
+.search-pool-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 32px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--border);
+}
+.search-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.search-pagination > span {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.search-pool-overview > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.search-pool-overview strong {
+  font-size: 21px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.search-pool-overview span,
+.search-pool-overview p,
+.query-learning p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.search-pool-overview p {
+  flex: 1 1 260px;
+  max-width: 65ch;
+  margin: 0;
+}
+.query-learning {
+  padding-top: 16px;
+}
+.query-learning summary {
+  cursor: pointer;
+  color: var(--primary-dark);
+}
+.query-learning p {
+  margin: 12px 0;
+  max-width: 70ch;
+}
+.query-learning caption {
+  text-align: left;
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 12px 0;
+  color: var(--muted);
+}
+.campaign-insights td small {
+  display: block;
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.campaign-insights td:first-child {
+  min-width: 220px;
+  max-width: 340px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.automation-summary-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 20px 24px 16px;
+}
+.automation-summary h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.automation-summary-heading p,
+.automation-summary-heading > span {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+.automation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 20px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+}
+.automation-summary-grid dt {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.automation-summary-grid dd {
+  font-size: 21px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  line-height: 1.3;
+}
+.automation-summary-grid dd:where(:last-child) {
+  overflow-wrap: anywhere;
+}
+.automation-summary-note {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  padding: 0 24px 16px;
+  max-width: 85ch;
+}
+.automation-schedules {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.automation-schedules summary {
+  cursor: pointer;
+  color: var(--primary-dark);
+}
+.automation-schedules p {
+  margin: 12px 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.automation-schedules > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 8px 0;
+}
+.automation-schedules > div strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.automation-schedules > div span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.automation-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  background: oklch(0.218 0.021 75);
+  border-radius: var(--radius-control);
+  margin: 0 0 20px;
+}
+.automation-notice strong {
+  font-size: 14px;
+  color: var(--amber);
+}
+.automation-notice p {
+  font-size: 13px;
+  margin: 8px 0;
+  line-height: 1.6;
+}
+.automation-notice small {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.job-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.job-main .job-wait-reason {
+  color: var(--primary-dark);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 8px;
+}
+.job-main .job-resume-note {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.job-diagnostic {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.job-diagnostic summary {
+  cursor: pointer;
+}
+.job-diagnostic .job-error {
+  padding-top: 8px;
+}
+.automation-control-help {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 12px 0;
+}
+@media (max-width: 600px) {
+  .automation-summary-heading,
+  .automation-summary-grid,
+  .automation-schedules {
+    padding: 16px;
+  }
+  .automation-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 16px;
+  }
+  .automation-summary-note {
+    padding: 0 16px 16px;
+  }
+  .automation-summary-grid dd {
+    font-size: 19px;
+  }
+  .job-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
