@@ -1,6 +1,7 @@
 begin;
 -- Real sales outcomes, recorded by a researcher. Search learning reads these so it
 -- can favor queries that win clients, not just queries that produce audits.
+-- The lead index also exposes each lead's saved research score for sorting.
 alter table public.leads
  add column outcome text check(outcome in ('won','lost')),
  add column outcome_reason text check(char_length(outcome_reason)<=200),
@@ -18,9 +19,10 @@ select l.id,l.organization_id,l.store_id,l.audit_id,l.stage,l.updated_at,
  exists(select 1 from contacts c where c.organization_id=l.organization_id and c.store_id=l.store_id and c.route ilike 'mailto:%@%') as has_email,
  case when pr.status='approved' and pr.expires_at>now() then 'approved' when pr.status='rejected' then 'rejected' else 'unknown' end as permission,
  concat_ws(' ',s.name,s.display_name,s.domain,s.industry,(select string_agg(c.route,' ') from contacts c where c.organization_id=l.organization_id and c.store_id=l.store_id)) as search_text,
- l.outcome
+ l.outcome,
+ case when exists(select 1 from suppression_list x where x.organization_id=l.organization_id and x.domain=s.domain) then null else sc.research_score end as research_score
 from leads l join discovered_stores s on s.id=l.store_id and s.organization_id=l.organization_id
-left join lateral (select performance from lead_scores where organization_id=l.organization_id and audit_id=l.audit_id order by created_at desc limit 1) sc on true
+left join lateral (select performance,(breakdown->>'researchScore')::integer as research_score from lead_scores where organization_id=l.organization_id and audit_id=l.audit_id order by created_at desc limit 1) sc on true
 left join lateral (select status,expires_at from contact_permission_reviews where organization_id=l.organization_id and store_id=l.store_id order by reviewed_at desc limit 1) pr on true;
 
 create or replace view public.discovery_search_outcomes as

@@ -21,6 +21,7 @@
     "refresh:contacts": "tsx server/refresh-contacts.ts",
     "refresh:reports": "tsx server/refresh-reports.ts",
     "refresh:intelligence": "tsx server/refresh-intelligence.ts",
+    "refresh:scores": "tsx server/refresh-scores.ts",
     "check:worker": "tsx server/check-worker.ts",
     "mac:worker": "tsx server/manage-mac-worker.ts"
   },

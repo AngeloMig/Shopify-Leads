@@ -18,6 +18,7 @@ import {
   leadIntelligence,
   contactCategory,
 } from "../../shared/lead-intelligence";
+import { leadScoreFor } from "../../shared/lead-score";
 import { csvCell } from "../../shared/scoring";
 import { api, downloadBlob, formatDate } from "../lib";
 import { Button } from "./ui/button";
@@ -189,7 +190,7 @@ export function ProspectPipeline({
             ? a.name.localeCompare(b.name)
             : filters.sort === "recent"
               ? String(b.audited_at).localeCompare(String(a.audited_at))
-              : leadIntelligence(b).rank - leadIntelligence(a).rank ||
+              : leadScoreFor(b).researchScore - leadScoreFor(a).researchScore ||
                 (a.performance ?? 101) - (b.performance ?? 101),
         ),
     [leads, filters],
@@ -555,6 +556,12 @@ export function ProspectPipeline({
                           title={i.reason}
                         >
                           {i.label}
+                        </span>
+                        <span
+                          className="pipeline-score"
+                          title="Research score. Open the lead to see why."
+                        >
+                          {leadScoreFor(l).researchScore}/100
                         </span>
                         <span className="pipeline-mobile">
                           {l.performance !== null

@@ -1,7 +1,7 @@
 import { daysSince, type CatalogEvidence, type FitResult } from "./catalog.js";
 import { contactCategory } from "./lead-intelligence.js";
 import { scorePriority } from "./scoring.js";
-import type { Finding, PublicEmail } from "./types.js";
+import type { Finding, Lead, PublicEmail } from "./types.js";
 
 export type TimingSignal = {
   kind: "new_products" | "catalog_growth" | "score_drop" | "new_tool";
@@ -233,6 +233,13 @@ const scoreWeights = {
   contact: 10,
   feasible_scope: 15,
 };
+const gateLabels = {
+  country: "country check",
+  platform: "Shopify check",
+  service_fit: "a verified finding",
+  contact_permission: "outreach review",
+  suppression: "suppression removal",
+};
 /** Every point has its own evidence and a plain reason. */
 export function leadScore(input: LeadScoreInput) {
   const verified = input.findings.filter((f) => f.kind === "verified");
@@ -258,6 +265,10 @@ export function leadScore(input: LeadScoreInput) {
   });
   return {
     ...result,
+    /** What still holds priority at 0, in plain words. */
+    blockers: (Object.keys(gateLabels) as (keyof typeof gateLabels)[])
+      .filter((gate) => !result.gates[gate])
+      .map((gate) => gateLabels[gate]),
     parts: (Object.keys(evidence) as (keyof typeof evidence)[]).map((key) => ({
       key,
       label: evidence[key].label,
@@ -267,3 +278,18 @@ export function leadScore(input: LeadScoreInput) {
     })),
   };
 }
+export const leadScoreFor = (lead: Lead) =>
+  leadScore({
+    findings: lead.findings,
+    performance: lead.performance,
+    activity: lead.activity,
+    emails: lead.emails,
+    contact_url: lead.contact_url,
+    catalog: lead.catalog,
+    fit: lead.fit,
+    timing: lead.timing_signals,
+    countryVerified: !!lead.country && !!lead.country_evidence,
+    shopifyVerified: lead.shopify_verified,
+    permissionApproved: lead.permission === "approved",
+    suppressed: lead.suppressed,
+  });

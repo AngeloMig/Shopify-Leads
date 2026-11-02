@@ -79,7 +79,7 @@ The main **Leads** view and command search query the full retained workspace his
 
 ## Lead and discovery workflow
 
-Apply migrations through `010_lead_outcomes.sql`. Use `npm run refresh:intelligence -- <organization UUID>` to infer industries and shorten names from retained audit evidence; this makes no provider requests, preserves original titles and manual industry corrections, and initializes category budgets without raising the total cap.
+Apply migrations through `010_lead_outcomes.sql`. Use `npm run refresh:scores -- <organization UUID>` to recalculate saved research scores from retained evidence, which the Leads sort reads; add `--dry-run` to preview without saving. It makes no provider requests. Use `npm run refresh:intelligence -- <organization UUID>` to infer industries and shorten names from retained audit evidence; this makes no provider requests, preserves original titles and manual industry corrections, and initializes category budgets without raising the total cap.
 
 The Leads table shows the main supported opportunity, contact category, review state and next action. Open a lead for a three-part brief (why this store, a scoped service, next step), editable business name/industry, preferred published email, source evidence and notes. Contact categories are routing hints based on the address, not verified employment roles or deliverability. Careers and wholesale addresses are ranked below general/support contacts; an explicit preferred address wins. Saved lead views are scoped to the workspace in this browser and survive reloads.
 

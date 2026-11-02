@@ -355,6 +355,23 @@ describe("Lead score", () => {
   });
 });
 
+describe("Score gates", () => {
+  it("names only the checks still holding priority at 0", () => {
+    expect(leadScore(base).blockers).toEqual([]);
+    expect(leadScore({ ...base, permissionApproved: false }).blockers).toEqual([
+      "outreach review",
+    ]);
+    expect(
+      leadScore({
+        ...base,
+        countryVerified: false,
+        permissionApproved: false,
+        findings: [],
+      }).blockers,
+    ).toEqual(["country check", "a verified finding", "outreach review"]);
+  });
+});
+
 describe("Search learning from real outcomes", () => {
   const row = (keyword: string, over = {}) => ({
     keyword,

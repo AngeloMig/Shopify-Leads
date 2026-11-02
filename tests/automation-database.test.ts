@@ -389,6 +389,23 @@ describe("Saved discovery candidates and query attribution", () => {
         )
       ).rows[0].outcome,
     ).toBe("lost");
+    await pg.query(
+      "insert into lead_scores(organization_id,audit_id,store_id,priority,breakdown) values($1,$2,$3,0,'{\"researchScore\":63}')",
+      [org, newAudit, store],
+    );
+    const score = async () =>
+      (
+        await pg.query<{ research_score: number | null }>(
+          "select research_score from lead_search_index where organization_id=$1 and store_id=$2",
+          [org, store],
+        )
+      ).rows[0].research_score;
+    expect(await score()).toBe(63);
+    await pg.query(
+      "insert into suppression_list(organization_id,domain,reason) values($1,'merchant.example','Opted out')",
+      [org],
+    );
+    expect(await score()).toBeNull();
   });
 });
 async function workspace() {

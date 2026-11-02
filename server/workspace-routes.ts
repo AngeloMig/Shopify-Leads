@@ -54,37 +54,48 @@ export function registerWorkspaceRoutes(
           size: z.coerce.number().int().min(5).max(50).default(10),
         })
         .parse(req.query);
-      let query = db()
-        .from("lead_search_index")
-        .select("id", { count: "exact" })
-        .eq("organization_id", res.locals.org);
-      if (input.q.trim())
-        query = query.ilike(
-          "search_text",
-          `%${input.q.trim().replace(/[\\%_]/g, "\\$&")}%`,
-        );
-      if (input.country !== "all") query = query.eq("country", input.country);
-      if (input.stage !== "all") query = query.eq("stage", input.stage);
-      if (input.view === "new") query = query.eq("stage", "new");
-      if (input.view === "strong") query = query.eq("opportunity_rank", 2);
-      if (input.view === "missing_contact")
-        query = query.eq("has_email", false);
-      if (input.view === "review")
-        query = query.eq("permission", "unknown").gte("opportunity_rank", 0);
-      if (input.view === "won" || input.view === "lost")
-        query = query.eq("outcome", input.view);
-      if (input.sort === "opportunity")
-        query = query
-          .order("opportunity_rank", { ascending: false })
-          .order("performance", { ascending: true, nullsFirst: false });
-      else
-        query = query.order(
-          input.sort === "recent" ? "updated_at" : "business_name",
-          { ascending: input.sort === "name" },
-        );
-      const { data, error, count } = await query
-        .order("id")
-        .range(input.page * input.size, (input.page + 1) * input.size - 1);
+      const search = (byScore: boolean) => {
+        let query = db()
+          .from("lead_search_index")
+          .select("id", { count: "exact" })
+          .eq("organization_id", res.locals.org);
+        if (input.q.trim())
+          query = query.ilike(
+            "search_text",
+            `%${input.q.trim().replace(/[\\%_]/g, "\\$&")}%`,
+          );
+        if (input.country !== "all") query = query.eq("country", input.country);
+        if (input.stage !== "all") query = query.eq("stage", input.stage);
+        if (input.view === "new") query = query.eq("stage", "new");
+        if (input.view === "strong") query = query.eq("opportunity_rank", 2);
+        if (input.view === "missing_contact")
+          query = query.eq("has_email", false);
+        if (input.view === "review")
+          query = query.eq("permission", "unknown").gte("opportunity_rank", 0);
+        if (input.view === "won" || input.view === "lost")
+          query = query.eq("outcome", input.view);
+        if (input.sort === "opportunity") {
+          if (byScore)
+            query = query.order("research_score", {
+              ascending: false,
+              nullsFirst: false,
+            });
+          query = query
+            .order("opportunity_rank", { ascending: false })
+            .order("performance", { ascending: true, nullsFirst: false });
+        } else
+          query = query.order(
+            input.sort === "recent" ? "updated_at" : "business_name",
+            { ascending: input.sort === "name" },
+          );
+        return query
+          .order("id")
+          .range(input.page * input.size, (input.page + 1) * input.size - 1);
+      };
+      let { data, error, count } = await search(true);
+      // Until migration 010 adds the score column, keep the previous ranking.
+      if (error?.message.includes("research_score"))
+        ({ data, error, count } = await search(false));
       if (error) throw new Error(error.message);
       const ids = (data ?? []).map((x) => x.id);
       const leads = await load(res.locals.org, ids);

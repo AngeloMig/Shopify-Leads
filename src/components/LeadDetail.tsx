@@ -22,7 +22,7 @@ import {
   contactCategory,
 } from "../../shared/lead-intelligence";
 import { countryNames, industries, lostReasons } from "../../shared/types";
-import { leadScore } from "../../shared/lead-score";
+import { leadScoreFor } from "../../shared/lead-score";
 import { api, formatDate } from "../lib";
 import { Dialog } from "./ui/dialog";
 import { Button } from "./ui/button";
@@ -160,20 +160,7 @@ export function LeadDetail({
   );
   if (!lead) return null;
   const intelligence = leadIntelligence(lead);
-  const score = leadScore({
-    findings: lead.findings,
-    performance: lead.performance,
-    activity: lead.activity,
-    emails: lead.emails,
-    contact_url: lead.contact_url,
-    catalog: lead.catalog,
-    fit: lead.fit,
-    timing: lead.timing_signals,
-    countryVerified: !!lead.country && !!lead.country_evidence,
-    shopifyVerified: lead.shopify_verified,
-    permissionApproved: lead.permission === "approved",
-    suppressed: lead.suppressed,
-  });
+  const score = leadScoreFor(lead);
   const scoreDevice = (strategy: "mobile" | "desktop"): ScoreDevice => {
     const group = comparableRuns(artifacts?.metrics ?? [], strategy);
     return {
@@ -288,26 +275,43 @@ export function LeadDetail({
         <section className="lead-score" aria-label="Why this score">
           <div className="lead-score-head">
             <h3>Why this score</h3>
-            <strong>{score.researchScore}/100</strong>
+            <p>
+              <strong>{score.researchScore}</strong>/100
+            </p>
           </div>
-          {!score.eligible && (
-            <p className="muted">
-              Research score only. Priority stays at 0 until the country,
-              Shopify and outreach review checks all pass.
+          <div className="lead-score-bar" aria-hidden="true">
+            {score.parts.map((part) => (
+              <span key={part.key} style={{ flexGrow: part.max }}>
+                <i style={{ width: `${(part.points / part.max) * 100}%` }} />
+              </span>
+            ))}
+          </div>
+          {score.blockers.length > 0 && (
+            <p className="lead-score-gate">
+              Priority stays at 0 until: {score.blockers.join(", ")}.
             </p>
           )}
-          <ul>
+          <dl className="lead-score-parts">
             {score.parts.map((part) => (
-              <li key={part.key}>
-                <span>{part.label}</span>
-                <b>
-                  {part.points}/{part.max}
-                </b>
-                <meter min={0} max={part.max} value={part.points} />
-                <small>{part.reason}</small>
-              </li>
+              <div
+                key={part.key}
+                className={
+                  part.points === part.max
+                    ? "full"
+                    : part.points > 0
+                      ? "partial"
+                      : "empty"
+                }
+              >
+                <dt>{part.label}</dt>
+                <dd>{part.reason}</dd>
+                <dd className="lead-score-points">
+                  {part.points}
+                  <span>/{part.max}</span>
+                </dd>
+              </div>
             ))}
-          </ul>
+          </dl>
           {lead.catalog && (
             <p className="lead-catalog">
               Public catalog: {lead.catalog.product_count}
