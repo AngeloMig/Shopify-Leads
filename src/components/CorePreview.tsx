@@ -349,7 +349,7 @@ export default function CorePreview() {
             </p>
           </div>
           <button className="preview-launch" onClick={start}>
-            {running ? <Square size={13} /> : <Play size={13} />}
+            {running ? <Square size={14} /> : <Play size={14} />}
             {running ? "Stop sample" : "Run sample"}
           </button>
         </div>
@@ -377,7 +377,7 @@ export default function CorePreview() {
                   onClick={() => setPaused((v) => !v)}
                   disabled={reduced}
                 >
-                  {paused ? <Play size={13} /> : <Pause size={13} />}{" "}
+                  {paused ? <Play size={14} /> : <Pause size={14} />}{" "}
                   {paused ? "Resume visual" : "Pause visual"}
                 </button>
                 <button
@@ -519,7 +519,7 @@ export default function CorePreview() {
               </p>
               <div className="preview-actions">
                 <button className="preview-primary" onClick={start}>
-                  {running ? <Square size={13} /> : <Play size={13} />}{" "}
+                  {running ? <Square size={14} /> : <Play size={14} />}{" "}
                   {running ? "Stop sample work" : "Start sample work"}
                 </button>
                 <button
@@ -527,7 +527,7 @@ export default function CorePreview() {
                   aria-label="Reset entire preview"
                   title="Reset entire preview"
                 >
-                  <RotateCcw size={15} />
+                  <RotateCcw size={16} />
                 </button>
               </div>
             </section>
@@ -549,7 +549,7 @@ export default function CorePreview() {
                       ))}
                     </span>
                     {p.name}
-                    {palette === p.id && <Check size={12} />}
+                    {palette === p.id && <Check size={14} />}
                   </button>
                 ))}
               </div>
@@ -633,7 +633,7 @@ export default function CorePreview() {
             your workspace.
           </span>
           <a href="/jobs">
-            Back to research <ArrowUpRight size={13} />
+            Back to research <ArrowUpRight size={14} />
           </a>
         </footer>
       </main>

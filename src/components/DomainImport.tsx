@@ -52,7 +52,7 @@ export function DomainImport({
         query_id: queryId,
       });
       setResult(
-        `${r.queued} audits queued. Track progress in Automation Jobs.`,
+        `${r.queued} audits queued. Track progress in Automation jobs.`,
       );
       setRows([]);
       onDone();

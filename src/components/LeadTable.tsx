@@ -204,7 +204,7 @@ export function LeadTable({
           <p>{description}</p>
         </div>
         <Button variant="outline" size="sm" onClick={exportCsv}>
-          <Download size={15} />
+          <Download size={16} />
           {selected.length
             ? `Export ${selected.length} selected`
             : "Export CSV"}
@@ -349,7 +349,7 @@ export function LeadTable({
               </th>
               <th>
                 <button onClick={() => order("name")}>
-                  Brand <ArrowUpDown size={12} />
+                  Brand <ArrowUpDown size={14} />
                 </button>
               </th>
               <th>Public email</th>
@@ -357,14 +357,14 @@ export function LeadTable({
               <th>Industry</th>
               <th>
                 <button onClick={() => order("performance")}>
-                  Performance <ArrowUpDown size={12} />
+                  Performance <ArrowUpDown size={14} />
                 </button>
               </th>
               <th>SEO</th>
               <th>Main opportunity</th>
               <th>
                 <button onClick={() => order("priority")}>
-                  Outreach priority <ArrowDown size={12} />
+                  Outreach priority <ArrowDown size={14} />
                 </button>
               </th>
               <th aria-label="Audit report" />
@@ -405,7 +405,7 @@ export function LeadTable({
                       <strong title={lead.name}>{lead.name}</strong>
                       <small>
                         {lead.domain}
-                        <ArrowUpRight size={10} />
+                        <ArrowUpRight size={14} />
                       </small>
                     </span>
                   </button>
@@ -416,7 +416,7 @@ export function LeadTable({
                       <a
                         href={`mailto:${rankedEmails(lead.emails, lead.preferred_email, lead.mail_checks)[0].email}`}
                       >
-                        <Mail size={13} />
+                        <Mail size={14} />
                         {
                           rankedEmails(
                             lead.emails,
@@ -479,7 +479,7 @@ export function LeadTable({
                     aria-label={`Download report for ${lead.name}`}
                     onClick={() => onReport(lead)}
                   >
-                    <FileText size={17} />
+                    <FileText size={16} />
                   </button>
                 </td>
               </tr>
@@ -509,7 +509,7 @@ export function LeadTable({
         <span>
           {selected.length > 0 ? (
             <>
-              <Check size={13} /> {selected.length} selected ·{" "}
+              <Check size={14} /> {selected.length} selected ·{" "}
             </>
           ) : null}
           Showing {filtered.length ? safePage * size + 1 : 0}–
@@ -529,7 +529,7 @@ export function LeadTable({
               disabled={safePage === 0}
               onClick={() => setPage(safePage - 1)}
             >
-              <ChevronLeft size={15} />
+              <ChevronLeft size={16} />
             </Button>
             <span>
               {safePage + 1} / {pages}
@@ -541,7 +541,7 @@ export function LeadTable({
               disabled={safePage + 1 >= pages}
               onClick={() => setPage(safePage + 1)}
             >
-              <ChevronRight size={15} />
+              <ChevronRight size={16} />
             </Button>
           </div>
         )}

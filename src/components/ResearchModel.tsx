@@ -463,7 +463,7 @@ export default function ResearchModel({
             setExploring((v) => !v);
           }}
         >
-          {exploring ? <Pause size={13} /> : <Play size={13} />}
+          {exploring ? <Pause size={14} /> : <Play size={14} />}
           {exploring ? "Stop" : "Animate"}
         </button>
       </div>
@@ -581,7 +581,7 @@ export default function ResearchModel({
           }
           title={immersive ? "Exit fullscreen (Esc)" : "Fullscreen map"}
         >
-          {immersive ? <Minimize size={15} /> : <Maximize size={15} />}
+          {immersive ? <Minimize size={16} /> : <Maximize size={16} />}
         </button>
         {runs.length > 0 && (
           <button
@@ -593,7 +593,7 @@ export default function ResearchModel({
             }
             title={starMap ? "Back to the brain (Esc)" : "Run history"}
           >
-            {starMap ? <Brain size={15} /> : <Sparkles size={15} />}
+            {starMap ? <Brain size={16} /> : <Sparkles size={16} />}
           </button>
         )}
         <svg
@@ -653,9 +653,9 @@ export default function ResearchModel({
                 {n.kind === "result" ? (
                   <span className="semantic-label-symbol">
                     {n.state === "completed" ? (
-                      <Check size={12} />
+                      <Check size={14} />
                     ) : (
-                      <AlertCircle size={12} />
+                      <AlertCircle size={14} />
                     )}
                   </span>
                 ) : n.kind === "stage" ? (
@@ -665,9 +665,9 @@ export default function ResearchModel({
                 ) : n.kind === "task" ? (
                   <span className="semantic-label-symbol">
                     {isIssueTask(n.state as ResearchTask["state"]) ? (
-                      <AlertCircle size={12} />
+                      <AlertCircle size={14} />
                     ) : n.state === "waiting" ? (
-                      <Clock3 size={12} />
+                      <Clock3 size={14} />
                     ) : (
                       <i />
                     )}
@@ -793,7 +793,7 @@ export default function ResearchModel({
         </span>
       </div>
       <div className="semantic-path-summary" aria-live="polite">
-        <Focus size={13} />
+        <Focus size={14} />
         <div>
           <strong>{path}</strong>
           <span>
@@ -813,7 +813,7 @@ export default function ResearchModel({
               onClick={trace}
               title="Trace a saved route. Starts no work."
             >
-              <Zap size={13} /> Trace a pulse
+              <Zap size={14} /> Trace a pulse
             </button>
             <button
               aria-pressed={orbiting}

@@ -80,7 +80,7 @@ export function DiscoveryForm({
         <section className="panel form-panel">
           <div className="section-heading">
             <span className="section-icon">
-              <Globe2 size={19} />
+              <Globe2 size={18} />
             </span>
             <div>
               <h2>Define your ideal prospect</h2>
@@ -178,7 +178,7 @@ export function DiscoveryForm({
                     )
                   }
                 >
-                  {form.industries.includes(industry) && <Check size={12} />}{" "}
+                  {form.industries.includes(industry) && <Check size={14} />}{" "}
                   {industry}
                 </button>
               ))}
@@ -272,7 +272,7 @@ export function DiscoveryForm({
         <section className="panel form-panel">
           <div className="section-heading">
             <span className="section-icon">
-              <Search size={19} />
+              <Search size={18} />
             </span>
             <div>
               <h2>Discovery & screening</h2>
@@ -495,7 +495,7 @@ export function DiscoveryForm({
         <section className="panel form-panel">
           <div className="section-heading">
             <span className="section-icon">
-              <Workflow size={19} />
+              <Workflow size={18} />
             </span>
             <div>
               <h2>Automation & audit modules</h2>
@@ -636,7 +636,7 @@ export function DiscoveryForm({
         <section className="panel form-panel">
           <div className="section-heading">
             <span className="section-icon">
-              <ShieldCheck size={19} />
+              <ShieldCheck size={18} />
             </span>
             <div>
               <h2>Data retention</h2>
@@ -671,7 +671,7 @@ export function DiscoveryForm({
           <span>
             {saved ? (
               <>
-                <Check size={15} />{" "}
+                <Check size={16} />{" "}
                 {demo ? "Preview settings saved locally" : "Settings saved"}
               </>
             ) : demo ? (
@@ -738,11 +738,11 @@ export function DiscoveryForm({
             target="_blank"
             rel="noreferrer"
           >
-            Provider documentation <ExternalLink size={13} />
+            Provider documentation <ExternalLink size={14} />
           </a>
         </section>
         <section className="research-note">
-          <ShieldCheck size={23} />
+          <ShieldCheck size={24} />
           <h3>
             Research on autopilot.
             <br />
@@ -755,7 +755,7 @@ export function DiscoveryForm({
           <p>Nothing is sent to a merchant from Scout.</p>
         </section>
         <Button variant="outline" onClick={onRun}>
-          Run saved configuration <ArrowRight size={15} />
+          Run saved configuration <ArrowRight size={16} />
         </Button>
       </aside>
     </div>

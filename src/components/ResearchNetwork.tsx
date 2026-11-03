@@ -72,11 +72,11 @@ class CoreBoundary extends Component<
 }
 function StatusIcon({ task }: { task: ResearchTask }) {
   return task.state === "completed" ? (
-    <Check size={12} />
+    <Check size={14} />
   ) : isIssueTask(task.state) ? (
-    <AlertCircle size={12} />
+    <AlertCircle size={14} />
   ) : task.state === "waiting" || task.state === "queued" ? (
-    <Clock3 size={12} />
+    <Clock3 size={14} />
   ) : (
     <span />
   );
@@ -320,13 +320,13 @@ export default function ResearchNetwork({
     >
       <div className="task-network-toolbar">
         <span>
-          <Network size={15} />
+          <Network size={16} />
           <strong>Run map</strong>
           <small>{modelView && !staticView ? "3D" : "2D"}</small>
         </span>
         <div>
           <button onClick={() => setPaused((p) => !p)} aria-pressed={paused}>
-            <span>{paused ? <Play size={13} /> : <Pause size={13} />}</span>
+            <span>{paused ? <Play size={14} /> : <Pause size={14} />}</span>
             {paused ? "Resume" : "Pause"}
           </button>
           <button
@@ -334,7 +334,7 @@ export default function ResearchNetwork({
             aria-pressed={follow}
             title="Keep the map on whatever Scout is doing now"
           >
-            <Focus size={13} />
+            <Focus size={14} />
             Follow live
           </button>
           {(modelView || flat) && (
@@ -445,14 +445,14 @@ export default function ResearchNetwork({
               disabled={staticView}
               onClick={() => setModelView(true)}
             >
-              <Network size={13} />
+              <Network size={14} />
               Neural model
             </button>
             <button
               aria-pressed={!modelView || staticView}
               onClick={() => setModelView(false)}
             >
-              <Layers size={13} />
+              <Layers size={14} />
               Task map <span>{tasks.length}</span>
             </button>
           </div>
@@ -558,7 +558,7 @@ export default function ResearchNetwork({
                   aria-disabled={preview}
                 >
                   {focus.url}
-                  <ArrowUpRight size={12} />
+                  <ArrowUpRight size={14} />
                 </a>
               )}
               {focus.stage === "measure" &&
@@ -708,7 +708,7 @@ export default function ResearchNetwork({
           )}
           <button className="task-evidence-link" onClick={onEvidence}>
             View evidence
-            <ArrowUpRight size={13} />
+            <ArrowUpRight size={14} />
           </button>
         </aside>
       </div>
@@ -720,7 +720,7 @@ export default function ResearchNetwork({
       )}
       {done && (
         <div className="task-completion">
-          <Check size={17} />
+          <Check size={16} />
           <div>
             <strong>Research finished</strong>
             <span>
@@ -733,7 +733,7 @@ export default function ResearchNetwork({
             <button onClick={onReport} disabled={preview}>
               <FileText size={14} />
               {preview ? "Sample report" : "Open finished report"}
-              <ArrowUpRight size={12} />
+              <ArrowUpRight size={14} />
             </button>
           )}
         </div>

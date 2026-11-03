@@ -55,11 +55,11 @@ const icons = {
 type Connection = { stage: WorkStage; path: string };
 function FlowStatus({ state }: { state: ResearchTask["state"] }) {
   return state === "completed" ? (
-    <Check size={13} />
+    <Check size={14} />
   ) : isIssueTask(state) ? (
-    <AlertCircle size={13} />
+    <AlertCircle size={14} />
   ) : state === "waiting" || state === "queued" ? (
-    <Clock3 size={13} />
+    <Clock3 size={14} />
   ) : (
     <i />
   );
@@ -96,7 +96,7 @@ function FlowResult({ task }: { task: ResearchTask }) {
     );
   return (
     <>
-      <ArrowUpRight size={15} />
+      <ArrowUpRight size={16} />
       <span>{task.state === "completed" ? "Result" : "Details"}</span>
     </>
   );
@@ -303,7 +303,7 @@ export default function TaskFlowMap({
     >
       <div className="flow-toolbar">
         <div>
-          <Route size={15} />
+          <Route size={16} />
           <strong>Research flow</strong>
           <span>{tasks.length} tasks</span>
         </div>
@@ -315,7 +315,7 @@ export default function TaskFlowMap({
             setExploring((v) => !v);
           }}
         >
-          {exploring ? <Pause size={13} /> : <Play size={13} />}
+          {exploring ? <Pause size={14} /> : <Play size={14} />}
           {exploring ? "Stop flow preview" : "Preview flow"}
         </button>
       </div>
@@ -331,7 +331,7 @@ export default function TaskFlowMap({
           />
           {query && (
             <button aria-label="Clear task search" onClick={() => setQuery("")}>
-              <X size={13} />
+              <X size={14} />
             </button>
           )}
         </label>
@@ -457,7 +457,7 @@ export default function TaskFlowMap({
                         )
                       }
                     >
-                      <ChevronDown size={15} />
+                      <ChevronDown size={16} />
                     </button>
                   </header>
                   {all.length > 0 && (
@@ -564,7 +564,7 @@ export default function TaskFlowMap({
                           <span>
                             {visible.length} of {matching.length} shown
                           </span>
-                          <ChevronDown size={13} />
+                          <ChevronDown size={14} />
                         </button>
                       )}
                       {(limits[stage.id] ?? 2) > 2 && (
@@ -575,7 +575,7 @@ export default function TaskFlowMap({
                           }
                         >
                           Show fewer tasks
-                          <ChevronDown size={12} />
+                          <ChevronDown size={14} />
                         </button>
                       )}
                     </div>

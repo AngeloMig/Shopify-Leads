@@ -399,7 +399,7 @@ export function AutomationPage({
                       disabled={busy}
                       onClick={() => onCancel(job)}
                     >
-                      <Square size={13} /> Stop
+                      <Square size={14} /> Stop
                     </Button>
                   </div>
                 </div>
@@ -485,7 +485,7 @@ export function AutomationPage({
                   disabled={busy}
                   onClick={() => setConfirmCancel(true)}
                 >
-                  <Square size={13} /> Cancel queued ({queued.length})
+                  <Square size={14} /> Cancel queued ({queued.length})
                 </Button>
               )}
               <Button
@@ -493,7 +493,7 @@ export function AutomationPage({
                 size="sm"
                 onClick={() => navigate("/jobs/sample")}
               >
-                <Play size={13} /> Sample
+                <Play size={14} /> Sample
               </Button>
               <Button
                 variant="ghost"
@@ -627,7 +627,7 @@ function TodayItem({
     <button onClick={onClick}>
       <strong>{value}</strong>
       <span>
-        {label} <ArrowRight size={12} />
+        {label} <ArrowRight size={14} />
       </span>
     </button>
   );
@@ -728,7 +728,7 @@ function JobRow({
           >
             <summary>What went wrong</summary>
             <p className="job-error">
-              <AlertCircle size={13} />
+              <AlertCircle size={14} />
               {job.error}
             </p>
           </details>
@@ -769,7 +769,7 @@ function JobRow({
             {cancelling ? (
               <LoaderCircle size={14} className="spin" />
             ) : (
-              <Square size={13} />
+              <Square size={14} />
             )}
             {cancelling ? "Cancelling…" : "Cancel"}
           </Button>

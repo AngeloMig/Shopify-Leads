@@ -107,7 +107,7 @@
   color: #e2f6ed;
 }
 .flow-find > div > button > span {
-  font-size: 10px;
+  font-size: 11px;
   color: #b3d0d1;
   font-variant-numeric: tabular-nums;
 }
@@ -192,7 +192,7 @@
 }
 .flow-core > strong > span {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 400;
   letter-spacing: 0;
   color: #b3d0d2;
@@ -207,7 +207,7 @@
 }
 .flow-core small {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.6;
   margin-top: 4px;
   color: #b2cdd0;
@@ -275,7 +275,7 @@
 }
 .flow-stage header small {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.6;
   color: #b3cdd0;
   margin-top: 3px;
@@ -378,14 +378,14 @@
 }
 .flow-task-main small {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
   color: #b7cfd2;
   margin-top: 3px;
 }
 .flow-task-resource {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
   color: #adcbd0;
   white-space: nowrap;
@@ -460,11 +460,11 @@
   font-variant-numeric: tabular-nums;
 }
 .flow-task-result > strong > small {
-  font-size: 9px;
+  font-size: 11px;
   color: #b1cbd0;
 }
 .flow-task-result > span {
-  font-size: 9px;
+  font-size: 11px;
 }
 .flow-task.selected .flow-task-result {
   border-color: #83bcae;
@@ -559,7 +559,7 @@
   gap: 8px 16px;
   padding: 12px 16px;
   border-top: 1px solid #2d4d57;
-  font-size: 10px;
+  font-size: 11px;
   color: #bad1d4;
 }
 .flow-legend > span {
@@ -599,7 +599,7 @@
 }
 .flow-show-more > span {
   color: #afcdd1;
-  font-size: 10px;
+  font-size: 11px;
   margin-left: auto;
 }
 .flow-empty {
@@ -658,7 +658,7 @@
     padding-bottom: 26px;
   }
   .flow-core > div:last-child {
-    font-size: 10px;
+    font-size: 11px;
     padding-left: 10px;
     flex: 1;
   }

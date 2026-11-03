@@ -83,7 +83,7 @@ export function buildAlerts(input: AlertInput): Alert[] {
       title: `${plural(input.failures.length, "job")} failed or blocked`,
       detail:
         input.failures[0].error?.slice(0, 200) ??
-        "Open Automation Jobs for details.",
+        "Open Automation jobs for details.",
       path:
         input.failures.length === 1 && input.failures[0].id
           ? `/jobs/${input.failures[0].id}`

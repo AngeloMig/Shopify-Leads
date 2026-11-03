@@ -350,7 +350,7 @@ export function ProspectPipeline({
         </div>
         <div className="pipeline-filters">
           <label className="search-input">
-            <Search size={15} />
+            <Search size={16} />
             <input
               aria-label="Search all leads"
               placeholder="Search every store, industry or email…"
@@ -668,7 +668,7 @@ export function ProspectPipeline({
                         onClick={() => onOpen(l)}
                       >
                         {i.next}
-                        <ArrowUpRight size={12} />
+                        <ArrowUpRight size={14} />
                       </button>
                       <button
                         className="text-button pipeline-report"
@@ -676,7 +676,7 @@ export function ProspectPipeline({
                         aria-label={`Download report for ${l.name}`}
                         onClick={() => onReport(l)}
                       >
-                        <FileText size={13} /> Report
+                        <FileText size={14} /> Report
                       </button>
                     </td>
                   </tr>
@@ -744,7 +744,7 @@ export function ProspectPipeline({
                 setSelected([]);
               }}
             >
-              <ChevronLeft size={15} />
+              <ChevronLeft size={16} />
             </Button>
             <span>
               {page + 1} / {pages}
@@ -759,7 +759,7 @@ export function ProspectPipeline({
                 setSelected([]);
               }}
             >
-              <ChevronRight size={15} />
+              <ChevronRight size={16} />
             </Button>
           </div>
         </div>

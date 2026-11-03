@@ -46,7 +46,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  Sparkles,
+  Wrench,
   Store,
   Target,
   TrendingUp,
@@ -95,14 +95,14 @@ const empty: Snapshot = {
 };
 const navigation = [
   { label: "Overview", path: "/", icon: LayoutDashboard },
-  { label: "Store Discovery", path: "/discovery", icon: Compass },
+  { label: "Store discovery", path: "/discovery", icon: Compass },
   { label: "Leads", path: "/leads", icon: Store },
-  { label: "Website Audits", path: "/audits", icon: Activity },
-  { label: "Website improvements", path: "/modernization", icon: Sparkles },
-  { label: "CRO Opportunities", path: "/cro", icon: MousePointer2 },
+  { label: "Website audits", path: "/audits", icon: Activity },
+  { label: "Website improvements", path: "/modernization", icon: Wrench },
+  { label: "CRO opportunities", path: "/cro", icon: MousePointer2 },
   { label: "Reports", path: "/reports", icon: FileText },
-  { label: "Automation Jobs", path: "/jobs", icon: Workflow },
-  { label: "Outreach Review", path: "/outreach", icon: ShieldCheck },
+  { label: "Automation jobs", path: "/jobs", icon: Workflow },
+  { label: "Outreach review", path: "/outreach", icon: ShieldCheck },
 ];
 // Lets the leads list load, with this workspace's saved filters, alongside the first snapshot.
 const workspaceKey = (user: string) => `scout-last-workspace:${user}`;
@@ -487,7 +487,7 @@ export default function App() {
       notify(
         result.already_queued
           ? "An audit for this store is already queued."
-          : "Re-audit queued. Track it in Automation Jobs.",
+          : "Re-audit queued. Track it in Automation jobs.",
       );
       await refresh();
     } catch (e) {
@@ -642,7 +642,7 @@ export default function App() {
             />
           </label>
           <Button type="submit">
-            Create workspace <ArrowRight size={15} />
+            Create workspace <ArrowRight size={16} />
           </Button>
           {toast && <p className="error-message">{toast}</p>}
         </form>
@@ -714,7 +714,7 @@ export default function App() {
                     ? "Research in progress"
                     : "Research workspace"}
               </strong>
-              <Workflow size={15} />
+              <Workflow size={16} />
             </div>
             <p>
               {demo
@@ -735,7 +735,7 @@ export default function App() {
           <button className="nav-item" onClick={() => setShowGuide(true)}>
             <LifeBuoy size={18} />
             Help & getting started
-            <ArrowUpRight size={13} />
+            <ArrowUpRight size={14} />
           </button>
           <div className="sidebar-profile">
             <span className="profile-avatar">
@@ -771,7 +771,7 @@ export default function App() {
               <Menu size={20} />
             </button>
             <span>Workspace</span>
-            <ChevronRight size={13} />
+            <ChevronRight size={14} />
             <strong>{page}</strong>
           </div>
           <div className="topbar-actions">
@@ -780,7 +780,7 @@ export default function App() {
               className="global-search"
               onClick={() => setShowSearch(true)}
             >
-              <Search size={15} />
+              <Search size={16} />
               <span>Search anything...</span>
               <kbd>⌘ K</kbd>
             </button>
@@ -817,7 +817,7 @@ export default function App() {
               </span>
             </span>
             <button onClick={() => switchMode(false)}>
-              Connect your workspace <ArrowRight size={13} />
+              Connect your workspace <ArrowRight size={14} />
             </button>
           </div>
         )}
@@ -873,7 +873,7 @@ export default function App() {
             <div className="page-actions">
               {location.pathname === "/" && (
                 <label className="period-select">
-                  <CalendarDays size={15} />
+                  <CalendarDays size={16} />
                   <select
                     aria-label="Chart date range"
                     value={period}
@@ -883,7 +883,7 @@ export default function App() {
                     <option value={28}>Last 28 days</option>
                     <option value={90}>Last 90 days</option>
                   </select>
-                  <ChevronDown size={13} />
+                  <ChevronDown size={14} />
                 </label>
               )}
               <Button onClick={() => setShowDiscovery(true)}>
@@ -941,7 +941,7 @@ export default function App() {
                   {
                     label: "Website improvements",
                     value: data.leads.filter(hasFrontendOpportunity).length,
-                    icon: Sparkles,
+                    icon: Wrench,
                     detail: "Supported by audit findings",
                     line: [8, 15, 11, 19, 26, 21, 32, 29, 43, 46],
                   },
@@ -1031,7 +1031,7 @@ export default function App() {
                       <Target size={20} />
                     </span>
                     <span>YOUR NEXT MOVE</span>
-                    <ArrowUpRight size={17} />
+                    <ArrowUpRight size={16} />
                   </div>
                   <h2>
                     Good prospects.
@@ -1057,7 +1057,7 @@ export default function App() {
                         </span>
                         <b>
                           {l.priority}
-                          <ArrowUpRight size={12} />
+                          <ArrowUpRight size={14} />
                         </b>
                       </button>
                     ))}
@@ -1075,7 +1075,7 @@ export default function App() {
                     className="focus-cta"
                     onClick={() => navigate("/leads")}
                   >
-                    Review prospects <ArrowRight size={15} />
+                    Review prospects <ArrowRight size={16} />
                   </button>
                 </section>
               </div>
@@ -1108,7 +1108,7 @@ export default function App() {
                   className="text-button"
                   onClick={() => navigate("/jobs")}
                 >
-                  View activity <ArrowRight size={13} />
+                  View activity <ArrowRight size={14} />
                 </button>
               </div>
             </>
@@ -1212,7 +1212,7 @@ export default function App() {
             <>
               <div className="summary-row">
                 <div>
-                  <Activity size={19} />
+                  <Activity size={18} />
                   <span>
                     <strong>{data.leads.length}</strong> completed storefront
                     audits
@@ -1244,7 +1244,7 @@ export default function App() {
           {location.pathname === "/modernization" && (
             <>
               <div className="scope-note">
-                <Sparkles size={20} />
+                <Wrench size={20} />
                 <div>
                   <strong>Website improvements need evidence.</strong>
                   <p>
@@ -1304,7 +1304,7 @@ export default function App() {
                   </p>
                 </div>
                 <span className="badge">
-                  <ShieldCheck size={12} />
+                  <ShieldCheck size={14} />
                   Private storage
                 </span>
               </div>
@@ -1319,7 +1319,7 @@ export default function App() {
                       <div>
                         <button onClick={() => setSelectedLead(l)}>
                           {l.name}
-                          <ArrowUpRight size={13} />
+                          <ArrowUpRight size={14} />
                         </button>
                         <p>
                           {l.domain} · {formatDate(l.audited_at)} ·{" "}
@@ -1401,11 +1401,11 @@ export default function App() {
           )}
           <footer className="page-footer">
             <span>
-              <Compass size={13} />
+              <Compass size={14} />
               Scout · Shopify Lead Intelligence
             </span>
             <span>
-              <ShieldCheck size={12} />
+              <ShieldCheck size={14} />
               Evidence first. Always.
             </span>
           </footer>
@@ -1521,7 +1521,7 @@ export default function App() {
             </div>
           ))}
           <div className="inline-note">
-            <ShieldCheck size={19} />
+            <ShieldCheck size={18} />
             Full setup and deployment instructions are included in the
             repository README.
           </div>
@@ -1562,7 +1562,7 @@ export default function App() {
                   setSelectedLead(l);
                 }}
               >
-                <Store size={17} />
+                <Store size={16} />
                 <span>
                   <strong>{l.name}</strong>
                   <small>{l.domain}</small>
@@ -1583,7 +1583,7 @@ export default function App() {
                     navigate(n.path);
                   }}
                 >
-                  <n.icon size={17} />
+                  <n.icon size={16} />
                   <strong>{n.label}</strong>
                   <ArrowRight size={14} />
                 </button>
@@ -1712,7 +1712,7 @@ export default function App() {
             aria-label="Dismiss notification"
             onClick={() => setToast("")}
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         </div>
       )}
@@ -1782,13 +1782,13 @@ function PipelineChart({
             axisLine={false}
             tickLine={false}
             minTickGap={30}
-            tick={{ fontSize: 10, fill: "var(--muted)" }}
+            tick={{ fontSize: 11, fill: "var(--muted)" }}
             dy={9}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 10, fill: "var(--muted)" }}
+            tick={{ fontSize: 11, fill: "var(--muted)" }}
             tickCount={5}
           />
           <Tooltip
@@ -1902,7 +1902,7 @@ function Auth({
             backed by evidence, not assumptions.
           </p>
           <span className="auth-footer">
-            <ShieldCheck size={15} />
+            <ShieldCheck size={16} />
             Research on autopilot. Outreach in your hands.
           </span>
         </div>
@@ -1966,7 +1966,7 @@ function Auth({
               <Button type="submit" disabled={busy}>
                 {busy ? <LoaderCircle className="spin" size={16} /> : null}
                 {signup ? "Create account" : "Sign in"}
-                <ArrowRight size={15} />
+                <ArrowRight size={16} />
               </Button>
               <button
                 type="button"

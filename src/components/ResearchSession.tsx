@@ -82,7 +82,7 @@ export function ResearchSession({
   busy: boolean;
   onAll: () => void;
   onReports: () => void;
-  /** "compact" is the map alone, for the main Automation Jobs page. */
+  /** "compact" is the map alone, for the main Automation jobs page. */
   mode?: "full" | "compact";
   sample?: Job["type"];
   onLead?: () => void;
@@ -330,11 +330,11 @@ export function ResearchSession({
       <header className="research-header">
         <div>
           <span className="research-mark">
-            <Compass size={19} />
+            <Compass size={18} />
           </span>
           <div>
             <button className="research-back" onClick={onAll}>
-              <ArrowLeft size={13} />
+              <ArrowLeft size={14} />
               All jobs
             </button>
             <h2>{preview ? "Sample run" : target.label}</h2>
@@ -353,7 +353,7 @@ export function ResearchSession({
                 size="sm"
                 onClick={() => startPreview("discovery")}
               >
-                <Play size={13} />
+                <Play size={14} />
                 Sample discovery
               </Button>
               <Button
@@ -361,7 +361,7 @@ export function ResearchSession({
                 size="sm"
                 onClick={() => startPreview("audit")}
               >
-                <Play size={13} />
+                <Play size={14} />
                 Sample audit
               </Button>
             </>
@@ -373,7 +373,7 @@ export function ResearchSession({
           )}
           {!preview && data?.report_id && (
             <Button size="sm" variant="outline" onClick={onReports}>
-              <FileText size={13} />
+              <FileText size={14} />
               View reports
             </Button>
           )}
@@ -384,7 +384,7 @@ export function ResearchSession({
               disabled={busy}
               onClick={() => onRetry(job)}
             >
-              <RefreshCw size={13} />
+              <RefreshCw size={14} />
               Resume
             </Button>
           )}
@@ -398,7 +398,7 @@ export function ResearchSession({
                 aria-label="Stop this job"
                 onClick={() => onCancel(job)}
               >
-                <Square size={12} />
+                <Square size={14} />
                 Stop job
               </Button>
             )}
@@ -423,7 +423,7 @@ export function ResearchSession({
                 setPlaying(!playing);
               }}
             >
-              {playing ? <Pause size={13} /> : <Play size={13} />}{" "}
+              {playing ? <Pause size={14} /> : <Play size={14} />}{" "}
               {playing ? "Pause" : terminal ? "Replay" : "Play"}
             </button>
             <button
@@ -438,7 +438,7 @@ export function ResearchSession({
               Next event
             </button>
             <button onClick={onAll} aria-label="Close sample run">
-              <X size={15} />
+              <X size={16} />
               <span>Back to jobs</span>
             </button>
           </div>
@@ -449,7 +449,7 @@ export function ResearchSession({
           <div className={`research-focus ${active ? "is-working" : ""}`}>
             <div className="research-focus-top">
               <span className="research-address">
-                <Globe2 size={13} />
+                <Globe2 size={14} />
                 {target.domain ??
                   (job?.type === "discovery"
                     ? "Campaign discovery"
@@ -562,7 +562,7 @@ export function ResearchSession({
           </div>
           {reportError && (
             <div className="research-update-error" role="alert">
-              <AlertCircle size={15} />
+              <AlertCircle size={16} />
               <span>{reportError}</span>
               <Button
                 size="sm"
@@ -575,7 +575,7 @@ export function ResearchSession({
           )}
           {error && (
             <div className="research-update-error" role="alert">
-              <AlertCircle size={15} />
+              <AlertCircle size={16} />
               <span>{error} · Showing the last recorded activity.</span>
               <Button
                 size="sm"
@@ -672,7 +672,7 @@ export function ResearchSession({
                     aria-pressed={follow}
                     onClick={() => setFollow(!follow)}
                   >
-                    {follow ? <Check size={12} /> : <ChevronDown size={12} />}
+                    {follow ? <Check size={14} /> : <ChevronDown size={14} />}
                     Follow live activity
                   </button>
                 )}
@@ -728,19 +728,19 @@ export function ResearchSession({
                       {e.task_state === "failed" ||
                       e.task_state === "retrying" ||
                       e.task_state === "interrupted" ? (
-                        <AlertCircle size={12} />
+                        <AlertCircle size={14} />
                       ) : e.task_state === "waiting" ||
                         e.task_state === "queued" ? (
-                        <Clock3 size={12} />
+                        <Clock3 size={14} />
                       ) : e.state === "completed" ||
                         e.task_state === "completed" ? (
-                        <Check size={12} />
+                        <Check size={14} />
                       ) : e.state === "started" &&
                         i === shown.length - 1 &&
                         active ? (
-                        <LoaderCircle size={12} />
+                        <LoaderCircle size={14} />
                       ) : e.state === "skipped" ? (
-                        <ArrowRight size={12} />
+                        <ArrowRight size={14} />
                       ) : (
                         <span />
                       )}
@@ -776,7 +776,7 @@ export function ResearchSession({
                           {new URL(e.url).pathname !== "/"
                             ? new URL(e.url).pathname
                             : ""}
-                          {!preview && <ArrowUpRight size={11} />}
+                          {!preview && <ArrowUpRight size={14} />}
                         </a>
                       )}
                       {typeof e.facts?.query === "string" && (
@@ -838,7 +838,7 @@ export function ResearchSession({
                         size="sm"
                         onClick={() => startPreview(job?.type ?? "audit")}
                       >
-                        <Play size={13} />
+                        <Play size={14} />
                         Play a sample run
                       </Button>
                     )}
@@ -847,11 +847,11 @@ export function ResearchSession({
                 {terminal && !focused && (
                   <div className={`research-terminal ${job?.status}`}>
                     {job?.status === "completed" ? (
-                      <Check size={15} />
+                      <Check size={16} />
                     ) : job?.status === "cancelled" ? (
-                      <Square size={15} />
+                      <Square size={16} />
                     ) : (
-                      <AlertCircle size={15} />
+                      <AlertCircle size={16} />
                     )}
                     <div>
                       <strong>
@@ -914,7 +914,7 @@ export function ResearchSession({
                           target="_blank"
                           rel="noreferrer"
                         >
-                          <Globe2 size={13} />
+                          <Globe2 size={14} />
                           <span>
                             {new URL(p.url).pathname || "Homepage"}
                             <small>{p.kind}</small>
@@ -922,7 +922,7 @@ export function ResearchSession({
                           <span className="research-http">
                             {p.status_code ?? "—"}
                           </span>
-                          {!preview && <ArrowUpRight size={12} />}
+                          {!preview && <ArrowUpRight size={14} />}
                         </a>
                       </li>
                     ))}
@@ -959,7 +959,7 @@ export function ResearchSession({
                       setPlaying(!playing);
                     }}
                   >
-                    {playing ? <Pause size={13} /> : <Play size={13} />}{" "}
+                    {playing ? <Pause size={14} /> : <Play size={14} />}{" "}
                     {playing
                       ? "Pause preview"
                       : terminal
@@ -980,7 +980,7 @@ export function ResearchSession({
               ) : job ? (
                 <>
                   <Button size="sm" variant="ghost" onClick={() => void copy()}>
-                    <Copy size={13} />
+                    <Copy size={14} />
                     {copied ? "Copied" : "Copy summary"}
                   </Button>
                   {publicActivityUrl(target.url) && (
@@ -991,7 +991,7 @@ export function ResearchSession({
                       rel="noreferrer"
                     >
                       Visit website
-                      <ExternalLink size={12} />
+                      <ExternalLink size={14} />
                     </a>
                   )}
                 </>

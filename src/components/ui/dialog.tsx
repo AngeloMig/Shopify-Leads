@@ -39,7 +39,7 @@ export function Dialog({
               className="icon-button"
               aria-label="Close dialog"
             >
-              <X size={19} />
+              <X size={18} />
             </DialogPrimitive.Close>
           </div>
           {children}

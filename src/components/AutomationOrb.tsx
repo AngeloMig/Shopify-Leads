@@ -3,7 +3,7 @@ import { targetFor } from "../../shared/job-activity";
 import type { Job } from "../../shared/types";
 
 const MiniCore = lazy(() => import("./MiniCore"));
-/** A small S.C.O.U.T. core, shown away from Automation Jobs while work is running. */
+/** A small S.C.O.U.T. core, shown away from Automation jobs while work is running. */
 export function AutomationOrb({
   jobs,
   onOpen,
@@ -19,7 +19,7 @@ export function AutomationOrb({
   return (
     <button
       className="automation-orb"
-      aria-label={`${summary}. ${detail}. Open Automation Jobs.`}
+      aria-label={`${summary}. ${detail}. Open Automation jobs.`}
       onClick={() => onOpen(job)}
     >
       <span className="automation-orb-label" aria-hidden="true">

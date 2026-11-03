@@ -75,7 +75,7 @@ function PublicContactRow({
           target="_blank"
           rel="noreferrer"
         >
-          Source page <ExternalLink size={12} />
+          Source page <ExternalLink size={14} />
         </a>
         <Button
           size="sm"
@@ -388,7 +388,7 @@ export function LeadDetail({
                 target="_blank"
                 rel="noreferrer"
               >
-                Public catalog <ExternalLink size={12} />
+                Public catalog <ExternalLink size={14} />
               </a>
             </p>
           )}
@@ -540,7 +540,7 @@ export function LeadDetail({
             onClick={() => onReport(lead)}
             disabled={!lead.report_id}
           >
-            <FileText size={15} />
+            <FileText size={16} />
             Download report
           </Button>
           <Button size="sm" variant="outline" onClick={() => onAudit(lead)}>
@@ -553,7 +553,7 @@ export function LeadDetail({
             target="_blank"
             rel="noreferrer"
           >
-            Visit storefront <ExternalLink size={13} />
+            Visit storefront <ExternalLink size={14} />
           </a>
         </div>
         <div className="detail-tabs" role="tablist">
@@ -715,7 +715,7 @@ export function LeadDetail({
                             rel="noreferrer"
                           >
                             {url}
-                            <ExternalLink size={11} />
+                            <ExternalLink size={14} />
                           </a>
                         ))}
                       </div>
@@ -846,7 +846,7 @@ export function LeadDetail({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    View archive record <ExternalLink size={12} />
+                    View archive record <ExternalLink size={14} />
                   </a>
                 ) : (
                   "Unavailable"
@@ -1005,9 +1005,9 @@ export function LeadDetail({
             </label>
             <Button type="submit" disabled={busy}>
               {busy ? (
-                <LoaderCircle className="spin" size={15} />
+                <LoaderCircle className="spin" size={16} />
               ) : (
-                <NotebookPen size={15} />
+                <NotebookPen size={16} />
               )}
               Save notes
             </Button>
@@ -1038,7 +1038,7 @@ export function LeadDetail({
                 {lead.contact_url ? (
                   <a href={lead.contact_url} target="_blank" rel="noreferrer">
                     {lead.contact_url}
-                    <ExternalLink size={12} />
+                    <ExternalLink size={14} />
                   </a>
                 ) : (
                   "Unknown — approval blocked"
@@ -1084,7 +1084,7 @@ export function LeadDetail({
                   void action(() => onReview(lead, "approved", rationale))
                 }
               >
-                <ShieldCheck size={15} />
+                <ShieldCheck size={16} />
                 Approve eligibility
               </Button>
               <Button
@@ -1103,7 +1103,7 @@ export function LeadDetail({
                 }
                 onClick={() => void action(() => onSuppress(lead, rationale))}
               >
-                <ShieldX size={15} />
+                <ShieldX size={16} />
                 Suppress domain
               </Button>
             </div>

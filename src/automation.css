@@ -235,7 +235,7 @@
   }
 }
 
-/* Running indicator: the Automation Jobs core, small, in the page corner. */
+/* Running indicator: the Automation jobs core, small, in the page corner. */
 .automation-orb {
   position: fixed;
   right: max(20px, env(safe-area-inset-right));
@@ -306,7 +306,7 @@
   }
 }
 
-/* Automation Jobs: status, then what needs you, then what's running, then history. */
+/* Automation jobs: status, then what needs you, then what's running, then history. */
 .auto-page {
   display: grid;
   gap: 14px;

@@ -10,7 +10,7 @@ const evidence = ["search", "store", "contact", "audit"].map((id) => ({
   label: id,
   ready: false,
 }));
-/** The same core as the Automation Jobs map, framed to fill a small canvas. */
+/** The same core as the Automation jobs map, framed to fill a small canvas. */
 export default function MiniCore({ state }: { state: CoreState }) {
   const [moving, setMoving] = useState(
     () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,

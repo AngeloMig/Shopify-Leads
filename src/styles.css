@@ -271,7 +271,7 @@ a {
   margin-left: -9px;
 }
 .product-tag {
-  font-size: 6px;
+  font-size: 11px;
   letter-spacing: 0.12em;
   font-weight: 600;
   margin: 15px 0 0 2px;
@@ -403,7 +403,7 @@ a {
   gap: 6px;
 }
 .automation-widget strong {
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 600;
   flex: 1;
 }
@@ -654,7 +654,7 @@ main {
   border-left: 1px solid var(--border);
 }
 .metric-label {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--muted);
   display: flex;
   gap: 8px;
@@ -747,7 +747,7 @@ main {
   padding-top: 5px;
 }
 .chart-legend > span {
-  font-size: 8.5px;
+  font-size: 11px;
   color: var(--muted);
   display: flex;
   align-items: center;
@@ -818,7 +818,7 @@ main {
   align-items: center;
   gap: 7px;
   color: var(--primary-dark);
-  font-size: 7.5px;
+  font-size: 11px;
   letter-spacing: 0.07em;
   font-weight: 600;
 }
@@ -880,7 +880,7 @@ main {
 }
 .focus-stack small {
   display: block;
-  font-size: 8.5px;
+  font-size: 11px;
   color: var(--muted);
   margin-top: 2px;
 }
@@ -966,7 +966,7 @@ main {
   border-radius: 2px 2px 0 0;
 }
 .table-tabs span {
-  font-size: 8px;
+  font-size: 11px;
   border-radius: 4px;
   padding: 1px 4px;
   background: oklch(0.246 0.011 200);
@@ -1144,7 +1144,7 @@ thead {
   border-bottom: 1px solid var(--border);
 }
 th {
-  font-size: 8.5px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--muted);
   padding: 12px 10px;
@@ -1193,7 +1193,7 @@ tbody tr.selected {
 }
 .brand-cell strong {
   display: block;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   max-width: 230px;
   overflow: hidden;
@@ -1321,7 +1321,7 @@ tbody tr.selected {
   align-items: center;
   gap: 5px;
   border-radius: 5px;
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 500;
   padding: 3px 5px;
   line-height: 1.25;
@@ -1333,11 +1333,11 @@ tbody tr.selected {
   width: 13px;
   height: 13px;
   border-radius: 3px;
-  font-size: 8px;
+  font-size: 11px;
   border: 1px solid currentColor;
 }
 .priority b {
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 600;
   margin-left: 1px;
 }
@@ -1418,7 +1418,7 @@ tbody tr.selected {
   justify-content: space-between;
   gap: 10px;
   padding: 23px 0 20px;
-  font-size: 8px;
+  font-size: 11px;
   color: var(--muted);
 }
 .page-footer > span {
@@ -2232,7 +2232,7 @@ tbody tr.selected {
   display: flex;
   gap: 10px;
   align-items: center;
-  font-size: 8px;
+  font-size: 11px;
   color: var(--muted);
   flex-wrap: wrap;
 }
@@ -2287,7 +2287,7 @@ tbody tr.selected {
   margin-top: 4px;
 }
 .finding small {
-  font-size: 8px;
+  font-size: 11px;
   color: var(--muted);
   display: block;
   margin-top: 10px;
@@ -3131,7 +3131,7 @@ tbody tr.selected {
     font-size: 29px;
   }
   .metric p {
-    font-size: 8px;
+    font-size: 11px;
   }
   .pipeline-summary {
     gap: 13px;
@@ -3139,10 +3139,10 @@ tbody tr.selected {
   }
   .pipeline-summary > div {
     gap: 4px;
-    font-size: 8px;
+    font-size: 11px;
   }
   .pipeline-summary button {
-    font-size: 8px;
+    font-size: 11px;
   }
   .pipeline-summary .summary-symbol {
     display: none;
@@ -3196,7 +3196,7 @@ tbody tr.selected {
     left: calc(50% + 97px);
   }
   .nav-item {
-    font-size: 10.5px;
+    font-size: 11px;
     gap: 9px;
   }
   .sidebar .logo {
@@ -3212,7 +3212,7 @@ tbody tr.selected {
     font-size: 11px;
   }
   .automation-widget p {
-    font-size: 8px;
+    font-size: 11px;
   }
   .sidebar-profile {
     padding-left: 3px;
@@ -3239,7 +3239,7 @@ tbody tr.selected {
     font-size: 11px;
   }
   .focus-stack small {
-    font-size: 8px;
+    font-size: 11px;
   }
   .pipeline-summary {
     flex-wrap: wrap;
@@ -3266,7 +3266,7 @@ tbody tr.selected {
     border-top: 1px solid var(--border);
   }
   .metric-label {
-    font-size: 10.5px;
+    font-size: 11px;
   }
   .metric-value {
     font-size: 31px;
@@ -3511,7 +3511,7 @@ tbody tr.selected {
     gap: 5px;
   }
   .demo-banner button {
-    font-size: 8px;
+    font-size: 11px;
   }
   .page-heading {
     display: block;
@@ -3560,7 +3560,7 @@ tbody tr.selected {
     margin-top: 14px;
   }
   .metric p {
-    font-size: 8px;
+    font-size: 11px;
     gap: 4px;
   }
   .sparkline {
@@ -3584,13 +3584,13 @@ tbody tr.selected {
     height: 208px;
   }
   .chart-legend {
-    font-size: 8px;
+    font-size: 11px;
     gap: 6px;
     align-items: flex-start;
     padding-top: 3px;
   }
   .chart-legend span {
-    font-size: 7.5px;
+    font-size: 11px;
   }
   .pipeline-summary {
     gap: 11px;
@@ -3599,10 +3599,10 @@ tbody tr.selected {
     justify-content: space-between;
   }
   .pipeline-summary button {
-    font-size: 8px;
+    font-size: 11px;
   }
   .pipeline-summary > div {
-    font-size: 7.5px;
+    font-size: 11px;
     gap: 4px;
   }
   .pipeline-summary strong {
@@ -3641,7 +3641,7 @@ tbody tr.selected {
     font-size: 11px;
   }
   .focus-stack small {
-    font-size: 7px;
+    font-size: 11px;
   }
   .focus-stack .brand-avatar {
     width: 25px;
@@ -3675,7 +3675,7 @@ tbody tr.selected {
     padding: 7px 8px;
   }
   .panel-heading .button svg {
-    width: 12px;
+    width: 14px;
   }
   .table-toolbar {
     display: block;
@@ -3705,10 +3705,10 @@ tbody tr.selected {
   }
   .table-footer {
     padding: 13px 17px;
-    font-size: 8px;
+    font-size: 11px;
   }
   .table-footer .text-button {
-    font-size: 8px;
+    font-size: 11px;
   }
   .filter-row {
     padding: 13px 17px;
@@ -3734,13 +3734,13 @@ tbody tr.selected {
     margin-top: 20px;
   }
   .overview-bottom .text-button {
-    font-size: 8px;
+    font-size: 11px;
   }
   .page-footer {
-    font-size: 7px;
+    font-size: 11px;
   }
   .page-footer svg {
-    width: 11px;
+    width: 14px;
   }
   .settings-aside {
     display: flex;
@@ -3860,14 +3860,14 @@ tbody tr.selected {
     align-items: flex-start;
   }
   .job-main .badge {
-    font-size: 8px;
+    font-size: 11px;
     max-width: 100px;
   }
   .job-main > p {
-    font-size: 8px;
+    font-size: 11px;
   }
   .job-times {
-    font-size: 8px;
+    font-size: 11px;
   }
   .job-filters {
     padding: 0 17px 17px;
@@ -3908,7 +3908,7 @@ tbody tr.selected {
     align-items: flex-start;
   }
   .detail-top > .priority {
-    font-size: 8px;
+    font-size: 11px;
     margin-top: 2px;
   }
   .detail-top > .priority b {
@@ -3923,17 +3923,17 @@ tbody tr.selected {
     font-size: 23px;
   }
   .detail-tags {
-    font-size: 8px;
+    font-size: 11px;
     gap: 5px;
     align-items: start;
     flex-direction: column;
   }
   .verified-label {
-    font-size: 8px;
+    font-size: 11px;
     gap: 4px;
   }
   .verified-label svg {
-    width: 11px;
+    width: 14px;
   }
   .sample-note {
     padding: 10px 18px;
@@ -3986,10 +3986,10 @@ tbody tr.selected {
     height: 24px;
   }
   .finding-icon svg {
-    width: 15px;
+    width: 16px;
   }
   .finding-meta {
-    font-size: 7px;
+    font-size: 11px;
     gap: 5px;
   }
   .finding h4 {
@@ -4001,18 +4001,18 @@ tbody tr.selected {
     font-size: 11px;
   }
   .finding a {
-    font-size: 8px;
+    font-size: 11px;
     word-break: break-all;
   }
   .finding small {
-    font-size: 7px;
+    font-size: 11px;
   }
   .review-facts {
     grid-template-columns: 1fr;
     gap: 16px;
   }
   .detail-footer {
-    font-size: 8px;
+    font-size: 11px;
     line-height: 1.6;
     padding: 12px 15px;
   }
@@ -4076,7 +4076,7 @@ tbody tr.selected {
     line-height: 1.8;
   }
   .auth-intro-label {
-    font-size: 8px;
+    font-size: 11px;
   }
   .auth-footer {
     display: none;

@@ -48,7 +48,7 @@ export function PageSpeedAudit({
             aria-pressed={device === "mobile"}
             onClick={() => setDevice("mobile")}
           >
-            <Smartphone size={15} />
+            <Smartphone size={16} />
             Mobile
           </button>
           <button
@@ -56,7 +56,7 @@ export function PageSpeedAudit({
             aria-pressed={device === "desktop"}
             onClick={() => setDevice("desktop")}
           >
-            <Monitor size={15} />
+            <Monitor size={16} />
             Desktop
           </button>
         </div>
