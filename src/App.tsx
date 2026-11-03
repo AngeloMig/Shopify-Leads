@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -60,6 +55,8 @@ import { hasFrontendOpportunity } from "../shared/lead-intelligence";
 import { demoAlerts, demoSnapshot } from "./demo";
 import { AutomationOrb } from "./components/AutomationOrb";
 import { AutomationPage } from "./components/AutomationPage";
+import { OutreachReview } from "./components/OutreachReview";
+import { leadScoreFor } from "../shared/lead-score";
 import type { AlertFeed } from "../shared/alerts";
 import { api, supabase, number, formatDate, downloadBlob } from "./lib";
 import {
@@ -130,6 +127,10 @@ export default function App() {
     [workspaceName, setWorkspaceName] = useState(""),
     [integrations, setIntegrations] = useState<Record<string, boolean>>({}),
     [selectedLead, setSelectedLead] = useState<Lead | null>(null),
+    [reviewQueue, setReviewQueue] = useState<{
+      ids: string[];
+      start: string;
+    } | null>(null),
     [toast, setToast] = useState(""),
     [showDiscovery, setShowDiscovery] = useState(false),
     [showGuide, setShowGuide] = useState(false),
@@ -348,6 +349,19 @@ export default function App() {
       setSelectedLead(await api<Lead>(`/leads/${lead.id}`));
     }
     notify(demo ? "Sample prospect updated locally." : "Prospect updated.");
+  }
+  /** The strongest leads come first; the queue stays fixed while decisions land. */
+  function openReview(lead: Lead, list: Lead[] = [lead]) {
+    setSelectedLead(null);
+    setReviewQueue({
+      ids: [...list]
+        .sort(
+          (a, b) =>
+            leadScoreFor(b).researchScore - leadScoreFor(a).researchScore,
+        )
+        .map((l) => l.id),
+      start: lead.id,
+    });
   }
   async function review(
     lead: Lead,
@@ -1349,10 +1363,11 @@ export default function App() {
               </div>
               <LeadTable
                 leads={pending}
-                onOpen={setSelectedLead}
+                onOpen={(lead) => openReview(lead, pending)}
                 onReport={(l) => void report(l)}
+                rowAction="Review"
                 title="Awaiting human review"
-                description="Open a prospect and select Outreach review to record an eligibility decision."
+                description="Review a store to approve it for outreach or mark it not eligible."
               />
             </>
           )}
@@ -1374,10 +1389,25 @@ export default function App() {
         onReport={(l) => void report(l)}
         onAudit={(l) => void audit(l)}
         onUpdate={updateLead}
-        onReview={review}
-        onSuppress={suppress}
+        onOpenReview={(lead) => openReview(lead)}
         demo={demo}
       />
+      {reviewQueue && (
+        <OutreachReview
+          key={reviewQueue.ids.join()}
+          leads={data.leads}
+          queue={reviewQueue.ids}
+          startId={reviewQueue.start}
+          demo={demo}
+          onReview={review}
+          onSuppress={suppress}
+          onOpenFull={(lead) => {
+            setReviewQueue(null);
+            setSelectedLead(lead);
+          }}
+          onClose={() => setReviewQueue(null)}
+        />
+      )}
       <Dialog
         open={showDiscovery}
         onOpenChange={setShowDiscovery}

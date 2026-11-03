@@ -84,6 +84,7 @@ export function LeadTable({
   onOpen,
   onReport,
   compact = false,
+  rowAction,
   title = "Research pipeline",
   description = "Evidence-backed opportunities, ready for a closer look.",
   initialSearch = "",
@@ -92,6 +93,8 @@ export function LeadTable({
   onOpen: (lead: Lead) => void;
   onReport: (lead: Lead) => void;
   compact?: boolean;
+  /** Adds a labelled button beside the store name that opens the row. */
+  rowAction?: string;
   title?: string;
   description?: string;
   initialSearch?: string;
@@ -352,6 +355,7 @@ export function LeadTable({
                   Brand <ArrowUpDown size={12} />
                 </button>
               </th>
+              {rowAction && <th aria-label={rowAction} />}
               <th>Public email</th>
               <th>Country</th>
               <th>Industry</th>
@@ -410,6 +414,18 @@ export function LeadTable({
                     </span>
                   </button>
                 </td>
+                {rowAction && (
+                  <td>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-label={`${rowAction} ${lead.name}`}
+                      onClick={() => onOpen(lead)}
+                    >
+                      {rowAction}
+                    </Button>
+                  </td>
+                )}
                 <td>
                   {lead.emails?.length ? (
                     <div className="email-cell">

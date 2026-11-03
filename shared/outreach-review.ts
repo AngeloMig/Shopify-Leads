@@ -1,0 +1,138 @@
+import { mailStatus, rankedEmails } from "./lead-intelligence.js";
+import { countryNames, type Lead } from "./types.js";
+
+/** The same limits the permission and suppress routes enforce. */
+export const minRationale = 20;
+export const minSuppressReason = 3;
+export type ReviewCheck = {
+  id: "country" | "contact" | "email" | "platform" | "suppression";
+  label: string;
+  status: "pass" | "warn" | "blocked" | "unknown";
+  detail: string;
+  url?: string;
+};
+type ReviewLead = Pick<
+  Lead,
+  | "country"
+  | "country_evidence"
+  | "contact_url"
+  | "emails"
+  | "preferred_email"
+  | "mail_checks"
+  | "shopify_verified"
+  | "suppressed"
+>;
+function emailCheck(lead: ReviewLead): ReviewCheck {
+  const check = { id: "email", label: "Public email" } as const;
+  const best = rankedEmails(
+    lead.emails,
+    lead.preferred_email,
+    lead.mail_checks,
+  )[0];
+  if (!best)
+    return {
+      ...check,
+      status: "warn",
+      detail: "None found. Use the contact page.",
+    };
+  const status = mailStatus(best.email, lead.mail_checks);
+  return status === "none"
+    ? {
+        ...check,
+        status: "warn",
+        detail: `${best.email} · domain takes no mail`,
+        url: best.source_url,
+      }
+    : {
+        ...check,
+        status: status === "ok" ? "pass" : "unknown",
+        detail: `${best.email} · ${status === "ok" ? "domain takes mail" : "mail domain not checked"}`,
+        url: best.source_url,
+      };
+}
+/** What a reviewer needs to see. Only "blocked" stops an approval. */
+export function reviewChecks(lead: ReviewLead): ReviewCheck[] {
+  return [
+    lead.country && lead.country_evidence
+      ? {
+          id: "country",
+          label: `Country: ${countryNames[lead.country]}`,
+          status: "pass",
+          detail: lead.country_evidence,
+        }
+      : {
+          id: "country",
+          label: "Country",
+          status: "blocked",
+          detail: "No country evidence. Re-audit the store to look for it.",
+        },
+    lead.contact_url
+      ? {
+          id: "contact",
+          label: "Contact page",
+          status: "pass",
+          detail: lead.contact_url,
+          url: lead.contact_url,
+        }
+      : {
+          id: "contact",
+          label: "Contact page",
+          status: "blocked",
+          detail: "No public contact page found.",
+        },
+    emailCheck(lead),
+    lead.shopify_verified
+      ? {
+          id: "platform",
+          label: "Shopify store",
+          status: "pass",
+          detail: "Confirmed from public evidence.",
+        }
+      : {
+          id: "platform",
+          label: "Shopify store",
+          status: "warn",
+          detail: "Not confirmed.",
+        },
+    lead.suppressed
+      ? {
+          id: "suppression",
+          label: "Do-not-contact list",
+          status: "blocked",
+          detail: "This store is on the list.",
+        }
+      : {
+          id: "suppression",
+          label: "Do-not-contact list",
+          status: "pass",
+          detail: "Not on the list.",
+        },
+  ];
+}
+/** Everything still stopping an approval, in plain words. Empty means it can go. */
+export function approvalNeeds(lead: ReviewLead, rationale: string): string[] {
+  const missing = minRationale - rationale.trim().length;
+  return [
+    ...(lead.suppressed ? ["remove it from the do-not-contact list"] : []),
+    ...(!lead.country || !lead.country_evidence ? ["country evidence"] : []),
+    ...(!lead.contact_url ? ["a public contact page"] : []),
+    ...(missing > 0
+      ? [
+          `${missing} more ${missing === 1 ? "character" : "characters"} in your reason`,
+        ]
+      : []),
+  ];
+}
+/** The next lead still open after this one, wrapping round; null when none are left. */
+export function nextInQueue(
+  queue: string[],
+  current: string,
+  isOpen: (id: string) => boolean,
+) {
+  const start = queue.indexOf(current);
+  for (let step = 1; step < queue.length; step++) {
+    const id = queue[(start + step) % queue.length];
+    if (isOpen(id)) return id;
+  }
+  return null;
+}
