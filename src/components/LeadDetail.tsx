@@ -12,7 +12,6 @@ import {
   NotebookPen,
   Mail,
   LoaderCircle,
-  ShieldX,
 } from "lucide-react";
 import type { Lead, PsiSample, PublicEmail } from "../../shared/types";
 import { comparableRuns, reportIssues } from "../../shared/audit-presentation";
@@ -30,6 +29,7 @@ import { Dialog } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Priority, flags } from "./LeadTable";
 import { PageSpeedAudit, type ScoreDevice } from "./PageSpeedAudit";
+import { LeadPlan } from "./LeadPlan";
 function PublicContactRow({
   contact,
   mail,
@@ -61,10 +61,7 @@ function PublicContactRow({
             </span>
           )}
           {status === "none" && (
-            <span className="contact-mail-none">
-              {" "}
-              · Domain takes no mail
-            </span>
+            <span className="contact-mail-none"> · Domain takes no mail</span>
           )}
         </span>
       </div>
@@ -95,8 +92,7 @@ export function LeadDetail({
   onReport,
   onAudit,
   onUpdate,
-  onReview,
-  onSuppress,
+  onOpenReview,
   demo,
 }: {
   lead: Lead | null;
@@ -104,20 +100,14 @@ export function LeadDetail({
   onReport: (l: Lead) => void;
   onAudit: (l: Lead) => void;
   onUpdate: (l: Lead, patch: Partial<Lead>) => Promise<void>;
-  onReview: (
-    l: Lead,
-    status: "approved" | "rejected",
-    rationale: string,
-  ) => Promise<void>;
-  onSuppress: (l: Lead, reason: string) => Promise<void>;
+  onOpenReview: (l: Lead) => void;
   demo: boolean;
 }) {
-  const [tab, setTab] = useState("findings"),
+  const [tab, setTab] = useState("plan"),
     [notes, setNotes] = useState(""),
     [owner, setOwner] = useState(""),
     [businessName, setBusinessName] = useState(""),
     [industry, setIndustry] = useState("Unknown"),
-    [rationale, setRationale] = useState(""),
     [lostReason, setLostReason] =
       useState<(typeof lostReasons)[number]>("No response"),
     [busy, setBusy] = useState(false),
@@ -164,12 +154,11 @@ export function LeadDetail({
     };
   }, [listed?.id, listed?.audited_at, demo, evidenceAttempt]);
   useEffect(() => {
-    setTab("findings");
+    setTab("plan");
     setNotes(lead?.notes ?? "");
     setOwner(lead?.owner ?? "");
     setBusinessName(lead?.name ?? "");
     setIndustry(lead?.industry ?? "Unknown");
-    setRationale("");
     setError("");
     setArtifacts(null);
     setHistory([]);
@@ -300,12 +289,9 @@ export function LeadDetail({
                   variant="outline"
                   onClick={() => {
                     if (intelligence.stale) onAudit(lead);
-                    else
-                      setTab(
-                        intelligence.next === "Review findings"
-                          ? "findings"
-                          : "review",
-                      );
+                    else if (intelligence.next === "Review findings")
+                      setTab("findings");
+                    else onOpenReview(lead);
                   }}
                   disabled={lead.suppressed || busy}
                 >
@@ -528,12 +514,6 @@ export function LeadDetail({
             </p>
           )}
         </section>
-        <PageSpeedAudit
-          key={lead.id}
-          mobile={scoreDevice("mobile")}
-          desktop={scoreDevice("desktop")}
-          pending={!demo && !artifacts && !historyError}
-        />
         <div className="detail-actions">
           <Button
             size="sm"
@@ -547,6 +527,14 @@ export function LeadDetail({
             <RefreshCw size={14} />
             Re-audit store
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onOpenReview(lead)}
+          >
+            <ShieldCheck size={14} />
+            Outreach review
+          </Button>
           <a
             className="button button-ghost button-sm"
             href={`https://${lead.domain}`}
@@ -558,10 +546,10 @@ export function LeadDetail({
         </div>
         <div className="detail-tabs" role="tablist">
           {[
+            ["plan", "Plan & script"],
             ["findings", "Audit evidence"],
             ["history", "History & assets"],
             ["notes", "Profile & notes"],
-            ["review", "Outreach review"],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -570,7 +558,7 @@ export function LeadDetail({
               aria-controls={`lead-panel-${id}`}
               tabIndex={tab === id ? 0 : -1}
               onKeyDown={(e) => {
-                const keys = ["findings", "history", "notes", "review"];
+                const keys = ["plan", "findings", "history", "notes"];
                 const index = keys.indexOf(id);
                 const next =
                   e.key === "ArrowRight"
@@ -600,6 +588,22 @@ export function LeadDetail({
             </button>
           ))}
         </div>
+        {tab === "plan" && (
+          <LeadPlan
+            lead={lead}
+            onOpenReview={onOpenReview}
+            evidenceError={evidenceError}
+            onRetryEvidence={() => setEvidenceAttempt((n) => n + 1)}
+          />
+        )}
+        {tab === "findings" && (
+          <PageSpeedAudit
+            key={lead.id}
+            mobile={scoreDevice("mobile")}
+            desktop={scoreDevice("desktop")}
+            pending={!demo && !artifacts && !historyError}
+          />
+        )}
         {tab === "findings" && (
           <div
             className="findings-list"
@@ -1012,102 +1016,6 @@ export function LeadDetail({
               Save notes
             </Button>
           </form>
-        )}
-        {tab === "review" && (
-          <div
-            className="detail-section"
-            role="tabpanel"
-            id="lead-panel-review"
-            aria-labelledby="lead-tab-review"
-          >
-            <div className="inline-note">
-              <ShieldCheck size={20} />
-              <span>
-                Human review is required. A published contact route alone does
-                not authorize marketing. Approval expires after 30 days. Scout
-                does not send outreach.
-              </span>
-            </div>
-            <div className="review-facts">
-              <p>
-                <strong>Country evidence</strong>
-                {lead.country_evidence ?? "Unknown — approval blocked"}
-              </p>
-              <p>
-                <strong>Professional contact route</strong>
-                {lead.contact_url ? (
-                  <a href={lead.contact_url} target="_blank" rel="noreferrer">
-                    {lead.contact_url}
-                    <ExternalLink size={14} />
-                  </a>
-                ) : (
-                  "Unknown — approval blocked"
-                )}
-              </p>
-              <p>
-                <strong>Permission review</strong>
-                <span
-                  className={`badge ${lead.permission === "approved" ? "green" : ""}`}
-                >
-                  {lead.permission}
-                </span>
-              </p>
-              <p>
-                <strong>Suppression</strong>
-                {lead.suppressed
-                  ? "Suppressed — outreach blocked"
-                  : "No suppression record"}
-              </p>
-            </div>
-            <label className="field-label">
-              Country-specific eligibility & review rationale
-              <textarea
-                required
-                rows={4}
-                minLength={20}
-                maxLength={2000}
-                placeholder="Document the applicable basis, contact relevance, and permission evidence (at least 20 characters)."
-                value={rationale}
-                onChange={(e) => setRationale(e.target.value)}
-              />
-            </label>
-            <div className="detail-actions">
-              <Button
-                disabled={
-                  busy ||
-                  rationale.trim().length < 20 ||
-                  !lead.country_evidence ||
-                  !lead.contact_url ||
-                  lead.suppressed
-                }
-                onClick={() =>
-                  void action(() => onReview(lead, "approved", rationale))
-                }
-              >
-                <ShieldCheck size={16} />
-                Approve eligibility
-              </Button>
-              <Button
-                variant="outline"
-                disabled={busy || rationale.trim().length < 20}
-                onClick={() =>
-                  void action(() => onReview(lead, "rejected", rationale))
-                }
-              >
-                Reject eligibility
-              </Button>
-              <Button
-                variant="danger"
-                disabled={
-                  busy || rationale.trim().length < 3 || lead.suppressed
-                }
-                onClick={() => void action(() => onSuppress(lead, rationale))}
-              >
-                <ShieldX size={16} />
-                Suppress domain
-              </Button>
-            </div>
-          </div>
         )}
         {error && (
           <div className="error-message" role="alert">

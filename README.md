@@ -91,6 +91,10 @@ Active Shopify stores with unverified countries enter a pending review queue. An
 
 The Jobs and Settings screens show worker heartbeat status and daily discovery/audit request counts. Separate category limits and the shared total apply workspace-wide and reset at midnight UTC. Budget-blocked jobs wait until the next UTC day without exhausting attempts. For an existing always-on server, see [worker deployment](docs/WORKER_DEPLOYMENT.md) and `compose.worker.yaml`; a prepared deployment configuration is not evidence of a deployed worker.
 
+## Outreach review
+
+Review opens one store at a time: the checks and their sources on the left, the decision on the right, strongest leads first, moving to the next lead after each decision. A line always says what's still needed before approval. Approval still requires a written reason of at least 20 characters, country evidence, a public contact page and no do-not-contact record, and it lasts 30 days. Scout records the decision and sends nothing.
+
 ## Automation Jobs
 
 The page leads with one status line (what Scout is doing and what to do next), then anything that needs attention, what's running with a live map, today's numbers, all jobs, and schedules. Each job has its own page at `/jobs/<id>` with the full map, activity and evidence; `/jobs/sample` plays a fictional run that starts no work. While a job runs, a small S.C.O.U.T. core sits in the corner of every other page and opens that job.

@@ -220,6 +220,15 @@ export function ProspectPipeline({
         ),
     [leads, filters],
   );
+  const filtered =
+    filters.view !== "all" ||
+    filters.country !== "all" ||
+    filters.stage !== "all" ||
+    !!search.trim();
+  function clearFilters() {
+    setSearch("");
+    change({ view: "all", country: "all", stage: "all", q: "" });
+  }
   const count = live ? total : local.length,
     visible = live ? rows : local.slice(page * size, (page + 1) * size),
     pages = Math.max(1, Math.ceil(count / size));
@@ -308,7 +317,7 @@ export function ProspectPipeline({
             <span className="pipeline-count" aria-live="polite">
               {loading && !visible.length
                 ? "Loading…"
-                : `${count} ${count === 1 ? "store" : "stores"}`}
+                : `${count} ${count === 1 ? "store" : "stores"}${loading ? " · updating" : ""}`}
             </span>
           </div>
           <div className="pipeline-utilities">
@@ -393,10 +402,18 @@ export function ProspectPipeline({
             <option value="all">All stages</option>
             {["new", "reviewing", "qualified", "hold", "suppressed"].map(
               (x) => (
-                <option key={x}>{x}</option>
+                <option key={x} value={x}>
+                  {x[0].toUpperCase() + x.slice(1)}
+                </option>
               ),
             )}
           </select>
+          {filtered && (
+            <Button size="sm" variant="ghost" onClick={clearFilters}>
+              <X size={14} />
+              Clear filters
+            </Button>
+          )}
         </div>
         <div className="pipeline-list-options">
           <details className="saved-views">
@@ -479,7 +496,14 @@ export function ProspectPipeline({
             </Button>
           </div>
         )}
-        <div className="table-scroll" aria-busy={loading}>
+        <div
+          className={`pipeline-progress ${loading ? "on" : ""}`}
+          aria-hidden="true"
+        />
+        <div
+          className={`table-scroll ${loading && visible.length ? "is-refreshing" : ""}`}
+          aria-busy={loading}
+        >
           <table className="prospect-table">
             <thead>
               <tr>
