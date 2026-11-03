@@ -320,9 +320,9 @@ export const semanticColor = (state: string) =>
     : state === "retrying" || state === "attention"
       ? "#efc27f"
       : state === "completed"
-        ? "#79d6ba"
+        ? "#e2bb6c"
         : state === "waiting"
-          ? "#a7d3da"
+          ? "#dec799"
           : state === "active" || isWorkingTask(state as ResearchTask["state"])
-            ? "#a2ffe2"
-            : "#648d98";
+            ? "#ffe494"
+            : "#988257";

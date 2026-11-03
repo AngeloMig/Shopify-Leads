@@ -101,10 +101,10 @@ void main() {
   // Light thrown off the spinning core falls on the neurons around it.
   float spill = coreLight * exp(-dot(vPosition, vPosition) / 1.1);
 
-  vec3 base = mix(vec3(0.25, 0.48, 0.53), vec3(0.43, 0.79, 0.70), regionMatch);
-  vec3 signal = mix(vec3(0.67, 1.0, 0.86), vec3(0.37, 0.80, 0.94), exploration);
-  signal = mix(signal, vec3(0.5, 0.95, 0.72), shock);
-  vec3 fire = vec3(0.55, 0.95, 0.85);
+  vec3 base = mix(vec3(0.42, 0.38, 0.30), vec3(0.80, 0.67, 0.40), regionMatch);
+  vec3 signal = mix(vec3(0.98, 0.92, 0.78), vec3(0.88, 0.72, 0.40), exploration);
+  signal = mix(signal, vec3(0.95, 0.80, 0.48), shock);
+  vec3 fire = vec3(0.96, 0.86, 0.62);
   float alpha = mix(mix(0.13, 0.045, density), mix(0.7, 0.48, density), points) * emphasis;
   if (points > 0.5) {
     float radius = length(gl_PointCoord - vec2(0.5)) * 2.0;
@@ -167,7 +167,7 @@ void main() {
   // A long swell so the water feels deep rather than busy.
   float swell = 0.5 + 0.5 * sin(p.x * 1.4 + p.y * 0.8 + t * 0.6);
   float mask = 1.0 - smoothstep(0.35, 1.05, length(p * vec2(0.8, 1.0)));
-  vec3 teal = vec3(0.45, 0.85, 0.82), blue = vec3(0.42, 0.62, 0.95);
+  vec3 teal = vec3(0.85, 0.70, 0.42), blue = vec3(0.62, 0.58, 0.50);
   vec3 color = mix(teal, blue, 0.5 + 0.5 * sin(t * 0.8 + p.x * 1.2 - p.y));
   color = mix(color, blue, poolB * 0.6);
   float alpha = light * 0.07 + swell * 0.02 + poolA * 0.05 + poolB * 0.045 + ripple * 0.08;
@@ -270,7 +270,7 @@ export default function NeuralAtmosphere({
               coreLight: { value: 0 },
               bootAge: { value: 99 },
               shock: { value: 0 },
-              coreColor: { value: new Color("#83ffe0") },
+              coreColor: { value: new Color("#ffdd79") },
               bursts: {
                 value: Array.from(
                   { length: burstSlots },
@@ -305,7 +305,7 @@ export default function NeuralAtmosphere({
   const glow = useMemo(
     () =>
       new ShaderMaterial({
-        uniforms: { color: { value: new Color("#67d9bd") } },
+        uniforms: { color: { value: new Color("#e7ba5c") } },
         vertexShader: glowVertex,
         fragmentShader: glowFragment,
         transparent: true,

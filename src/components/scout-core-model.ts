@@ -3,6 +3,11 @@ import type { ResearchTask } from "../../shared/research-tasks";
 
 export const corePalettes = [
   {
+    id: "gold",
+    name: "Gold leaf",
+    colors: ["#e0b75c", "#f3eee2", "#fff8e8"],
+  },
+  {
     id: "polar",
     name: "Polar current",
     colors: ["#83ffe0", "#72a8ff", "#e3fff6"],
@@ -20,13 +25,13 @@ export const corePalettes = [
 ] as const;
 export type CorePalette = (typeof corePalettes)[number]["id"];
 export const coreStates = {
-  ready: { label: "Ready", color: "#a7c4d0" },
-  discover: { label: "Discovering", color: "#68f0c0" },
-  verify: { label: "Verifying", color: "#65daf4" },
-  audit: { label: "Auditing", color: "#7fa9ff" },
-  inspect: { label: "Inspecting", color: "#c5a3ff" },
+  ready: { label: "Ready", color: "#d3bc8e" },
+  discover: { label: "Discovering", color: "#fbcc67" },
+  verify: { label: "Verifying", color: "#edc164" },
+  audit: { label: "Auditing", color: "#f3eee2" },
+  inspect: { label: "Inspecting", color: "#c9a86a" },
   report: { label: "Building report", color: "#ffd08a" },
-  waiting: { label: "Waiting for response", color: "#b2cbe3" },
+  waiting: { label: "Waiting for response", color: "#dcc597" },
   retry: { label: "Retrying", color: "#ffb564" },
   attention: { label: "Needs attention", color: "#ff8c81" },
   complete: { label: "Complete", color: "#68e6b0" },

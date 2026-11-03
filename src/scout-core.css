@@ -5,8 +5,8 @@
   gap: 14px 20px;
   margin: 8px 0 16px;
   padding: 14px 0;
-  border-block: 1px solid #436064;
-  color: #d8e9e7;
+  border-block: 1px solid oklch(0.468 0.004 84);
+  color: oklch(0.921 0.006 84);
   font-size: 11px;
 }
 .scout-core-state {
@@ -28,7 +28,7 @@
   font-size: 12px;
 }
 .scout-core-state small {
-  color: #aec7c8;
+  color: oklch(0.811 0.006 84);
   flex-basis: 100%;
   padding-left: 15px;
   font-size: 11px;
@@ -40,9 +40,9 @@
 }
 .scout-core-status select {
   font: inherit;
-  color: #e6f5f0;
-  background: #213b40;
-  border: 1px solid #577175;
+  color: oklch(0.958 0.006 84);
+  background: oklch(0.334 0.004 84);
+  border: 1px solid oklch(0.530 0.066 84);
   border-radius: 6px;
   padding: 6px 9px;
   max-width: 155px;
@@ -59,19 +59,19 @@
   gap: 5px;
   border: 0;
   background: none;
-  color: #aec7c8;
+  color: oklch(0.811 0.006 84);
   padding: 4px 0;
   font: inherit;
   cursor: pointer;
 }
 .scout-core-evidence button.ready {
-  color: #a2ffe2;
+  color: oklch(0.934 0.108 84);
 }
 .scout-core-evidence button:hover {
-  color: #fff;
+  color: oklch(1.000 0.000 90);
 }
 .scout-core-status :focus-visible {
-  outline: 2px solid #a2ffe2;
+  outline: 2px solid oklch(0.934 0.108 84);
   outline-offset: 4px;
 }
 .flow-core-mark .scout-core-glyph {
@@ -86,7 +86,7 @@
   stroke-linecap: round;
 }
 .flow-core-mark .scout-core-glyph [data-collision] {
-  stroke: #e3fff6;
+  stroke: oklch(0.977 0.066 84);
   stroke-width: 1;
 }
 .flow-core-mark .scout-core-glyph [data-engine] {

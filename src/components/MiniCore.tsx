@@ -24,7 +24,7 @@ export default function MiniCore({ state }: { state: CoreState }) {
   const appearance: CoreAppearance = {
     state,
     working: true,
-    palette: "polar",
+    palette: "gold",
     evidence,
   };
   return (

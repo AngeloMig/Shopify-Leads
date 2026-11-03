@@ -2,25 +2,25 @@
    onto the Stageshow kit's, scoped to the demo. */
 .sid .ss-stage {
   --ss-font: "Geist Variable", system-ui, sans-serif;
-  --ss-canvas: #0d1214;
-  --ss-surface: #11171a;
-  --ss-chrome: #11171a;
-  --ss-line: #1f2a2f;
-  --ss-line-faint: #1a2327;
-  --ss-text-strong: #e8eef0;
-  --ss-text: #9fb1b6;
-  --ss-text-faint: #84979c;
-  --ss-icon: #9fb1b6;
-  --ss-icon-faint: #3d4b50;
-  --ss-accent: #7cf5c8;
-  --ss-success: #7ce0b0;
-  --ss-success-text: #7ce0b0;
-  --ss-success-soft: oklch(0.254 0.049 160);
-  --ss-ink-1: rgb(232 238 240 / 0.05);
-  --ss-ink-2: rgb(232 238 240 / 0.08);
-  --ss-ink-3: rgb(232 238 240 / 0.11);
-  --ss-ink-4: rgb(232 238 240 / 0.15);
-  --ss-ink-5: rgb(232 238 240 / 0.22);
+  --ss-canvas: #131312;
+  --ss-surface: #1a1a19;
+  --ss-chrome: #1a1a19;
+  --ss-line: #2a2824;
+  --ss-line-faint: #211f1c;
+  --ss-text-strong: #f4f2ec;
+  --ss-text: #aaa59a;
+  --ss-text-faint: #858075;
+  --ss-icon: #aaa59a;
+  --ss-icon-faint: #4a463f;
+  --ss-accent: #d4ad55;
+  --ss-success: #e0b75c;
+  --ss-success-text: #e8cd8c;
+  --ss-success-soft: #2e2512;
+  --ss-ink-1: rgb(244 242 236 / 0.05);
+  --ss-ink-2: rgb(244 242 236 / 0.08);
+  --ss-ink-3: rgb(244 242 236 / 0.11);
+  --ss-ink-4: rgb(244 242 236 / 0.15);
+  --ss-ink-5: rgb(244 242 236 / 0.22);
   --ss-radius-window: 14px;
   /* The sign-in panel is the ground: no plate behind the window */
   overflow: hidden;
@@ -35,7 +35,7 @@
   width: 552px;
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.05),
-    0 0 0 1px rgb(255 255 255 / 0.07),
+    0 0 0 1px rgb(255 255 255 / 0.1),
     0 30px 60px -16px rgb(0 0 0 / 0.55);
 }
 
@@ -117,13 +117,13 @@
 }
 
 .sid-avatar[data-tone="sage"] {
-  color: oklch(0.84 0.072 153);
-  background: oklch(0.281 0.045 153);
+  color: #e8cd8c;
+  background: #2b2312;
 }
 
 .sid-avatar[data-tone="clay"] {
-  color: oklch(0.84 0.06 50);
-  background: oklch(0.29 0.04 50);
+  color: #d8d2c4;
+  background: #262421;
 }
 
 .sid-name,

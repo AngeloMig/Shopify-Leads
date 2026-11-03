@@ -160,7 +160,7 @@
   gap: 16px;
   padding: 16px 20px;
   border: 1px solid var(--border);
-  background: oklch(0.218 0.021 75);
+  background: oklch(0.989 0.015 75);
   border-radius: var(--radius-control);
   margin: 0 0 20px;
 }
@@ -295,7 +295,7 @@
   transform: scale(1.06);
 }
 .automation-orb:focus-visible .automation-orb-core {
-  outline: 2px solid #a2ffe2;
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
   border-radius: 50%;
 }
@@ -351,10 +351,10 @@
 }
 .auto-status.running > i,
 .auto-status.idle > i {
-  background: #a2ffe2;
+  background: var(--primary);
 }
 .auto-status.running > i {
-  box-shadow: 0 0 10px #a2ffe2;
+  box-shadow: 0 0 10px var(--primary);
 }
 .auto-status.waiting > i {
   background: var(--amber);
@@ -429,7 +429,7 @@
   color: var(--muted);
 }
 .auto-first li > svg {
-  color: #a2ffe2;
+  color: var(--primary-dark);
 }
 .auto-first li > strong {
   font-size: 13.5px;
@@ -516,8 +516,8 @@
 }
 .auto-stages li.completed::before,
 .auto-stages li.active::before {
-  border-color: #a2ffe2;
-  background: #a2ffe2;
+  border-color: var(--primary-dark);
+  background: var(--primary);
 }
 .auto-stages li.active {
   color: var(--ink);

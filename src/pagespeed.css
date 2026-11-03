@@ -58,9 +58,9 @@
   padding: 26px 0 22px;
 }
 .pagespeed-category {
-  --gauge: #6f7f85;
-  --gauge-ink: #b4c3c7;
-  --gauge-tint: #1a2327;
+  --gauge: oklch(0.614 0.008 84);
+  --gauge-ink: oklch(0.393 0.008 84);
+  --gauge-tint: oklch(0.962 0.004 84);
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -68,19 +68,19 @@
   min-width: 0;
 }
 .pagespeed-poor {
-  --gauge: #f33;
-  --gauge-ink: #ff8f85;
-  --gauge-tint: #331a1a;
+  --gauge: oklch(0.551 0.160 27);
+  --gauge-ink: oklch(0.432 0.160 26);
+  --gauge-tint: oklch(0.960 0.028 20);
 }
 .pagespeed-average {
-  --gauge: #fa3;
-  --gauge-ink: #ffc078;
-  --gauge-tint: #33260f;
+  --gauge: oklch(0.397 0.160 70);
+  --gauge-ink: oklch(0.350 0.149 69);
+  --gauge-tint: oklch(0.938 0.029 80);
 }
 .pagespeed-good {
-  --gauge: #0c6;
-  --gauge-ink: #5fe0a0;
-  --gauge-tint: #0e2f22;
+  --gauge: oklch(0.460 0.160 151);
+  --gauge-ink: oklch(0.382 0.160 159);
+  --gauge-tint: oklch(0.939 0.032 164);
 }
 .pagespeed-gauge {
   position: relative;
@@ -148,14 +148,14 @@
   height: 10px;
 }
 .pagespeed-range-poor {
-  background: #f33;
+  background: oklch(0.551 0.160 27);
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 .pagespeed-range-average {
-  background: #fa3;
+  background: oklch(0.397 0.160 70);
 }
 .pagespeed-range-good {
-  background: #0c6;
+  background: oklch(0.460 0.160 151);
   border-radius: 50%;
 }
 .pagespeed-source {

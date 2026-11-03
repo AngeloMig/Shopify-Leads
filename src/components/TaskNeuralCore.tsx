@@ -46,13 +46,13 @@ function Core({ moving }: { moving: boolean }) {
   return (
     <group ref={group}>
       <lineSegments geometry={geometry}>
-        <lineBasicMaterial color="#a2ffe2" transparent opacity={0.65} />
+        <lineBasicMaterial color="#ffe494" transparent opacity={0.65} />
       </lineSegments>
       <mesh>
         <icosahedronGeometry args={[0.67, 2]} />
         <meshBasicMaterial
           wireframe
-          color="#7bd9c0"
+          color="#e5be70"
           transparent
           opacity={0.2}
         />

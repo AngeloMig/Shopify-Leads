@@ -1,7 +1,7 @@
 /* A workflow board with real task history and measured connections. */
 .task-flow-map {
   container: flowmap / inline-size;
-  background: #102c35;
+  background: oklch(0.276 0.004 84);
   min-width: 0;
 }
 .flow-toolbar {
@@ -11,20 +11,20 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 16px;
-  border-bottom: 1px solid #34525b;
+  border-bottom: 1px solid oklch(0.419 0.004 84);
 }
 .flow-toolbar > div {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #d3e9e5;
+  color: oklch(0.917 0.006 84);
 }
 .flow-toolbar strong {
   font-weight: 500;
 }
 .flow-toolbar > div > span {
-  color: #b4cdd1;
+  color: oklch(0.831 0.006 84);
   font-size: 11px;
   margin-left: 3px;
 }
@@ -34,14 +34,14 @@
   gap: 7px;
   min-height: 36px;
   padding: 8px 10px;
-  border: 1px solid #547c79;
+  border: 1px solid oklch(0.556 0.066 84);
   border-radius: 6px;
-  background: #234943;
-  color: #ceffe8;
+  background: oklch(0.375 0.004 84);
+  color: oklch(0.960 0.059 165);
   font-size: 11px;
 }
 .flow-toolbar > button[aria-pressed="true"] {
-  background: #2a5b53;
+  background: oklch(0.434 0.004 84);
 }
 .flow-find {
   display: flex;
@@ -57,18 +57,18 @@
   gap: 8px;
   align-items: center;
   min-height: 36px;
-  border: 1px solid #42626c;
+  border: 1px solid oklch(0.475 0.004 84);
   border-radius: 6px;
   padding: 0 9px;
-  color: #afcdd0;
+  color: oklch(0.827 0.066 84);
 }
 .flow-find label:focus-within {
-  outline: 2px solid #a2ffe2;
+  outline: 2px solid oklch(0.934 0.108 84);
   outline-offset: 2px;
 }
 .flow-find input {
   background: transparent;
-  color: #e2f1ee;
+  color: oklch(0.946 0.006 84);
   border: 0;
   outline: none;
   min-width: 0;
@@ -77,7 +77,7 @@
   padding: 8px 0;
 }
 .flow-find input::placeholder {
-  color: #b2cbd0;
+  color: oklch(0.825 0.006 84);
 }
 .flow-find label > button {
   display: grid;
@@ -99,23 +99,23 @@
   padding: 8px;
   min-height: 36px;
   font-size: 11px;
-  color: #bfd5d7;
+  color: oklch(0.857 0.006 84);
   border-radius: 5px;
 }
 .flow-find > div > button[aria-pressed="true"] {
-  background: #294c53;
-  color: #e2f6ed;
+  background: oklch(0.393 0.004 84);
+  color: oklch(0.956 0.006 84);
 }
 .flow-find > div > button > span {
   font-size: 11px;
-  color: #b3d0d1;
+  color: oklch(0.837 0.066 84);
   font-variant-numeric: tabular-nums;
 }
 .flow-viewport {
   max-height: 740px;
   overflow: auto;
   scrollbar-width: thin;
-  scrollbar-color: #587b7d #102c35;
+  scrollbar-color: oklch(0.557 0.066 84) oklch(0.276 0.004 84);
   overscroll-behavior: contain;
 }
 .flow-graph {
@@ -134,16 +134,16 @@
 }
 .flow-connections path {
   fill: none;
-  stroke: #416c72;
+  stroke: oklch(0.502 0.066 84);
   stroke-width: 1.4;
   transition: stroke 180ms ease-out;
 }
 .flow-connections path.selected {
-  stroke: #94d4c0;
+  stroke: oklch(0.821 0.078 84);
   stroke-width: 2;
 }
 .flow-connections path.attention {
-  stroke: #ceab73;
+  stroke: oklch(0.760 0.084 79);
 }
 .flow-core {
   position: relative;
@@ -158,7 +158,7 @@
   width: 54px;
   height: 54px;
   flex: none;
-  color: #a2ffe2;
+  color: oklch(0.934 0.108 84);
 }
 .flow-core-mark svg {
   height: 100%;
@@ -171,7 +171,7 @@
   opacity: 0.45;
 }
 .flow-core-mark .seed {
-  fill: #b7ffe8;
+  fill: oklch(0.946 0.086 84);
   stroke: none;
 }
 .flow-core-mark path {
@@ -187,7 +187,7 @@
   font-size: 22px;
   font-weight: 600;
   line-height: 1.3;
-  color: #ddfff0;
+  color: oklch(0.972 0.066 84);
   letter-spacing: -0.025em;
 }
 .flow-core > strong > span {
@@ -195,22 +195,22 @@
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0;
-  color: #b3d0d2;
+  color: oklch(0.837 0.066 84);
   margin-top: 3px;
 }
 .flow-core > div:last-child {
   min-width: 0;
   font-size: 11px;
-  color: #d3e9e3;
+  color: oklch(0.916 0.006 84);
   padding-left: 14px;
-  border-left: 1px solid #365a60;
+  border-left: 1px solid oklch(0.443 0.004 84);
 }
 .flow-core small {
   display: block;
   font-size: 11px;
   line-height: 1.6;
   margin-top: 4px;
-  color: #b2cdd0;
+  color: oklch(0.829 0.006 84);
 }
 .flow-stage-grid {
   display: grid;
@@ -222,30 +222,30 @@
 .flow-stage {
   position: relative;
   min-width: 0;
-  border: 1px solid #3b5b64;
-  background: #14343e;
+  border: 1px solid oklch(0.450 0.004 84);
+  background: oklch(0.306 0.004 84);
   border-radius: 8px;
   transition: border-color 180ms ease-out;
 }
 .flow-stage.selected {
-  border-color: #7db5a9;
+  border-color: oklch(0.731 0.067 84);
 }
 .flow-stage-port {
   position: absolute;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #648e97;
-  border: 1px solid #9ac2c4;
+  background: oklch(0.619 0.066 84);
+  border: 1px solid oklch(0.786 0.066 84);
   top: -5px;
   left: calc(50% - 4px);
 }
 .flow-stage.selected .flow-stage-port {
-  background: #b6ffe5;
-  border-color: #b6ffe5;
+  background: oklch(0.945 0.089 84);
+  border-color: oklch(0.945 0.089 84);
 }
 .flow-stage.active .flow-stage-port {
-  background: #b6ffe5;
+  background: oklch(0.945 0.089 84);
 }
 .flow-stage > header {
   display: flex;
@@ -270,14 +270,14 @@
   display: block;
   font-size: 13px;
   line-height: 1.5;
-  color: #e0f5ee;
+  color: oklch(0.953 0.006 84);
   font-weight: 500;
 }
 .flow-stage header small {
   display: block;
   font-size: 11px;
   line-height: 1.6;
-  color: #b3cdd0;
+  color: oklch(0.830 0.006 84);
   margin-top: 3px;
 }
 .flow-stage-icon {
@@ -286,8 +286,8 @@
   width: 30px;
   height: 30px;
   border-radius: 7px;
-  color: #b5e9d9;
-  background: #244c52;
+  color: oklch(0.894 0.066 84);
+  background: oklch(0.390 0.004 84);
   flex: none;
 }
 .flow-stage header > button:last-child {
@@ -296,7 +296,7 @@
   display: grid;
   place-items: center;
   border-radius: 5px;
-  color: #c0d9d8;
+  color: oklch(0.867 0.006 84);
 }
 .flow-stage header > button:last-child svg {
   transition: transform 180ms ease-out;
@@ -308,14 +308,14 @@
   display: flex;
   height: 2px;
   margin: 0 12px 6px;
-  background: #34565d;
+  background: oklch(0.430 0.004 84);
   overflow: hidden;
 }
 .flow-stage-progress i {
-  background: #83cfb5;
+  background: oklch(0.797 0.093 84);
 }
 .flow-stage-progress b {
-  background: #e6bd80;
+  background: oklch(0.821 0.091 77);
 }
 .flow-task-list {
   padding: 0 8px 6px 10px;
@@ -331,10 +331,10 @@
   transition: background-color 160ms ease-out;
 }
 .flow-task + .flow-task {
-  border-top: 1px solid #294d56;
+  border-top: 1px solid oklch(0.397 0.004 84);
 }
 .flow-task.selected {
-  background: #214a50;
+  background: oklch(0.382 0.004 84);
 }
 .flow-task-twig {
   position: absolute;
@@ -342,7 +342,7 @@
   top: 0;
   width: 18px;
   height: 100%;
-  stroke: #4c7177;
+  stroke: oklch(0.523 0.066 84);
   stroke-width: 1;
   fill: none;
   pointer-events: none;
@@ -351,7 +351,7 @@
   clip-path: inset(0 0 48% 0);
 }
 .flow-task.selected .flow-task-twig {
-  stroke: #a2e9d0;
+  stroke: oklch(0.880 0.087 84);
 }
 .flow-task-main {
   display: flex;
@@ -373,21 +373,21 @@
   font-size: 12px;
   line-height: 1.45;
   font-weight: 500;
-  color: #daeee8;
+  color: oklch(0.933 0.006 84);
   overflow-wrap: anywhere;
 }
 .flow-task-main small {
   display: block;
   font-size: 11px;
   line-height: 1.5;
-  color: #b7cfd2;
+  color: oklch(0.838 0.006 84);
   margin-top: 3px;
 }
 .flow-task-resource {
   display: block;
   font-size: 11px;
   line-height: 1.5;
-  color: #adcbd0;
+  color: oklch(0.822 0.066 84);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -400,10 +400,10 @@
   height: 19px;
   margin-top: 1px;
   flex: none;
-  border: 1px solid #64868c;
+  border: 1px solid oklch(0.596 0.066 84);
   border-radius: 50%;
-  color: #afced1;
-  background: #1b3c44;
+  color: oklch(0.830 0.066 84);
+  background: oklch(0.335 0.004 84);
 }
 .flow-task-state > i {
   width: 4px;
@@ -412,24 +412,24 @@
   background: currentColor;
 }
 .flow-task.completed .flow-task-state {
-  color: #adf3d9;
-  border-color: #72ae99;
+  color: oklch(0.911 0.086 84);
+  border-color: oklch(0.704 0.077 84);
 }
 .flow-task.failed .flow-task-state,
 .flow-task.interrupted .flow-task-state {
-  color: #ffc0b6;
-  border-color: #ae7e79;
+  color: oklch(0.862 0.074 29);
+  border-color: oklch(0.639 0.061 26);
 }
 .flow-task.retrying .flow-task-state {
-  color: #efc78f;
-  border-color: #a98d62;
+  color: oklch(0.851 0.085 76);
+  border-color: oklch(0.659 0.068 78);
 }
 .flow-task.failed .flow-task-main small,
 .flow-task.interrupted .flow-task-main small {
-  color: #ffc0b6;
+  color: oklch(0.862 0.074 29);
 }
 .flow-task.retrying .flow-task-main small {
-  color: #efc78f;
+  color: oklch(0.851 0.085 76);
 }
 .can-animate .flow-task.running .flow-task-state,
 .can-animate .flow-task.starting .flow-task-state,
@@ -442,37 +442,37 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
-  border: 1px solid #43686f;
-  background: #173a44;
+  border: 1px solid oklch(0.492 0.004 84);
+  background: oklch(0.327 0.004 84);
   border-radius: 6px;
   width: 62px;
   min-height: 48px;
   padding: 5px 3px;
   flex: none;
-  color: #b4d9d6;
+  color: oklch(0.858 0.066 84);
   margin-left: 4px;
 }
 .flow-task-result > strong {
   font-size: 20px;
   font-weight: 500;
   line-height: 1.2;
-  color: #d6ede4;
+  color: oklch(0.927 0.006 84);
   font-variant-numeric: tabular-nums;
 }
 .flow-task-result > strong > small {
   font-size: 11px;
-  color: #b1cbd0;
+  color: oklch(0.824 0.006 84);
 }
 .flow-task-result > span {
   font-size: 11px;
 }
 .flow-task.selected .flow-task-result {
-  border-color: #83bcae;
+  border-color: oklch(0.752 0.069 84);
 }
 .flow-task-arrival {
   position: absolute;
   inset: 2px;
-  border: 1px solid #a2ffe2;
+  border: 1px solid oklch(0.934 0.108 84);
   border-radius: 6px;
   pointer-events: none;
   opacity: 0;
@@ -485,11 +485,11 @@
   top: 4px;
   bottom: 4px;
   width: 64px;
-  border: 1px solid #a2ffe2;
+  border: 1px solid oklch(0.934 0.108 84);
   border-radius: 6px;
 }
 .flow-task-arrival.preview {
-  border-color: #73cce4;
+  border-color: oklch(0.798 0.101 84);
 }
 .is-exploring .flow-task.selected .flow-task-arrival.preview {
   animation: flow-arrival 2.8s ease-out infinite;
@@ -502,7 +502,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #d4ffeb;
+  background: oklch(0.964 0.066 84);
   pointer-events: none;
   offset-anchor: center;
   offset-distance: 0%;
@@ -513,7 +513,7 @@
   animation-direction: reverse;
 }
 .flow-packet.preview {
-  background: #73cce4;
+  background: oklch(0.798 0.101 84);
   animation-duration: 2.8s;
   animation-iteration-count: infinite;
 }
@@ -521,9 +521,9 @@
   display: flex;
   gap: 9px;
   padding: 14px 16px;
-  border-top: 1px solid #345760;
-  background: #173840;
-  color: #c8e8dd;
+  border-top: 1px solid oklch(0.434 0.004 84);
+  background: oklch(0.320 0.004 84);
+  color: oklch(0.905 0.066 84);
 }
 .flow-selection > svg {
   flex: none;
@@ -542,7 +542,7 @@
 .flow-selection span,
 .flow-selection small {
   display: block;
-  color: #bdd3d4;
+  color: oklch(0.851 0.006 84);
   font-size: 11px;
   line-height: 1.6;
   margin-top: 3px;
@@ -558,9 +558,9 @@
   flex-wrap: wrap;
   gap: 8px 16px;
   padding: 12px 16px;
-  border-top: 1px solid #2d4d57;
+  border-top: 1px solid oklch(0.400 0.004 84);
   font-size: 11px;
-  color: #bad1d4;
+  color: oklch(0.844 0.006 84);
 }
 .flow-legend > span {
   display: flex;
@@ -574,16 +574,16 @@
   border-radius: 50%;
 }
 .flow-legend .complete {
-  background: #83cfb5;
+  background: oklch(0.797 0.093 84);
 }
 .flow-legend .working {
-  background: #b8e1e2;
+  background: oklch(0.881 0.066 84);
 }
 .flow-legend .issue {
-  background: #efc27f;
+  background: oklch(0.839 0.099 77);
 }
 .flow-legend .preview {
-  background: #73cce4;
+  background: oklch(0.798 0.101 84);
 }
 .flow-show-more {
   display: flex;
@@ -595,17 +595,17 @@
   width: 100%;
   border-radius: 5px;
   font-size: 11px !important;
-  color: #c5f5e2 !important;
+  color: oklch(0.931 0.066 84) !important;
 }
 .flow-show-more > span {
-  color: #afcdd1;
+  color: oklch(0.827 0.066 84);
   font-size: 11px;
   margin-left: auto;
 }
 .flow-empty {
   font-size: 11px;
   line-height: 1.7;
-  color: #b2cdd1;
+  color: oklch(0.830 0.006 84);
   padding: 16px 9px;
   margin: 0;
 }
@@ -639,8 +639,8 @@
 }
 @keyframes flow-wait {
   50% {
-    border-color: #b6ffe4;
-    color: #dcfff0;
+    border-color: oklch(0.945 0.089 84);
+    color: oklch(0.971 0.066 84);
   }
 }
 @container flowmap (max-width:520px) {
@@ -704,21 +704,21 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #94d4c0;
+  background: oklch(0.821 0.078 84);
   bottom: 16px;
   left: calc(50% - 3px);
 }
 .flow-task-result.poor > strong {
-  color: #ff9696;
+  color: oklch(0.783 0.127 20);
 }
 .flow-task-result.average > strong {
-  color: #ffc66d;
+  color: oklch(0.860 0.125 77);
 }
 .flow-task-result.good > strong {
-  color: #8ee7b7;
+  color: oklch(0.859 0.110 159);
 }
 .flow-task-main:hover + .flow-task-result {
-  border-color: #9cc7ba;
+  border-color: oklch(0.795 0.066 84);
 }
 .flow-task-main:focus-visible,
 .flow-task-result:focus-visible {
@@ -727,12 +727,12 @@
 .can-animate .flow-task.running .flow-task-twig path,
 .can-animate .flow-task.starting .flow-task-twig path,
 .is-exploring .flow-task.selected .flow-task-twig path {
-  stroke: #a7e8d0;
+  stroke: oklch(0.881 0.081 84);
   stroke-dasharray: 3 8;
   animation: flow-branch-signal 1.4s linear infinite;
 }
 .is-exploring .flow-task.selected .flow-task-twig path {
-  stroke: #73cce4;
+  stroke: oklch(0.798 0.101 84);
 }
 @keyframes flow-branch-signal {
   to {
@@ -757,7 +757,7 @@
   min-height: 36px;
   border-radius: 5px;
   font-size: 11px !important;
-  color: #bdd5d5 !important;
+  color: oklch(0.855 0.006 84) !important;
 }
 .flow-show-fewer svg {
   transform: rotate(180deg);
@@ -771,10 +771,10 @@
   transform-origin: 32px 32px;
   opacity: 0;
   transition: opacity 200ms ease-out;
-  color: #a2ffe2;
+  color: oklch(0.934 0.108 84);
 }
 .flow-collider-track.reverse {
-  color: #73cce4;
+  color: oklch(0.798 0.101 84);
 }
 .flow-collider-track > circle:first-child {
   opacity: 0.65;

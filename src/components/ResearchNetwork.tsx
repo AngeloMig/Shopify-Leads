@@ -122,7 +122,7 @@ export default function ResearchNetwork({
   runs?: RunStar[];
   onRunSelect?: (id: string) => void;
 }) {
-  const [corePalette, setCorePalette] = useState<CorePalette>("polar");
+  const [corePalette, setCorePalette] = useState<CorePalette>("gold");
   // Discovery funnel counts drive the pipeline particles on the neural map.
   const funnel = useMemo(() => {
     const f = detail?.job.payload.funnel as Record<string, unknown> | undefined;

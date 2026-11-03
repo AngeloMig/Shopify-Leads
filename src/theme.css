@@ -47,9 +47,9 @@ code {
 .logo-mark {
   width: 28px;
   height: 28px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, var(--primary), var(--accent-2));
-  color: var(--on-primary);
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--primary);
 }
 .logo-mark svg {
   width: 17px;
@@ -69,7 +69,7 @@ code {
   margin-bottom: 20px;
 }
 .workspace-picker:hover {
-  border-color: #2c3a40;
+  border-color: oklch(0.887 0.004 84);
 }
 .workspace-picker > span:nth-child(2) {
   font-size: 13px;
@@ -93,21 +93,21 @@ code {
   color: var(--ink);
 }
 .nav-item.active {
-  background: #1a2327;
-  color: #ffffff;
+  background: oklch(0.962 0.004 84);
+  color: oklch(0.250 0.000 90);
   font-weight: 600;
 }
 .nav-item.active svg {
   color: var(--primary);
 }
 .nav-item b {
-  background: #1f2a2f;
-  color: #cfe0e4;
+  background: oklch(0.939 0.004 84);
+  color: oklch(0.305 0.008 84);
   border-radius: 999px;
   font-size: 11px;
 }
 .nav-item b.amber-count {
-  background: #352811;
+  background: oklch(0.931 0.029 80);
   color: var(--amber);
 }
 .automation-widget {
@@ -124,7 +124,7 @@ code {
   z-index: var(--z-dropdown);
   height: 68px;
   border-bottom: 0;
-  background: rgb(9 12 14 / 0.72);
+  background: oklch(1.000 0.004 84 / 0.72);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   padding: 0 28px;
@@ -141,7 +141,7 @@ code {
   font-size: 13px;
 }
 .global-search:hover {
-  border-color: #2c3a40;
+  border-color: oklch(0.887 0.004 84);
   color: var(--ink);
 }
 .global-search kbd {
@@ -163,7 +163,7 @@ code {
 }
 .demo-banner {
   margin: 0 28px 8px;
-  border: 1px solid #1b4438;
+  border: 1px solid oklch(0.874 0.004 84);
   border-radius: 14px;
   background: var(--primary-light);
 }
@@ -204,7 +204,7 @@ main {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  padding: 20px 22px;
+  padding: 18px 20px;
 }
 .metric + .metric {
   border-left: 1px solid var(--border);
@@ -226,27 +226,32 @@ main {
   letter-spacing: -0.02em;
 }
 
-/* Controls: pill buttons, one mint action, calm inputs. */
+/* Controls: pill buttons, one black action, calm inputs. Gold marks
+   what's active or selected, never the button's face. */
 .button {
   border-radius: 999px;
-  min-height: 42px;
-  padding: 9px 18px;
-  font-size: 13.5px;
+  min-height: 38px;
+  padding: 8px 16px;
+  font-size: 13px;
+}
+.button-primary {
+  background: var(--ink);
+  color: #ffffff;
 }
 .button-primary:hover {
-  background: var(--primary-dark);
+  background: #2b2a27;
 }
 .button-outline {
-  background: var(--surface-2);
-  border-color: #2a373c;
+  background: var(--surface);
+  border-color: oklch(0.896 0.004 84);
 }
 .button-outline:hover {
-  background: #1d272b;
-  border-color: #38484e;
+  background: oklch(0.949 0.004 84);
+  border-color: oklch(0.860 0.004 84);
 }
 .button-danger {
-  background: #3a1d1a;
-  border-color: #5c2c27;
+  background: oklch(0.945 0.032 27);
+  border-color: oklch(0.871 0.050 27);
   color: var(--red);
 }
 .button-sm {
@@ -257,20 +262,20 @@ main {
 input,
 select,
 textarea {
-  background: #0d1315;
-  border-color: #263237;
-  min-height: 42px;
+  background: oklch(1.000 0.004 84);
+  border-color: oklch(0.912 0.004 84);
+  min-height: 38px;
 }
 input:hover,
 select:hover,
 textarea:hover {
-  border-color: #38484e;
+  border-color: oklch(0.860 0.004 84);
 }
 input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgb(124 245 200 / 0.14);
+  box-shadow: 0 0 0 3px oklch(0.640 0.115 84 / 0.14);
 }
 button:focus-visible,
 a:focus-visible,
@@ -284,10 +289,10 @@ input[type="checkbox"] {
   accent-color: var(--primary);
 }
 ::selection {
-  background: #1f5a48;
+  background: var(--primary-light);
 }
 * {
-  scrollbar-color: #2c3a40 transparent;
+  scrollbar-color: oklch(0.887 0.004 84) transparent;
 }
 @media (max-width: 800px) {
   .topbar {
@@ -305,4 +310,51 @@ input[type="checkbox"] {
   .metrics-strip {
     gap: 10px;
   }
+}
+
+/* The run maps are black canvases on the white page: inside them the page
+   tokens read the map's, so shared controls (buttons, selects, inputs) turn
+   dark with them. */
+.research-session,
+.preview-page,
+.automation-orb,
+.auth-intro {
+  --bg: var(--map-bg);
+  --surface: var(--map-surface);
+  --surface-2: var(--map-surface-2);
+  --ink: var(--map-ink);
+  --muted: var(--map-muted);
+  --subtle: var(--map-subtle);
+  --border: var(--map-border);
+  --primary: var(--map-primary);
+  --primary-dark: var(--map-primary-dark);
+  --primary-light: var(--map-primary-light);
+  --on-primary: var(--map-on-primary);
+  --accent-2: var(--map-accent-2);
+  --chart-secondary: var(--map-chart-secondary);
+  --red: var(--map-red);
+  --amber: var(--map-amber);
+  --green: var(--map-green);
+  color-scheme: dark;
+  color: var(--map-ink);
+}
+.research-session .button-primary,
+.preview-page .button-primary {
+  background: var(--map-primary);
+  color: var(--map-on-primary);
+}
+.research-session input,
+.research-session select,
+.research-session textarea,
+.preview-page input,
+.preview-page select,
+.preview-page textarea {
+  background: var(--map-surface-2);
+  border-color: var(--map-border);
+}
+
+/* The sign-in page: a black panel with the product shot beside the white form */
+.auth-intro {
+  background: var(--map-bg);
+  border-right-color: var(--map-border);
 }

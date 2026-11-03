@@ -108,15 +108,15 @@ export function researchEvidence(
   };
 }
 export const networkColors = {
-  active: "#a2ffe2",
-  completed: "#61cfb6",
+  active: "#ffe494",
+  completed: "#dcb258",
   attention: "#f1be72",
-  recorded: "#8abcc6",
-  pending: "#426973",
+  recorded: "#c6af82",
+  pending: "#63625f",
 };
 export function nodeColor(state: string, selected: boolean) {
   return selected
-    ? "#e5fff5"
+    ? "#fff5c6"
     : state === "active"
       ? networkColors.active
       : state === "completed"

@@ -139,7 +139,7 @@ export default function ScoutCoreGlyph({
             y={31 + Math.sin(a) * 28}
             width="2"
             height="2"
-            fill={e.ready ? palette.colors[0] : "#658080"}
+            fill={e.ready ? palette.colors[0] : "#8d774c"}
             opacity={e.ready ? 1 : 0.3}
             stroke="none"
           />

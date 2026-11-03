@@ -383,7 +383,7 @@ export default function ScoutCore({
             >
               <octahedronGeometry args={[e.ready ? 0.045 : 0.027, 0]} />
               <meshBasicMaterial
-                color={e.ready ? colors[0] : "#658080"}
+                color={e.ready ? colors[0] : "#8d774c"}
                 transparent
                 opacity={e.ready ? 0.95 : 0.3}
               />

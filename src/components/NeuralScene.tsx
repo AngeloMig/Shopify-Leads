@@ -107,7 +107,7 @@ const journey = (
     color,
   };
 };
-const HIGHLIGHT = "#d3fff0",
+const HIGHLIGHT = "#fff1c1",
   issueColor = new Color("#f2a39b"),
   retryColor = new Color("#efc27f");
 /** New links draw outward from their source; nodes pop in as their link lands. */
@@ -120,10 +120,10 @@ const backOut = (x: number) =>
   1 + 2.70158 * (x - 1) ** 3 + 1.70158 * (x - 1) ** 2;
 const isFinished = (s: string) => s === "completed" || s === "skipped";
 const isFailed = (s: string) => s === "failed" || s === "interrupted";
-const finishColor = new Color("#79d6ba"),
-  memoryColor = new Color("#a2ffe2"),
-  skippedColor = new Color("#8fa3a8"),
-  pipeColor = new Color("#c8fff1"),
+const finishColor = new Color("#e2bb6c"),
+  memoryColor = new Color("#ffe494"),
+  skippedColor = new Color("#a19f9b"),
+  pipeColor = new Color("#ffeebf"),
   fxCapacity = 600;
 /** A short-lived visual particle travelling along a polyline. */
 type Fx = {
@@ -211,7 +211,7 @@ function SemanticLink({
     const geometry = new LineGeometry();
     geometry.setPositions(edge.points.flat());
     const material = new LineMaterial({
-      color: "#75bcae",
+      color: "#c5a86f",
       linewidth:
         edge.kind === "primary" ? 2 : edge.kind === "result" ? 0.9 : 1.3,
       transparent: true,
@@ -545,7 +545,7 @@ function TaskNeuron({
         : node.kind === "result"
           ? 0.038
           : 0.052;
-  const color = selected ? "#e2fff3" : semanticColor(node.state);
+  const color = selected ? "#fff4c5" : semanticColor(node.state);
   return (
     <group
       position={node.position}
@@ -777,8 +777,8 @@ function Scene(props: Props) {
     }
     return rates;
   }, [props.graph]);
-  const previewColor = useMemo(() => new Color("#73cce4"), []),
-    workerColor = useMemo(() => new Color("#d9fff0"), []),
+  const previewColor = useMemo(() => new Color("#dcb86f"), []),
+    workerColor = useMemo(() => new Color("#fff2c3"), []),
     tint = useMemo(() => new Color(), []);
   const transform = useMemo(() => new Object3D(), []),
     vec = useMemo(() => new Vector3(), []),

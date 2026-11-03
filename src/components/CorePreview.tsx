@@ -195,7 +195,7 @@ function Scene({
   );
 }
 export default function CorePreview() {
-  const [palette, setPalette] = useState<CorePalette>("polar"),
+  const [palette, setPalette] = useState<CorePalette>("gold"),
     [state, setState] = useState<CoreState>("ready"),
     [running, setRunning] = useState(false),
     [paused, setPaused] = useState(false),
