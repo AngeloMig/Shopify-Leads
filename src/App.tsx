@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useEffect,
   useRef,
   useState,
@@ -78,6 +80,8 @@ import { DiscoveryForm } from "./components/DiscoveryForm";
 import { DiscoveryControls } from "./components/DiscoveryControls";
 import { Button } from "./components/ui/button";
 import { Dialog } from "./components/ui/dialog";
+// Only the sign-in page shows it, so its animation kit loads with it
+const SignInDemo = lazy(() => import("./components/SignInDemo"));
 const empty: Snapshot = {
   leads: [],
   jobs: [],
@@ -1897,27 +1901,16 @@ function Auth({
             Your next great client starts with better research. Build a pipeline
             backed by evidence, not assumptions.
           </p>
-          <div className="auth-flow">
-            <span>
-              <Compass size={18} />
-              Discover
-            </span>
-            <ChevronRight size={16} />
-            <span>
-              <Activity size={18} />
-              Audit
-            </span>
-            <ChevronRight size={16} />
-            <span>
-              <Target size={18} />
-              Prioritize
-            </span>
-          </div>
+          <span className="auth-footer">
+            <ShieldCheck size={15} />
+            Research on autopilot. Outreach in your hands.
+          </span>
         </div>
-        <span className="auth-footer">
-          <ShieldCheck size={15} />
-          Research on autopilot. Outreach in your hands.
-        </span>
+        <div className="auth-showcase" aria-hidden="true">
+          <Suspense fallback={null}>
+            <SignInDemo />
+          </Suspense>
+        </div>
       </div>
       <div className="auth-form-side">
         <form className="auth-card" onSubmit={submit}>
