@@ -12,77 +12,106 @@ import {
 import { defaultSettings } from "../../shared/types.js";
 
 const day = 86400000;
+type LocalJobRow = {
+  id: string;
+  name: string | null;
+  search_id: string | null;
+  funnel: Record<string, unknown> | null;
+  best: { name?: unknown; score?: unknown } | null;
+};
 /** Everything the alert list and daily digest report, for one workspace. */
 export async function workspaceAlerts(
   org: string,
   at = Date.now(),
 ): Promise<AlertFeed> {
   const since = new Date(at - day).toISOString();
-  const [workers, blocks, usage, settings, failures, audits, leads, review] =
-    await Promise.all([
-      checked(
-        db()
-          .from("worker_heartbeats")
-          .select("state,last_seen")
-          .eq("organization_id", org),
-      ),
-      checked(
-        db()
-          .from("provider_blocks")
-          .select("provider,reason,blocked_until")
-          .eq("organization_id", org),
-      ),
-      checked(
-        db()
-          .from("api_usage_daily")
-          .select("units,discovery_units,audit_units")
-          .eq("organization_id", org)
-          .eq("day", new Date(at).toISOString().slice(0, 10))
-          .maybeSingle(),
-      ),
-      checked(
-        db()
-          .from("app_settings")
-          .select("config")
-          .eq("organization_id", org)
-          .maybeSingle(),
-      ),
-      checked(
-        db()
-          .from("automation_jobs")
-          .select("id,error")
-          .eq("organization_id", org)
-          // Blocked jobs have no finish time and need someone until they're resolved.
-          .or(
-            `status.eq.blocked,and(status.eq.failed,completed_at.gte."${since}")`,
-          )
-          .order("created_at", { ascending: false })
-          .limit(50),
-      ),
+  const [
+    workers,
+    blocks,
+    usage,
+    settings,
+    failures,
+    audits,
+    leads,
+    review,
+    local,
+  ] = await Promise.all([
+    checked(
+      db()
+        .from("worker_heartbeats")
+        .select("state,last_seen")
+        .eq("organization_id", org),
+    ),
+    checked(
+      db()
+        .from("provider_blocks")
+        .select("provider,reason,blocked_until")
+        .eq("organization_id", org),
+    ),
+    checked(
+      db()
+        .from("api_usage_daily")
+        .select("units,discovery_units,audit_units")
+        .eq("organization_id", org)
+        .eq("day", new Date(at).toISOString().slice(0, 10))
+        .maybeSingle(),
+    ),
+    checked(
+      db()
+        .from("app_settings")
+        .select("config")
+        .eq("organization_id", org)
+        .maybeSingle(),
+    ),
+    checked(
       db()
         .from("automation_jobs")
-        .select("id", { count: "exact", head: true })
+        .select("id,error")
         .eq("organization_id", org)
-        .eq("type", "audit")
-        .eq("status", "completed")
-        .gte("completed_at", since),
-      // The ids go in a URL below, so only the newest are ranked for "top leads".
-      db()
-        .from("leads")
-        .select("id", { count: "exact" })
-        .eq("organization_id", org)
-        .gte("created_at", since)
+        // Blocked jobs have no finish time and need someone until they're resolved.
+        .or(
+          `status.eq.blocked,and(status.eq.failed,completed_at.gte."${since}")`,
+        )
         .order("created_at", { ascending: false })
-        .limit(100),
-      db()
-        .from("lead_search_index")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", org)
-        .eq("permission", "unknown")
-        .gte("opportunity_rank", 0)
-        .is("outcome", null),
-    ]);
-  for (const result of [audits, leads, review])
+        .limit(50),
+    ),
+    db()
+      .from("automation_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", org)
+      .eq("type", "audit")
+      .eq("status", "completed")
+      .gte("completed_at", since),
+    // The ids go in a URL below, so only the newest are ranked for "top leads".
+    db()
+      .from("leads")
+      .select("id", { count: "exact" })
+      .eq("organization_id", org)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(100),
+    db()
+      .from("lead_search_index")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", org)
+      .eq("permission", "unknown")
+      .gte("opportunity_rank", 0)
+      .is("outcome", null),
+    // Local searches that finished today, each with what it found.
+    db()
+      .from("automation_jobs")
+      .select(
+        "id,name:payload->config->>name,search_id:payload->>search_id,funnel:payload->funnel,best:payload->best",
+      )
+      .eq("organization_id", org)
+      .eq("type", "discovery")
+      .eq("status", "completed")
+      .eq("payload->>kind", "local")
+      .gte("completed_at", since)
+      .order("completed_at", { ascending: false })
+      .limit(5),
+  ]);
+  for (const result of [audits, leads, review, local])
     if (result.error) throw new Error(result.error.message);
   const newIds = (leads.data ?? []).map((l) => l.id);
   const top = newIds.length
@@ -107,6 +136,20 @@ export async function workspaceAlerts(
       name: l.business_name,
       score: l.research_score,
     })),
+    local_searches: ((local.data ?? []) as LocalJobRow[]).map((j) => {
+      const n = (key: string) => Number(j.funnel?.[key]) || 0;
+      return {
+        job_id: j.id,
+        search_id: j.search_id,
+        name: j.name ?? "your local search",
+        no_site: n("saved") - n("site_found"),
+        strong: n("strong"),
+        best:
+          j.best && typeof j.best.name === "string"
+            ? { name: j.best.name, score: Number(j.best.score) || 0 }
+            : null,
+      };
+    }),
   };
   return {
     digest,
@@ -154,10 +197,10 @@ export async function deliverAlerts(
     for (const org of orgs) {
       const { alerts, digest } = await workspaceAlerts(org.id, at);
       for (const alert of alerts)
-        if (alert.severity !== "info" && include(alert))
+        if ((alert.severity !== "info" || alert.notify) && include(alert))
           await send(
             `${org.id}:${alert.key}:${today}`,
-            alertText(alert, org.name),
+            alertText(alert, org.name, process.env.APP_URL),
           );
       if (options.digest && new Date(at).getUTCHours() >= digestHour)
         await send(

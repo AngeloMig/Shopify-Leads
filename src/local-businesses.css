@@ -516,32 +516,6 @@
   color: var(--subtle);
   box-shadow: inset 0 0 0 1px var(--border);
 }
-.local-detail h3 .local-score {
-  height: 22px;
-  margin-left: 6px;
-  font-size: 12px;
-  vertical-align: middle;
-}
-.local-reasons {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-.local-reasons li {
-  display: grid;
-  grid-template-columns: 34px 1fr;
-  gap: 8px;
-  color: var(--muted);
-}
-.local-reasons .local-num {
-  color: var(--primary-dark);
-  font-weight: 600;
-  text-align: right;
-}
 .local-sort {
   display: inline-flex;
   align-items: center;
@@ -756,58 +730,6 @@
   color: var(--subtle);
   font-size: 11px;
 }
-.local-detail {
-  display: grid;
-  gap: 18px;
-  padding: 18px 24px 22px;
-}
-.local-detail section + section {
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-.local-note {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 12.5px;
-  line-height: 1.6;
-}
-.local-detail h3 {
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-.local-detail p + p {
-  margin-top: 6px;
-}
-.local-detail .field-label {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.local-facts {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
-}
-.local-facts li {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-.local-facts svg {
-  flex: none;
-  margin-top: 2px;
-  color: var(--primary);
-}
-.local-facts a {
-  color: var(--primary-dark);
-}
 @media (max-width: 860px) {
   .local-row {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -861,4 +783,240 @@
     padding-left: 16px;
     padding-right: 16px;
   }
+}
+.local-from {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-size: 12.5px;
+}
+.local-from strong {
+  font-weight: 600;
+}
+.local-from .text-button {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+/* The business panel: a side sheet, so the call sheet stays in view. */
+.dialog-content.local-drawer {
+  top: 0;
+  right: 0;
+  left: auto;
+  width: min(480px, 100vw);
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: var(--radius-card) 0 0 var(--radius-card);
+  transform: none;
+  animation: local-drawer-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes local-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog-content.local-drawer {
+    animation: none;
+  }
+}
+.local-drawer .dialog-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+.local-detail {
+  display: grid;
+}
+.local-detail > section {
+  display: grid;
+  gap: 10px;
+  padding: 18px 25px;
+}
+.local-detail > section + section {
+  border-top: 1px solid var(--border);
+}
+.local-detail h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.local-verdict {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 16px;
+  background: var(--surface-2);
+}
+.local-verdict[data-tier="strong"] {
+  background: var(--primary-light);
+}
+.local-verdict-score {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+}
+.local-verdict[data-tier="strong"] .local-verdict-score,
+.local-verdict[data-tier="strong"] strong {
+  color: var(--primary-dark);
+}
+.local-verdict > div {
+  display: grid;
+  gap: 8px;
+}
+.local-verdict strong {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.local-meter {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+.local-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--subtle);
+}
+.local-verdict[data-tier="strong"] .local-meter i {
+  background: var(--primary);
+}
+.local-verdict[data-tier="good"] .local-meter i {
+  background: var(--ink);
+}
+.local-call {
+  justify-content: center;
+  width: 100%;
+  min-height: 46px;
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 14px;
+}
+.local-call:hover {
+  background: color-mix(in srgb, var(--ink) 86%, var(--primary));
+}
+.local-call:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset: 3px;
+}
+.local-call .local-num {
+  margin-left: 2px;
+  font-weight: 500;
+}
+.local-no-phone {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.local-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.local-link svg {
+  color: var(--primary);
+}
+.local-link:hover {
+  border-color: var(--subtle);
+}
+.local-reasons {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.local-reasons li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 0;
+  color: var(--muted);
+}
+.local-reasons li + li {
+  border-top: 1px dashed var(--border);
+}
+.local-reasons .local-num {
+  flex: none;
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+.local-facts {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+.local-facts > div {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.local-facts dt {
+  color: var(--muted);
+}
+.local-facts dd {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  margin: 0;
+}
+.local-facts dd small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.local-facts a {
+  color: var(--primary-dark);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.local-hours {
+  font-variant-numeric: tabular-nums;
+}
+.local-notes .field-label {
+  display: grid;
+  margin: 0;
+}
+.local-stage-seg {
+  justify-self: stretch;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.local-stage-seg button[data-stage="won"][aria-checked="true"] {
+  color: var(--green);
+}
+.local-notes-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }

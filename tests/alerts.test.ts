@@ -145,3 +145,41 @@ describe("digestText", () => {
     expect(text).toContain("Needs attention:\n• Worker is offline");
   });
 });
+
+describe("A local search that finished", () => {
+  it("says how many strong prospects it found and links straight to them", async () => {
+    const { localSearchAlert, alertText } = await import("../shared/alerts");
+    const alert = localSearchAlert({
+      job_id: "j1",
+      search_id: "s1",
+      name: "Roofing contractor in Manchester",
+      no_site: 18,
+      strong: 12,
+      best: { name: "A. Menzies and Sons", score: 95 },
+    });
+    expect(alert).toMatchObject({
+      key: "local_done:j1",
+      severity: "info",
+      notify: true,
+      title: "12 new strong prospects from Roofing contractor in Manchester",
+      detail: "18 with no website found. Best: A. Menzies and Sons (95/100).",
+      path: "/local?search=s1&has=strong",
+    });
+    expect(alertText(alert, "KNB", "https://scout.example/")).toBe(
+      "🟢 KNB: 12 new strong prospects from Roofing contractor in Manchester. 18 with no website found. Best: A. Menzies and Sons (95/100). https://scout.example/local?search=s1&has=strong",
+    );
+    expect(
+      localSearchAlert({
+        job_id: "j2",
+        search_id: "s2",
+        name: "Vet in Leeds",
+        no_site: 0,
+        strong: 0,
+        best: null,
+      }),
+    ).toMatchObject({
+      title: "Local search finished: Vet in Leeds",
+      path: "/local?search=s2",
+    });
+  });
+});

@@ -7,6 +7,17 @@ export type Alert = {
   title: string;
   detail: string;
   path: string;
+  /** Also send it to the alert webhook, though it isn't a problem. */
+  notify?: boolean;
+};
+/** A local search that finished, for its "search finished" notification. */
+export type FinishedLocalSearch = {
+  job_id: string;
+  search_id: string | null;
+  name: string;
+  no_site: number;
+  strong: number;
+  best: { name: string; score: number } | null;
 };
 export type Digest = {
   since: string;
@@ -15,6 +26,7 @@ export type Digest = {
   failed_jobs: number;
   awaiting_review: number;
   top_leads: { id: string; name: string; score: number | null }[];
+  local_searches?: FinishedLocalSearch[];
 };
 export type AlertFeed = { alerts: Alert[]; digest: Digest };
 export type AlertInput = {
@@ -102,6 +114,8 @@ export function buildAlerts(input: AlertInput): Alert[] {
       path: "/leads",
     });
   }
+  for (const search of input.digest.local_searches ?? [])
+    alerts.push(localSearchAlert(search));
   if (awaiting_review)
     alerts.push({
       key: "review_waiting",
@@ -112,8 +126,26 @@ export function buildAlerts(input: AlertInput): Alert[] {
     });
   return alerts;
 }
-export const alertText = (alert: Alert, workspace: string) =>
-  `${alert.severity === "critical" ? "🔴" : "🟠"} ${workspace}: ${alert.title}. ${alert.detail}`;
+/** "12 new strong prospects from Roofers in Manchester", linking to them. */
+export function localSearchAlert(search: FinishedLocalSearch): Alert {
+  const params = new URLSearchParams();
+  if (search.search_id) params.set("search", search.search_id);
+  if (search.strong) params.set("has", "strong");
+  const query = params.size ? `?${params}` : "";
+  return {
+    key: `local_done:${search.job_id}`,
+    severity: "info",
+    notify: true,
+    title: search.strong
+      ? `${plural(search.strong, "new strong prospect")} from ${search.name}`
+      : `Local search finished: ${search.name}`,
+    detail: `${search.no_site} with no website found${search.best ? `. Best: ${search.best.name} (${search.best.score}/100)` : ""}.`,
+    path: `/local${query}`,
+  };
+}
+/** One line for the webhook. `link` is where Scout is served, for a link back. */
+export const alertText = (alert: Alert, workspace: string, link?: string) =>
+  `${alert.severity === "critical" ? "🔴" : alert.severity === "info" ? "🟢" : "🟠"} ${workspace}: ${alert.title}. ${alert.detail}${alert.notify && link ? ` ${link.replace(/\/$/, "")}${alert.path}` : ""}`;
 /** Plain text that reads the same in Slack, Discord and a terminal. */
 export function digestText(digest: Digest, alerts: Alert[], workspace: string) {
   const problems = alerts.filter((a) => a.severity !== "info");

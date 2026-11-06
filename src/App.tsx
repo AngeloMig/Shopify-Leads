@@ -1671,7 +1671,9 @@ export default function App() {
                 ? AlertCircle
                 : alert.key === "new_leads"
                   ? Store
-                  : ShieldCheck;
+                  : alert.key.startsWith("local_done")
+                    ? HardHat
+                    : ShieldCheck;
             return (
               <button
                 key={alert.key}

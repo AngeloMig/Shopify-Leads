@@ -62,6 +62,7 @@ export function registerLocalBusinessRoutes(
             .default("any"),
           has: z.enum(["any", "phone", "social", "strong"]).default("any"),
           sort: z.enum(["newest", "best"]).default("newest"),
+          search: uuid.optional(),
           page: z.coerce.number().int().min(0).max(1000).default(0),
           size: z.coerce.number().int().min(5).max(50).default(20),
         })
@@ -76,6 +77,7 @@ export function registerLocalBusinessRoutes(
       if (input.view === "no_site")
         query = query.in("website_check", ["no_site_found", "not_checked"]);
       if (input.stage !== "any") query = query.eq("stage", input.stage);
+      if (input.search) query = query.eq("search_id", input.search);
       if (input.q) {
         const like = `%${input.q.replace(/[%_,()\\]/g, " ")}%`;
         query = query.or(

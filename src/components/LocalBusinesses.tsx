@@ -1,11 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ArrowDownWideNarrow,
   AtSign,
   ChevronLeft,
   ChevronRight,
-  Clock3,
-  ExternalLink,
   LoaderCircle,
   Mail,
   MapPin,
@@ -101,11 +100,17 @@ export function LocalBusinesses({
   finderOpen: boolean;
   onFinder: (open: boolean) => void;
 }) {
+  // A notification links here with ?search=<id>&has=strong.
+  const [params, setParams] = useSearchParams();
   const [view, setView] = useState<View>("no_site"),
     [query, setQuery] = useState(""),
     [q, setQ] = useState(""),
     [stage, setStage] = useState<LocalStage | "any">("any"),
-    [has, setHas] = useState<Has>("any"),
+    [has, setHas] = useState<Has>(() => {
+      const h = params.get("has");
+      return h === "phone" || h === "social" || h === "strong" ? h : "any";
+    }),
+    [fromSearch, setFromSearch] = useState(params.get("search") ?? ""),
     [sort, setSort] = useState<Sort>("best"),
     [page, setPage] = useState(0),
     [rows, setRows] = useState<Row[]>([]),
@@ -129,7 +134,35 @@ export function LocalBusinesses({
     [recent, setRecent] = useState<LocalSearch[]>(
       demo ? demoLocalSearches : [],
     );
-  const filtered = view !== "no_site" || !!q || stage !== "any";
+  const filtered = view !== "no_site" || !!q || stage !== "any" || !!fromSearch;
+  useEffect(() => {
+    // Follow a notification clicked while already on this page.
+    const s = params.get("search");
+    if (s && s !== fromSearch) {
+      setFromSearch(s);
+      const h = params.get("has");
+      setHas(h === "strong" || h === "phone" || h === "social" ? h : "any");
+      setPage(0);
+    }
+  }, [params]);
+  const clearSearch = () => {
+    setFromSearch("");
+    setPage(0);
+    setParams(
+      (p) => {
+        p.delete("search");
+        p.delete("has");
+        return p;
+      },
+      { replace: true },
+    );
+  };
+  const searchName = (() => {
+    const r = recent.find((x) => x.id === fromSearch);
+    if (!r) return "one search";
+    const names = r.trades.map(tradeLabel);
+    return `${names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", ")} in ${r.cities.length ? r.cities.join(", ") : r.countries.map((c) => countryShort[c]).join(", ")}`;
+  })();
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -196,6 +229,7 @@ export function LocalBusinesses({
       stage,
       has,
       sort,
+      ...(fromSearch ? { search: fromSearch } : {}),
       page: String(page),
       size: String(pageSize),
     });
@@ -218,7 +252,7 @@ export function LocalBusinesses({
     return () => {
       current = false;
     };
-  }, [demo, view, q, stage, has, sort, page, revision]);
+  }, [demo, view, q, stage, has, sort, fromSearch, page, revision]);
 
   // With nothing found yet, the finder is the whole page.
   const empty = loaded && !error && counts.all === 0 && !filtered;
@@ -315,6 +349,20 @@ export function LocalBusinesses({
               </button>
             </div>
           </header>
+          {fromSearch && (
+            <div className="local-from" role="status">
+              <span>
+                Showing leads from <strong>{searchName}</strong>
+              </span>
+              <button
+                type="button"
+                className="text-button"
+                onClick={clearSearch}
+              >
+                Show all
+              </button>
+            </div>
+          )}
           <div className="local-toolbar">
             <div
               className="table-tabs"
@@ -1064,6 +1112,33 @@ function LocalSearchForm({
   );
 }
 
+const dayNames: Record<string, string> = {
+  mo: "Mon",
+  tu: "Tue",
+  we: "Wed",
+  th: "Thu",
+  fr: "Fri",
+  sa: "Sat",
+  su: "Sun",
+  ph: "Holidays",
+};
+/** "Mo-Th 08:00-16:30; Fr 08:00-15:30" as one readable line per rule. */
+export function hoursLines(hours: string) {
+  return hours
+    .split(/\s*;\s*/)
+    .filter(Boolean)
+    .map((rule) =>
+      rule
+        .replace(
+          /\b(Mo|Tu|We|Th|Fr|Sa|Su|PH)\b/g,
+          (d) => dayNames[d.toLowerCase()],
+        )
+        .replace(/(\d)-(\d)/g, "$1–$2")
+        .replace(/([a-z])-([A-Z])/g, "$1–$2")
+        .replace(/\boff\b/i, "closed"),
+    );
+}
+
 function LocalBusinessDetail({
   lead,
   demo,
@@ -1079,6 +1154,7 @@ function LocalBusinessDetail({
     [notes, setNotes] = useState(lead.notes),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const changed = stage !== lead.stage || notes !== lead.notes;
   async function save() {
     setBusy(true);
     setError("");
@@ -1099,119 +1175,181 @@ function LocalBusinessDetail({
     }
   }
   const map = mapUrl(lead);
+  const prospect = scoreOf(lead);
+  const where = `${lead.city}${lead.country ? `, ${countryShort[lead.country]}` : ""}`;
   return (
     <Dialog
       open
       onOpenChange={(o) => !o && onClose()}
       title={lead.name}
-      description={`${lead.trade} · ${lead.city} · found ${formatDate(lead.found_at, true)}`}
+      description={`${lead.trade} · ${where} · found ${formatDate(lead.found_at, true)}`}
+      className="local-drawer"
     >
       <div className="local-detail">
-        <section>
-          <h3>Listing</h3>
-          <ul className="local-facts">
-            <li>
-              <Phone size={14} />
-              {lead.phone ? (
-                <a href={tel(lead.phone)}>{lead.phone}</a>
-              ) : (
-                <span className="unknown">No phone listed</span>
-              )}
-            </li>
+        <section className="local-verdict" data-tier={prospect.tier}>
+          <span className="local-verdict-score local-num">
+            {prospect.score}
+          </span>
+          <div>
+            <strong>{tierLabel[prospect.tier]}</strong>
+            <span
+              className="local-meter"
+              role="meter"
+              aria-label="Prospect score"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={prospect.score}
+            >
+              <i style={{ width: `${prospect.score}%` }} />
+            </span>
+          </div>
+        </section>
+
+        <section className="local-actions" aria-label="Get in touch">
+          {lead.phone ? (
+            <a className="button local-call" href={tel(lead.phone)}>
+              <Phone size={16} />
+              <span>
+                Call <span className="local-num">{lead.phone}</span>
+              </span>
+            </a>
+          ) : (
+            <p className="local-no-phone">
+              No phone on the listing.{" "}
+              {networks(lead).length
+                ? "Message them on a social page instead."
+                : "Look them up on the map for another way in."}
+            </p>
+          )}
+          <div className="local-links">
+            {networks(lead).map((s) => (
+              <a
+                key={s.url}
+                className="local-link"
+                href={s.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <AtSign size={14} />
+                {socialLabel[s.network]}
+              </a>
+            ))}
             {lead.email && (
-              <li>
+              <a className="local-link" href={`mailto:${lead.email}`}>
                 <Mail size={14} />
-                <a href={`mailto:${lead.email}`}>{lead.email}</a>
-              </li>
-            )}
-            {lead.address && (
-              <li>
-                <MapPin size={14} />
-                {lead.address}
-              </li>
-            )}
-            {lead.opening_hours && (
-              <li>
-                <Clock3 size={14} />
-                {lead.opening_hours}
-              </li>
+                Email
+              </a>
             )}
             {map && (
-              <li>
-                <ExternalLink size={14} />
-                <a href={map} target="_blank" rel="noreferrer">
-                  Open in OpenStreetMap
-                </a>
-              </li>
+              <a
+                className="local-link"
+                href={map}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MapPin size={14} />
+                Map
+              </a>
             )}
-          </ul>
+          </div>
         </section>
-        <section>
-          <h3>
-            Why it scores{" "}
-            <span className="local-score" data-tier={scoreOf(lead).tier}>
-              <span className="local-num">{scoreOf(lead).score}</span>
-            </span>
-          </h3>
+
+        <section aria-labelledby="local-why">
+          <h3 id="local-why">Why it scores {prospect.score}</h3>
           <ul className="local-reasons">
-            {scoreOf(lead).reasons.map((r) => (
+            {prospect.reasons.map((r) => (
               <li key={r.text}>
+                <span>{r.text}</span>
                 <span className="local-num">
-                  {r.points ? `+${r.points}` : "·"}
+                  {r.points ? `+${r.points}` : "–"}
                 </span>
-                {r.text}
               </li>
             ))}
           </ul>
         </section>
-        <section>
-          <h3>Website check</h3>
-          <p>
-            <span className={`local-check local-check-${lead.website_check}`}>
-              {websiteCheckLabel[lead.website_check]}
-            </span>
-          </p>
-          <p className="local-note">
-            {lead.website_check === "not_checked"
-              ? "The map listing has no website. No web search was set up when it was found, so Scout hasn't looked further."
-              : lead.website_check === "site_found"
-                ? `A site that looks like theirs turned up: ${lead.found_site}.`
-                : `The map listing has no website, and a web search for ${lead.check_query ?? "the business"} found none. That isn't proof they have none.`}
-          </p>
-          {lead.social_links.length > 0 && (
-            <ul className="local-facts">
-              {lead.social_links.map((s) => (
-                <li key={s.url}>
-                  <ExternalLink size={14} />
-                  <a href={s.url} target="_blank" rel="noreferrer">
-                    {socialLabel[s.network]}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
+
+        <section aria-labelledby="local-facts">
+          <h3 id="local-facts">Details</h3>
+          <dl className="local-facts">
+            <div>
+              <dt>Website</dt>
+              <dd>
+                <span
+                  className={`local-check local-check-${lead.website_check}`}
+                >
+                  {websiteCheckLabel[lead.website_check]}
+                </span>
+                <small>
+                  {lead.website_check === "not_checked" ? (
+                    "The listing has none. No web search was set up when it was found, so Scout hasn't looked further."
+                  ) : lead.website_check === "site_found" ? (
+                    <>
+                      Looks like theirs:{" "}
+                      <a
+                        href={`https://${lead.found_site}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {lead.found_site}
+                      </a>
+                      {lead.check_query === "Domain guess" &&
+                        " (found by trying their name as a domain)"}
+                      .
+                    </>
+                  ) : (
+                    `The listing has none, and a web search for ${lead.check_query ?? "the business"} found none either. That isn't proof they have none.`
+                  )}
+                </small>
+              </dd>
+            </div>
+            {lead.address && (
+              <div>
+                <dt>Address</dt>
+                <dd>{lead.address}</dd>
+              </div>
+            )}
+            {lead.opening_hours && (
+              <div>
+                <dt>Hours</dt>
+                <dd>
+                  {hoursLines(lead.opening_hours).map((line) => (
+                    <span key={line} className="local-hours">
+                      {line}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            )}
+          </dl>
         </section>
-        <section>
-          <h3>Your notes</h3>
+
+        <section className="local-notes" aria-labelledby="local-notes">
+          <h3 id="local-notes">Your notes</h3>
+          <div
+            className="local-seg local-stage-seg"
+            role="radiogroup"
+            aria-label="Stage"
+          >
+            {localStages.map((s) => (
+              <button
+                type="button"
+                role="radio"
+                key={s}
+                data-stage={s}
+                aria-checked={stage === s}
+                onClick={() => setStage(s)}
+              >
+                {stageLabel[s]}
+              </button>
+            ))}
+          </div>
           <label className="field-label">
-            Stage
-            <select
-              value={stage}
-              onChange={(e) => setStage(e.target.value as LocalStage)}
-            >
-              {localStages.map((s) => (
-                <option key={s} value={s}>
-                  {stageLabel[s]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field-label">
-            Notes
+            <span className="sr-only">Notes</span>
             <textarea
-              rows={3}
+              rows={4}
               maxLength={4000}
               value={notes}
+              placeholder="Who you spoke to, what they need, when to call back"
               onChange={(e) => setNotes(e.target.value)}
             />
           </label>
@@ -1220,12 +1358,14 @@ function LocalBusinessDetail({
               {error}
             </p>
           )}
-          <Button onClick={() => void save()} disabled={busy}>
-            {busy && <LoaderCircle className="spin" size={16} />}
-            Save
-          </Button>
+          <div className="local-notes-foot">
+            <Attribution />
+            <Button onClick={() => void save()} disabled={busy || !changed}>
+              {busy && <LoaderCircle className="spin" size={16} />}
+              {changed ? "Save" : "Saved"}
+            </Button>
+          </div>
         </section>
-        <Attribution />
       </div>
     </Dialog>
   );
