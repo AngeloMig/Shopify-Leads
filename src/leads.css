@@ -1757,4 +1757,14 @@
     font-size: 11.5px;
     white-space: nowrap;
   }
+  .prospect-pipeline .prospect-table td .text-button.pipeline-report,
+  .prospect-pipeline .prospect-table td .pipeline-mobile {
+    display: none;
+  }
+  /* A full-size tap target that doesn't make the line taller. */
+  .prospect-pipeline .prospect-table .pipeline-copy {
+    width: 36px;
+    height: 36px;
+    margin: -7px -8px -7px 0;
+  }
 }
