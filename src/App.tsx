@@ -163,6 +163,7 @@ export default function App() {
     [showDiscovery, setShowDiscovery] = useState(false),
     [showGuide, setShowGuide] = useState(false),
     [showSearch, setShowSearch] = useState(false),
+    [localFinder, setLocalFinder] = useState(false),
     [showNotifications, setShowNotifications] = useState(false),
     [alertFeed, setAlertFeed] = useState<AlertFeed | null>(null),
     [search, setSearch] = useState(""),
@@ -911,10 +912,21 @@ export default function App() {
                   <ChevronDown size={14} />
                 </label>
               )}
-              <Button onClick={() => setShowDiscovery(true)}>
-                <Plus size={16} />
-                New discovery
-              </Button>
+              {location.pathname === "/local" ? (
+                <Button
+                  aria-expanded={localFinder}
+                  aria-controls="local-finder"
+                  onClick={() => setLocalFinder((open) => !open)}
+                >
+                  {localFinder ? <X size={16} /> : <Search size={16} />}
+                  {localFinder ? "Close finder" : "Find businesses"}
+                </Button>
+              ) : (
+                <Button onClick={() => setShowDiscovery(true)}>
+                  <Plus size={16} />
+                  New discovery
+                </Button>
+              )}
             </div>
           </div>
           {loadError && (
@@ -1406,7 +1418,12 @@ export default function App() {
             />
           )}
           {location.pathname === "/local" && (
-            <LocalBusinesses demo={demo} notify={notify} />
+            <LocalBusinesses
+              demo={demo}
+              notify={notify}
+              finderOpen={localFinder}
+              onFinder={setLocalFinder}
+            />
           )}
           {location.pathname === "/outreach" && (
             <>

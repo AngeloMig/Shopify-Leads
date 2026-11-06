@@ -38,31 +38,63 @@ export function registerLocalBusinessRoutes(
         .object({
           view: z.enum(["no_site", "all"]).default("no_site"),
           q: z.string().trim().max(100).default(""),
+          stage: z
+            .enum(["any", ...localStages] as [string, ...string[]])
+            .default("any"),
+          has: z.enum(["any", "phone", "social"]).default("any"),
           page: z.coerce.number().int().min(0).max(1000).default(0),
           size: z.coerce.number().int().min(5).max(50).default(20),
         })
         .parse(req.query);
-      let query = db()
-        .from("local_businesses")
-        .select(columns, { count: "exact" })
-        .eq("organization_id", res.locals.org)
-        .eq("suppressed", false);
-      if (input.view === "no_site")
-        query = query.in("website_check", ["no_site_found", "not_checked"]);
-      if (input.q) {
-        const like = `%${input.q.replace(/[%_,()\\]/g, " ")}%`;
-        query = query.or(
-          `name.ilike.${like},city.ilike.${like},trade.ilike.${like}`,
-        );
-      }
-      const { data, count, error } = await query
-        .order("found_at", { ascending: false })
-        .range(
-          input.page * input.size,
-          input.page * input.size + input.size - 1,
-        );
+      // The view, search and stage narrow everything on the page; "has" picks
+      // within that, so its counts stay visible while it's on.
+      const base = (select: string, head = false) => {
+        let query = db()
+          .from("local_businesses")
+          .select(select, { count: "exact", head })
+          .eq("organization_id", res.locals.org)
+          .eq("suppressed", false);
+        if (input.view === "no_site")
+          query = query.in("website_check", ["no_site_found", "not_checked"]);
+        if (input.stage !== "any") query = query.eq("stage", input.stage);
+        if (input.q) {
+          const like = `%${input.q.replace(/[%_,()\\]/g, " ")}%`;
+          query = query.or(
+            `name.ilike.${like},city.ilike.${like},trade.ilike.${like}`,
+          );
+        }
+        return query;
+      };
+      type Query = ReturnType<typeof base>;
+      const withPhone = (q: Query) => q.not("phone", "is", null);
+      const withSocial = (q: Query) => q.not("social_links", "eq", "[]");
+      let rows = base(columns);
+      if (input.has === "phone") rows = withPhone(rows);
+      if (input.has === "social") rows = withSocial(rows);
+      const [{ data, count, error }, all, phone, social] = await Promise.all([
+        rows
+          .order("found_at", { ascending: false })
+          .range(
+            input.page * input.size,
+            input.page * input.size + input.size - 1,
+          ),
+        base("id", true),
+        withPhone(base("id", true)),
+        withSocial(base("id", true)),
+      ]);
+      for (const r of [all, phone, social])
+        if (r.error) throw new Error(r.error.message);
       if (error) throw new Error(error.message);
-      res.json({ rows: data ?? [], total: count ?? 0, ...status() });
+      res.json({
+        rows: data ?? [],
+        total: count ?? 0,
+        counts: {
+          all: all.count ?? 0,
+          phone: phone.count ?? 0,
+          social: social.count ?? 0,
+        },
+        ...status(),
+      });
     }),
   );
   app.patch(

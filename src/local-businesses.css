@@ -5,6 +5,12 @@
   padding: 20px 22px 0;
   margin-bottom: 16px;
 }
+.local-search-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
 .local-search-head h2 {
   font-size: 16px;
   font-weight: 600;
@@ -291,37 +297,272 @@
   color: var(--muted);
   font-size: 12px;
 }
-.local-panel {
+/* The call sheet: one row per business, the number to ring up front. */
+.local-sheet {
   margin-bottom: 24px;
-}
-.local-table {
-  width: 100%;
-}
-.local-table td {
-  vertical-align: middle;
-}
-.local-name {
-  display: grid;
-  gap: 2px;
-  text-align: left;
-  background: none;
-  border: 0;
   padding: 0;
-  color: var(--ink);
-  cursor: pointer;
+  overflow: hidden;
 }
-.local-name strong {
-  font-size: 13.5px;
+.local-num {
+  font-family: "Geist Mono Variable", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.local-sheet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: 22px 22px 16px;
+}
+.local-sheet-head h2 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.local-sheet-head h2 .local-num {
+  margin-right: 2px;
+  font-size: 22px;
   font-weight: 600;
 }
-.local-name:hover strong {
+.local-has {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-has button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.local-has button svg {
+  color: var(--primary);
+}
+.local-has button .local-num {
+  color: var(--ink);
+  font-weight: 600;
+}
+.local-has button:hover {
+  border-color: var(--subtle);
+  color: var(--ink);
+}
+.local-has button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #ffffff;
+}
+.local-has button[aria-pressed="true"] .local-num,
+.local-has button[aria-pressed="true"] svg {
+  color: inherit;
+}
+.local-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 0 22px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.local-toolbar .table-tabs {
+  min-height: 50px;
+}
+.local-toolbar .table-tabs button {
+  font-size: 12.5px;
+}
+.local-find {
+  flex: 1 1 220px;
+  max-width: 340px;
+  margin-left: auto;
+}
+.local-find input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+.local-stage-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.local-stage-filter select {
+  width: auto;
+  min-height: 34px;
+  padding: 0 28px 0 10px;
+  background-color: var(--surface);
+}
+.local-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.local-row {
+  display: grid;
+  grid-template-columns:
+    minmax(200px, 1.5fr) minmax(170px, 1fr) minmax(190px, 1.3fr)
+    124px;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.15s ease;
+}
+.local-row:hover {
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+.local-row-skeleton {
+  display: block;
+  padding: 20px 22px;
+}
+.local-who {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+.local-who strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.local-who small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.local-who:hover strong {
+  text-decoration: underline;
+  text-decoration-color: var(--primary);
+  text-underline-offset: 3px;
+}
+.local-who:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.local-dial a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  color: var(--ink);
+  font-family: "Geist Mono Variable", ui-monospace, monospace;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.local-dial a svg {
+  flex: none;
+  color: var(--primary);
+}
+.local-dial a:hover span {
   color: var(--primary-dark);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.local-name small {
+.local-dial .unknown {
+  color: var(--subtle);
+  font-family: "Geist Mono Variable", ui-monospace, monospace;
+}
+.local-online .unknown {
+  color: var(--subtle);
+  font-size: 12.5px;
+}
+.local-online {
+  min-width: 0;
+  font-size: 12.5px;
+}
+.local-online .local-social > span {
   color: var(--muted);
-  font-size: 12px;
+}
+.local-has-site {
+  color: var(--muted);
+}
+.local-has-site a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.local-stage {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+}
+.local-stage i {
+  position: absolute;
+  left: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--subtle);
+  pointer-events: none;
+}
+.local-row[data-stage="contacted"] .local-stage i {
+  background: var(--primary);
+}
+.local-row[data-stage="won"] .local-stage i {
+  background: var(--green);
+}
+.local-row[data-stage="lost"] .local-stage i {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--subtle);
+}
+.local-stage select {
+  width: auto;
+  min-width: 112px;
+  min-height: 32px;
+  padding: 0 26px 0 24px;
+  border-color: transparent;
+  background-color: transparent;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.local-stage select:hover,
+.local-stage select:focus-visible {
+  border-color: var(--border);
+  background-color: var(--surface);
+}
+.local-row[data-stage="lost"] .local-who strong {
+  color: var(--subtle);
+}
+.local-sheet-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 22px;
+}
+.local-sheet-foot .pagination span {
+  font-family: "Geist Mono Variable", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.local-none {
+  padding: 40px 22px;
 }
 .local-check {
   display: inline-flex;
@@ -355,10 +596,10 @@
 .local-social a {
   color: var(--primary-dark);
   font-size: 12.5px;
+  text-underline-offset: 3px;
 }
-.local-phone {
-  color: var(--ink);
-  white-space: nowrap;
+.local-social a:hover {
+  text-decoration: underline;
 }
 .local-attribution a {
   color: inherit;
@@ -420,6 +661,38 @@
 }
 .local-facts a {
   color: var(--primary-dark);
+}
+@media (max-width: 860px) {
+  .local-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    padding: 14px 16px;
+  }
+  .local-who {
+    grid-column: 1;
+  }
+  .local-stage {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .local-dial,
+  .local-online {
+    grid-column: 1 / -1;
+  }
+  .local-sheet-head,
+  .local-toolbar,
+  .local-sheet-foot {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .local-toolbar {
+    padding-bottom: 12px;
+  }
+  .local-find {
+    flex-basis: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
 }
 @media (max-width: 600px) {
   .local-search {

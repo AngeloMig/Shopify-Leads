@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
+  AtSign,
   ChevronLeft,
   ChevronRight,
   Clock3,
   ExternalLink,
-  HardHat,
   LoaderCircle,
   Mail,
   MapPin,
@@ -35,6 +35,8 @@ import { Dialog } from "./ui/dialog";
 import "../local-businesses.css";
 
 type View = "no_site" | "all";
+type Has = "any" | "phone" | "social";
+type Counts = { all: number; phone: number; social: number };
 type Status = {
   geoapify_configured: boolean;
   website_check: "tavily" | "brave" | null;
@@ -52,6 +54,11 @@ const mapUrl = (b: LocalBusiness) =>
     ? `https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lon}#map=18/${b.lat}/${b.lon}`
     : null);
 const tel = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
+/** One link per network: a listing and the web check can both find a page. */
+const networks = (b: LocalBusiness) => [
+  ...new Map(b.social_links.map((s) => [s.network, s])).values(),
+];
+const hasSocial = (b: LocalBusiness) => b.social_links.length > 0;
 
 function Attribution() {
   return (
@@ -75,25 +82,45 @@ function Attribution() {
 export function LocalBusinesses({
   demo,
   notify,
+  finderOpen,
+  onFinder,
 }: {
   demo: boolean;
   notify: (message: string) => void;
+  finderOpen: boolean;
+  onFinder: (open: boolean) => void;
 }) {
   const [view, setView] = useState<View>("no_site"),
+    [query, setQuery] = useState(""),
+    [q, setQ] = useState(""),
+    [stage, setStage] = useState<LocalStage | "any">("any"),
+    [has, setHas] = useState<Has>("any"),
     [page, setPage] = useState(0),
     [rows, setRows] = useState<LocalBusiness[]>([]),
     [total, setTotal] = useState(0),
+    [counts, setCounts] = useState<Counts>({ all: 0, phone: 0, social: 0 }),
     [loading, setLoading] = useState(!demo),
+    [loaded, setLoaded] = useState(demo),
     [error, setError] = useState(""),
     [status, setStatus] = useState<Status>({
       geoapify_configured: true,
       website_check: "tavily",
     }),
     [open, setOpen] = useState<LocalBusiness | null>(null),
+    [saving, setSaving] = useState<string | null>(null),
     [revision, setRevision] = useState(0),
     [recent, setRecent] = useState<LocalSearch[]>(
       demo ? demoLocalSearches : [],
     );
+  const filtered = view !== "no_site" || !!q || stage !== "any";
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(query.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
   useEffect(() => {
     if (demo) return;
@@ -110,203 +137,336 @@ export function LocalBusinesses({
 
   useEffect(() => {
     if (demo) {
-      const list = demoLocalBusinesses.filter(
-        (b) => view === "all" || b.website_check !== "site_found",
+      const needle = q.toLowerCase();
+      const base = demoLocalBusinesses.filter(
+        (b) =>
+          (view === "all" || b.website_check !== "site_found") &&
+          (stage === "any" || b.stage === stage) &&
+          (!needle ||
+            [b.name, b.city, b.trade].some((v) =>
+              v.toLowerCase().includes(needle),
+            )),
+      );
+      const list = base.filter((b) =>
+        has === "phone" ? !!b.phone : has === "social" ? hasSocial(b) : true,
       );
       setRows(list.slice(page * pageSize, page * pageSize + pageSize));
       setTotal(list.length);
+      setCounts({
+        all: base.length,
+        phone: base.filter((b) => b.phone).length,
+        social: base.filter(hasSocial).length,
+      });
       return;
     }
     let current = true;
     setLoading(true);
     setError("");
-    api<{ rows: LocalBusiness[]; total: number } & Status>(
-      `/local-businesses?view=${view}&page=${page}&size=${pageSize}`,
+    const params = new URLSearchParams({
+      view,
+      q,
+      stage,
+      has,
+      page: String(page),
+      size: String(pageSize),
+    });
+    api<{ rows: LocalBusiness[]; total: number; counts?: Counts } & Status>(
+      `/local-businesses?${params}`,
     )
       .then((r) => {
         if (!current) return;
         setRows(r.rows);
         setTotal(r.total);
+        setCounts(r.counts ?? { all: r.total, phone: 0, social: 0 });
         setStatus({
           geoapify_configured: r.geoapify_configured,
           website_check: r.website_check,
         });
+        setLoaded(true);
       })
       .catch((e) => current && setError((e as Error).message))
       .finally(() => current && setLoading(false));
     return () => {
       current = false;
     };
-  }, [demo, view, page, revision]);
+  }, [demo, view, q, stage, has, page, revision]);
+
+  // With nothing found yet, the finder is the whole page.
+  const empty = loaded && !error && counts.all === 0 && !filtered;
+  useEffect(() => {
+    if (empty) onFinder(true);
+  }, [empty, onFinder]);
+
+  async function moveStage(b: LocalBusiness, next: LocalStage) {
+    const before = rows;
+    setRows((r) => r.map((x) => (x.id === b.id ? { ...x, stage: next } : x)));
+    if (demo) return;
+    setSaving(b.id);
+    try {
+      const saved = await api<LocalBusiness>(
+        `/local-businesses/${b.id}`,
+        { stage: next },
+        "PATCH",
+      );
+      setRows((r) => r.map((x) => (x.id === saved.id ? saved : x)));
+    } catch (e) {
+      setRows(before);
+      notify(`Couldn't save the stage: ${(e as Error).message}`);
+    } finally {
+      setSaving(null);
+    }
+  }
 
   const pages = Math.max(1, Math.ceil(total / pageSize));
+  const first = total ? page * pageSize + 1 : 0;
+  const last = Math.min(total, (page + 1) * pageSize);
+  const pick = (next: Has) => {
+    setHas((h) => (h === next ? "any" : next));
+    setPage(0);
+  };
   return (
     <>
-      <LocalSearchForm
-        demo={demo}
-        status={status}
-        recent={recent}
-        onQueued={() => {
-          notify("Search queued. Track it in Automation jobs.");
-          setTimeout(() => setRevision((n) => n + 1), 4000);
-        }}
-      />
-      <section className="panel local-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>
-              Local businesses <span className="count-badge">{total}</span>
+      {finderOpen && (
+        <LocalSearchForm
+          demo={demo}
+          status={status}
+          recent={recent}
+          onClose={empty ? undefined : () => onFinder(false)}
+          onQueued={() => {
+            notify("Search queued. Track it in Automation jobs.");
+            setTimeout(() => setRevision((n) => n + 1), 4000);
+          }}
+        />
+      )}
+      {!empty && (
+        <section
+          className="panel local-sheet"
+          aria-labelledby="local-sheet-title"
+        >
+          <header className="local-sheet-head">
+            <h2 id="local-sheet-title">
+              <span className="local-num">{counts.all}</span>{" "}
+              {view === "no_site"
+                ? counts.all === 1
+                  ? "business with no website found"
+                  : "businesses with no website found"
+                : counts.all === 1
+                  ? "business checked"
+                  : "businesses checked"}
             </h2>
-            <p>
-              Businesses on the map with no website listed, checked against a
-              web search.
-            </p>
-          </div>
-        </div>
-        <div className="table-toolbar">
-          <div className="table-tabs" role="tablist">
-            {(
-              [
-                ["no_site", "No website"],
-                ["all", "All checked"],
-              ] as const
-            ).map(([id, label]) => (
+            <div className="local-has" aria-label="Show only">
               <button
-                key={id}
-                role="tab"
-                aria-selected={view === id}
-                className={view === id ? "active" : ""}
-                onClick={() => {
-                  setView(id);
+                type="button"
+                aria-pressed={has === "phone"}
+                onClick={() => pick("phone")}
+              >
+                <Phone size={14} />
+                <span className="local-num">{counts.phone}</span> with a phone
+              </button>
+              <button
+                type="button"
+                aria-pressed={has === "social"}
+                onClick={() => pick("social")}
+              >
+                <AtSign size={14} />
+                <span className="local-num">{counts.social}</span> with social
+                pages
+              </button>
+            </div>
+          </header>
+          <div className="local-toolbar">
+            <div
+              className="table-tabs"
+              role="tablist"
+              aria-label="Which businesses"
+            >
+              {(
+                [
+                  ["no_site", "No website"],
+                  ["all", "All checked"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={view === id}
+                  className={view === id ? "active" : ""}
+                  onClick={() => {
+                    setView(id);
+                    setPage(0);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <label className="search-input local-find">
+              <Search size={16} />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Name, trade or city"
+                aria-label="Search businesses"
+              />
+            </label>
+            <label className="local-stage-filter">
+              <span>Stage</span>
+              <select
+                value={stage}
+                onChange={(e) => {
+                  setStage(e.target.value as LocalStage | "any");
                   setPage(0);
                 }}
               >
-                {label}
-              </button>
-            ))}
+                <option value="any">Any</option>
+                {localStages.map((s) => (
+                  <option key={s} value={s}>
+                    {stageLabel[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        </div>
-        {error ? (
-          <div className="empty-state">
-            <p className="error-message">{error}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRevision((n) => n + 1)}
-            >
-              Try again
-            </Button>
-          </div>
-        ) : !loading && rows.length === 0 ? (
-          <div className="empty-state">
-            <HardHat size={24} />
-            <p>
-              No local businesses yet. Pick a trade and a few cities to find
-              businesses with no website.
-            </p>
-          </div>
-        ) : (
-          <div className="table-scroll">
-            <table className="local-table" aria-busy={loading}>
-              <thead>
-                <tr>
-                  <th>Business</th>
-                  <th>City</th>
-                  <th>Phone</th>
-                  <th>Website</th>
-                  <th>Social</th>
-                  <th>Stage</th>
-                  <th>Found</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && rows.length === 0
-                  ? Array.from({ length: 4 }, (_, i) => (
-                      <tr key={i} className="pipeline-skeleton-row">
-                        <td colSpan={7}>
-                          <span className="pipeline-skeleton-line" />
-                        </td>
-                      </tr>
-                    ))
-                  : rows.map((b) => (
-                      <tr key={b.id}>
-                        <td>
-                          <button
-                            className="local-name"
-                            onClick={() => setOpen(b)}
-                          >
-                            <strong>{b.name}</strong>
-                            <small>{b.trade}</small>
-                          </button>
-                        </td>
-                        <td>{b.city}</td>
-                        <td>
-                          {b.phone ? (
-                            <a className="local-phone" href={tel(b.phone)}>
-                              {b.phone}
-                            </a>
-                          ) : (
-                            <span className="unknown">Not listed</span>
-                          )}
-                        </td>
-                        <td>
-                          <span
-                            className={`local-check local-check-${b.website_check}`}
-                          >
-                            {websiteCheckLabel[b.website_check]}
+          {error ? (
+            <div className="empty-state">
+              <p className="error-message">{error}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRevision((n) => n + 1)}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : !loading && rows.length === 0 ? (
+            <div className="empty-state local-none">
+              <p>
+                {has === "phone"
+                  ? "None of these have a phone number listed."
+                  : has === "social"
+                    ? "None of these have a social page."
+                    : "No business matches. Try another name, trade or city, or set Stage to Any."}
+              </p>
+            </div>
+          ) : (
+            <ul className="local-list" aria-busy={loading}>
+              {loading && rows.length === 0
+                ? Array.from({ length: 5 }, (_, i) => (
+                    <li key={i} className="local-row local-row-skeleton">
+                      <span className="pipeline-skeleton-line" />
+                    </li>
+                  ))
+                : rows.map((b) => (
+                    <li key={b.id} className="local-row" data-stage={b.stage}>
+                      <button
+                        type="button"
+                        className="local-who"
+                        onClick={() => setOpen(b)}
+                      >
+                        <strong>{b.name}</strong>
+                        <small>
+                          {b.trade} · {b.city}
+                          {b.country ? `, ${countryShort[b.country]}` : ""}
+                        </small>
+                      </button>
+                      <div className="local-dial">
+                        {b.phone ? (
+                          <a href={tel(b.phone)} aria-label={`Call ${b.name}`}>
+                            <Phone size={14} />
+                            <span>{b.phone}</span>
+                          </a>
+                        ) : (
+                          <span className="unknown">
+                            <span aria-hidden>—</span>
+                            <span className="sr-only">No phone listed</span>
                           </span>
-                        </td>
-                        <td>
-                          {b.social_links.length ? (
-                            <span className="local-social">
-                              {b.social_links.map((s) => (
+                        )}
+                      </div>
+                      <div className="local-online">
+                        {b.website_check === "site_found" ? (
+                          <span className="local-has-site">
+                            Has a site
+                            {b.found_site && (
+                              <>
+                                :{" "}
                                 <a
-                                  key={s.url}
-                                  href={s.url}
+                                  href={`https://${b.found_site}`}
                                   target="_blank"
                                   rel="noreferrer"
                                 >
-                                  {socialLabel[s.network]}
+                                  {b.found_site}
                                 </a>
-                              ))}
-                            </span>
-                          ) : (
-                            <span className="unknown">None found</span>
-                          )}
-                        </td>
-                        <td>{stageLabel[b.stage]}</td>
-                        <td>{formatDate(b.found_at, true)}</td>
-                      </tr>
-                    ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <div className="table-footer">
-          <Attribution />
-          <div className="pagination">
-            <span>
-              Page {page + 1} of {pages}
-            </span>
-            <button
-              className="icon-button"
-              aria-label="Previous page"
-              disabled={page === 0}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label="Next page"
-              disabled={page + 1 >= pages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      </section>
+                              </>
+                            )}
+                          </span>
+                        ) : networks(b).length ? (
+                          <span className="local-social">
+                            <span>Only on</span>
+                            {networks(b).map((s) => (
+                              <a
+                                key={s.url}
+                                href={s.url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {socialLabel[s.network]}
+                              </a>
+                            ))}
+                          </span>
+                        ) : (
+                          <span className="unknown">
+                            {b.website_check === "not_checked"
+                              ? "Not checked yet"
+                              : "Nothing found online"}
+                          </span>
+                        )}
+                      </div>
+                      <label className="local-stage">
+                        <span className="sr-only">Stage for {b.name}</span>
+                        <i aria-hidden />
+                        <select
+                          value={b.stage}
+                          disabled={saving === b.id}
+                          onChange={(e) =>
+                            void moveStage(b, e.target.value as LocalStage)
+                          }
+                        >
+                          {localStages.map((s) => (
+                            <option key={s} value={s}>
+                              {stageLabel[s]}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </li>
+                  ))}
+            </ul>
+          )}
+          <footer className="local-sheet-foot">
+            <Attribution />
+            <div className="pagination">
+              <span>{total ? `${first}–${last} of ${total}` : "None"}</span>
+              <button
+                className="icon-button"
+                aria-label="Previous page"
+                disabled={page === 0}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                className="icon-button"
+                aria-label="Next page"
+                disabled={page + 1 >= pages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </footer>
+        </section>
+      )}
       {open && (
         <LocalBusinessDetail
           key={open.id}
@@ -364,11 +524,13 @@ function LocalSearchForm({
   status,
   recent,
   onQueued,
+  onClose,
 }: {
   demo: boolean;
   status: Status;
   recent: LocalSearch[];
   onQueued: () => void;
+  onClose?: () => void;
 }) {
   const [trades, setTrades] = useState<string[]>(["construction"]),
     [query, setQuery] = useState(""),
@@ -453,7 +615,9 @@ function LocalSearchForm({
   );
   return (
     <form
+      id="local-finder"
       className="panel local-search"
+      aria-labelledby="local-finder-title"
       onSubmit={(e: FormEvent) => {
         e.preventDefault();
         void run(
@@ -463,11 +627,24 @@ function LocalSearchForm({
       }}
     >
       <div className="local-search-head">
-        <h2>Find businesses without a website</h2>
-        <p>
-          Searches OpenStreetMap through Geoapify's free plan, then runs one web
-          search for each business with no website listed.
-        </p>
+        <div>
+          <h2 id="local-finder-title">Find businesses without a website</h2>
+          <p>
+            Scout lists the trades you pick from OpenStreetMap, keeps the ones
+            with no website on their listing, then runs one web search for each
+            to make sure.
+          </p>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Close the finder"
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
 
       <section className="local-step">
@@ -796,7 +973,7 @@ function LocalBusinessDetail({
       open
       onOpenChange={(o) => !o && onClose()}
       title={lead.name}
-      description={`${lead.trade} · ${lead.city}`}
+      description={`${lead.trade} · ${lead.city} · found ${formatDate(lead.found_at, true)}`}
     >
       <div className="local-detail">
         <section>
