@@ -562,6 +562,12 @@ const countryShort: Record<Country, string> = {
   CA: "Canada",
   AU: "Australia",
 };
+const groupLabel: Record<string, string> = {
+  "Construction and home services": "Building and home",
+  "Beauty and fitness": "Beauty and fitness",
+  "Health and pets": "Health and pets",
+  "Other local services": "Other",
+};
 const plural = (n: number, one: string, many = `${one}s`) =>
   `${n} ${n === 1 ? one : many}`;
 const tradeLabel = (id: string) =>
@@ -605,7 +611,8 @@ function LocalSearchForm({
     [cities, setCities] = useState(""),
     [perPlace, setPerPlace] = useState(20),
     [busy, setBusy] = useState<string | null>(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [group, setGroup] = useState(localTrades[0].group);
   const list =
     mode === "cities"
       ? cities
@@ -668,21 +675,46 @@ function LocalSearchForm({
     trades.length > 0 &&
     countries.length > 0 &&
     (mode === "biggest" || (list.length > 0 && list.length <= 10));
-  const option = (t: (typeof localTrades)[number]) => (
-    <label key={t.id} className="local-check-option">
-      <input
-        type="checkbox"
-        checked={trades.includes(t.id)}
-        disabled={!trades.includes(t.id) && full}
-        onChange={() => toggleTrade(t.id)}
-      />
-      {t.label}
-    </label>
-  );
+  const chip = (t: (typeof localTrades)[number]) => {
+    const on = trades.includes(t.id);
+    return (
+      <button
+        type="button"
+        key={t.id}
+        className="local-trade"
+        aria-pressed={on}
+        disabled={!on && full}
+        onClick={() => toggleTrade(t.id)}
+      >
+        {t.label}
+      </button>
+    );
+  };
+  const inGroup = localTrades.filter((t) => t.group === group);
+  const places =
+    mode === "cities" ? list : countries.flatMap((c) => biggestCities[c]);
+  const headline = demo
+    ? "Sample data"
+    : !status.geoapify_configured
+      ? "Geoapify key needed"
+      : trades.length === 0
+        ? "Pick at least one trade"
+        : countries.length === 0
+          ? "Pick at least one country"
+          : mode === "cities" && list.length === 0
+            ? "Add at least one city"
+            : list.length > 10
+              ? "Up to 10 cities per search"
+              : null;
+  const note = demo
+    ? "Connect your workspace to run a real search."
+    : !status.geoapify_configured
+      ? "Add GEOAPIFY_API_KEY to the server's .env, then restart the API and worker."
+      : null;
   return (
     <form
       id="local-finder"
-      className="panel local-search"
+      className="panel local-finder"
       aria-labelledby="local-finder-title"
       onSubmit={(e: FormEvent) => {
         e.preventDefault();
@@ -713,291 +745,321 @@ function LocalSearchForm({
         )}
       </div>
 
-      <section className="local-step">
-        <h3>
-          <span>1</span>What are you looking for?
-          <small>
-            {trades.length}/{maxSearchTrades} trades
-          </small>
-        </h3>
-        <div className="local-presets" aria-label="Quick picks">
-          {[
-            { label: "Most likely to buy", trades: bestBetTrades },
-            ...localTradePresets,
-          ].map((p) => {
-            const on = p.trades.every((id) => trades.includes(id));
-            return (
-              <button
-                type="button"
-                key={p.label}
-                className="local-chip"
-                aria-pressed={on}
-                onClick={() => togglePreset(p.trades)}
-              >
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-        {trades.length > 0 && (
-          <div className="local-selected" aria-label="Chosen trades">
-            {trades.map((id) => (
-              <span key={id} className="local-pick">
-                {tradeLabel(id)}
+      <div className="local-finder-grid">
+        <div className="local-finder-choices">
+          <section className="local-step" aria-labelledby="local-step-trades">
+            <h3 id="local-step-trades">
+              <span>1</span>Trades
+              <small className="local-num">
+                {trades.length}/{maxSearchTrades}
+              </small>
+            </h3>
+            <div className="local-presets" aria-label="Quick picks">
+              {[
+                { label: "Most likely to buy", trades: bestBetTrades },
+                ...localTradePresets,
+              ].map((p, i) => (
                 <button
                   type="button"
-                  aria-label={`Remove ${tradeLabel(id)}`}
-                  onClick={() => toggleTrade(id)}
+                  key={p.label}
+                  className={`local-chip${i === 0 ? " local-chip-best" : ""}`}
+                  aria-pressed={p.trades.every((id) => trades.includes(id))}
+                  onClick={() => togglePreset(p.trades)}
                 >
-                  <X size={14} />
+                  {i === 0 && <Target size={13} />}
+                  {p.label}
                 </button>
-              </span>
-            ))}
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => setTrades([])}
-            >
-              Clear all
-            </button>
-          </div>
-        )}
-        <label className="search-input local-trade-search">
-          <Search size={16} />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search 57 trades, e.g. roofer, vet, bakery"
-            aria-label="Search trades"
-          />
-        </label>
-        {q ? (
-          <div className="local-trade-results">
-            {matches.length ? (
-              matches.map(option)
-            ) : (
-              <span className="unknown">No trade matches “{query}”.</span>
-            )}
-          </div>
-        ) : (
-          <div className="local-trade-groups">
-            {groups.map((g) => {
-              const inGroup = localTrades.filter((t) => t.group === g);
-              const picked = inGroup.filter((t) =>
-                trades.includes(t.id),
-              ).length;
-              return (
-                <details key={g}>
-                  <summary>
-                    {g}
-                    <small>
-                      {picked ? `${picked} chosen` : inGroup.length}
-                    </small>
-                  </summary>
-                  <div className="local-trade-options">
-                    {inGroup.map(option)}
-                  </div>
-                </details>
-              );
-            })}
-          </div>
-        )}
-        {full && (
-          <small className="local-hint">
-            That's the most for one search. Run it, then pick the next set.
-          </small>
-        )}
-      </section>
-
-      <section className="local-step">
-        <h3>
-          <span>2</span>Where?
-        </h3>
-        <div className="local-presets" aria-label="Countries">
-          {localCountries.map((c) => (
-            <button
-              type="button"
-              key={c}
-              className="local-chip"
-              aria-pressed={countries.includes(c)}
-              onClick={() => toggleCountry(c)}
-            >
-              {countryNames[c]}
-            </button>
-          ))}
-        </div>
-        <div className="local-mode" role="radiogroup" aria-label="Search area">
-          {(
-            [
-              ["cities", "Specific cities"],
-              ["biggest", "Biggest cities"],
-            ] as const
-          ).map(([id, label]) => (
-            <label key={id} className="local-check-option">
+              ))}
+            </div>
+            <label className="search-input local-trade-search">
+              <Search size={16} />
               <input
-                type="radio"
-                name="local-area"
-                checked={mode === id}
-                onChange={() => setMode(id)}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Search ${localTrades.length} trades, e.g. roofer, vet, bakery`}
+                aria-label="Search trades"
               />
-              {label}
             </label>
-          ))}
-        </div>
-        {mode === "cities" ? (
-          <label className="field-label local-cities">
-            Cities, one per line (up to 10)
-            <textarea
-              rows={3}
-              value={cities}
-              placeholder="One city per line"
-              onChange={(e) => setCities(e.target.value)}
-            />
-            <small>
-              For example:{" "}
-              {(countries.length ? countries : localCountries)
-                .map((c) => cityExamples[c])
-                .join(" · ")}
-              . Add the state or province to pick the right one.
-            </small>
-          </label>
-        ) : (
-          <small className="local-hint">
-            {countries.length
-              ? countries
-                  .map(
-                    (c) => `${countryShort[c]}: ${biggestCities[c].join(", ")}`,
-                  )
-                  .join(" · ")
-              : "Pick a country to see its cities."}
-          </small>
-        )}
-      </section>
-
-      <section className="local-step">
-        <h3>
-          <span>3</span>How many?
-        </h3>
-        <p className="local-amount">
-          Up to{" "}
-          <select
-            value={perPlace}
-            onChange={(e) => setPerPlace(Number(e.target.value))}
-            aria-label="Businesses per trade in each place"
-          >
-            {[10, 20, 50].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>{" "}
-          businesses per trade in each city.
-        </p>
-      </section>
-
-      {error && (
-        <p className="error-message" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="local-summary">
-        <div>
-          <strong>
-            {demo
-              ? "Sample data"
-              : !status.geoapify_configured
-                ? "Geoapify key needed"
-                : ready
-                  ? `${plural(trades.length, "trade")} · ${countries.map((c) => countryShort[c]).join(", ")} · ${mode === "cities" ? plural(list.length, "city", "cities") : `${plural(areas, "big city", "biggest cities")}`}`
-                  : trades.length === 0
-                    ? "Pick at least one trade"
-                    : countries.length === 0
-                      ? "Pick at least one country"
-                      : list.length > 10
-                        ? "Up to 10 cities per search"
-                        : "Add at least one city"}
-          </strong>
-          <small>
-            {demo
-              ? "Connect your workspace to run a real search."
-              : !status.geoapify_configured
-                ? "Add GEOAPIFY_API_KEY to the server's .env, then restart the API and worker."
-                : ready
-                  ? [
-                      `About ${plural(cost.requests, "map request")}, up to ${cost.businesses} businesses.`,
-                      status.website_check
-                        ? "Each web check uses one Tavily credit."
-                        : "No web search is set up, so there's no website check.",
-                      cost.byName
-                        ? "Some trades are matched by business name."
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")
-                  : "The cost shows here before you run it."}
-          </small>
-        </div>
-        <Button type="submit" disabled={blocked || !ready || !!busy}>
-          {busy === "new" ? (
-            <LoaderCircle className="spin" size={16} />
-          ) : (
-            <Search size={16} />
-          )}
-          Find businesses
-        </Button>
-      </div>
-
-      {recent.length > 0 && (
-        <section className="local-recent">
-          <h3>Recent searches</h3>
-          <ul>
-            {recent.map((r) => (
-              <li key={r.id}>
-                <div>
-                  <strong>
-                    {r.trades.slice(0, 3).map(tradeLabel).join(", ")}
-                    {r.trades.length > 3 && ` +${r.trades.length - 3} more`}
-                  </strong>
-                  <small>
-                    {(r.cities.length
-                      ? r.cities
-                      : r.countries.map(
-                          (c) => `Biggest cities in ${countryShort[c]}`,
-                        )
-                    ).join(", ")}{" "}
-                    · {formatDate(r.created_at, true)} ·{" "}
-                    {plural(r.saved ?? 0, "business", "businesses")} saved
-                  </small>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={blocked || !!busy}
-                  onClick={() =>
-                    void run(
-                      {
-                        trades: r.trades,
-                        countries: r.countries,
-                        cities: r.cities,
-                        per_city: r.per_city,
-                      },
-                      r.id,
-                    )
-                  }
+            {q ? (
+              <div className="local-trade-grid" aria-label="Matching trades">
+                {matches.length ? (
+                  matches.map(chip)
+                ) : (
+                  <span className="unknown">No trade matches “{query}”.</span>
+                )}
+              </div>
+            ) : (
+              <div className="local-trade-browser">
+                <div
+                  className="local-group-tabs"
+                  role="tablist"
+                  aria-label="Trade groups"
                 >
-                  {busy === r.id ? (
-                    <LoaderCircle className="spin" size={14} />
-                  ) : (
-                    <RotateCcw size={14} />
-                  )}
-                  Run again
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+                  {groups.map((g) => {
+                    const picked = localTrades.filter(
+                      (t) => t.group === g && trades.includes(t.id),
+                    ).length;
+                    return (
+                      <button
+                        type="button"
+                        role="tab"
+                        key={g}
+                        aria-selected={group === g}
+                        onClick={() => setGroup(g)}
+                      >
+                        {groupLabel[g] ?? g}
+                        {picked > 0 && (
+                          <span className="local-num">{picked}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="local-trade-grid" role="tabpanel">
+                  {inGroup.map(chip)}
+                </div>
+              </div>
+            )}
+            {full && (
+              <small className="local-hint">
+                That's the most for one search. Run it, then pick the next set.
+              </small>
+            )}
+          </section>
+
+          <section className="local-step" aria-labelledby="local-step-where">
+            <h3 id="local-step-where">
+              <span>2</span>Where
+            </h3>
+            <div className="local-presets" aria-label="Countries">
+              {localCountries.map((c) => (
+                <button
+                  type="button"
+                  key={c}
+                  className="local-chip"
+                  aria-pressed={countries.includes(c)}
+                  onClick={() => toggleCountry(c)}
+                >
+                  {countryNames[c]}
+                </button>
+              ))}
+            </div>
+            <div
+              className="local-seg"
+              role="radiogroup"
+              aria-label="Which cities"
+            >
+              {(
+                [
+                  ["cities", "Cities I choose"],
+                  ["biggest", "Biggest cities"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  type="button"
+                  role="radio"
+                  key={id}
+                  aria-checked={mode === id}
+                  onClick={() => setMode(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {mode === "cities" ? (
+              <label className="field-label local-cities">
+                <span className="sr-only">Cities, one per line, up to 10</span>
+                <textarea
+                  rows={3}
+                  value={cities}
+                  placeholder={(countries.length ? countries : localCountries)
+                    .map((c) => cityExamples[c])
+                    .join("\n")}
+                  onChange={(e) => setCities(e.target.value)}
+                />
+                <small>
+                  One city per line, up to 10. Add the state or province to pick
+                  the right one.
+                </small>
+              </label>
+            ) : (
+              <small className="local-hint">
+                The 5 biggest cities in each country you pick.
+              </small>
+            )}
+          </section>
+
+          <section className="local-step" aria-labelledby="local-step-many">
+            <h3 id="local-step-many">
+              <span>3</span>How many
+            </h3>
+            <div className="local-many">
+              <div
+                className="local-seg"
+                role="radiogroup"
+                aria-label="Businesses per trade in each city"
+              >
+                {[10, 20, 50].map((n) => (
+                  <button
+                    type="button"
+                    role="radio"
+                    key={n}
+                    aria-checked={perPlace === n}
+                    onClick={() => setPerPlace(n)}
+                  >
+                    <span className="local-num">{n}</span>
+                  </button>
+                ))}
+              </div>
+              <small className="local-hint">per trade, in each city</small>
+            </div>
+          </section>
+        </div>
+
+        <aside className="local-ticket" aria-label="This search">
+          <h3>This search</h3>
+          <dl>
+            <div>
+              <dt>Trades</dt>
+              <dd>
+                {trades.length ? (
+                  <span className="local-ticket-trades">
+                    {trades.map((id) => (
+                      <span key={id} className="local-pick">
+                        {tradeLabel(id)}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${tradeLabel(id)}`}
+                          onClick={() => toggleTrade(id)}
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="unknown">None yet</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Places</dt>
+              <dd>
+                {places.length ? (
+                  places.slice(0, 6).join(", ") +
+                  (places.length > 6 ? ` and ${places.length - 6} more` : "")
+                ) : (
+                  <span className="unknown">None yet</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Finds up to</dt>
+              <dd>
+                <span className="local-num">
+                  {cost.businesses.toLocaleString()}
+                </span>{" "}
+                businesses
+              </dd>
+            </div>
+            <div>
+              <dt>Uses</dt>
+              <dd>
+                About <span className="local-num">{cost.requests}</span> map
+                requests (free)
+                {status.website_check ? (
+                  <>
+                    , and up to{" "}
+                    <span className="local-num">
+                      {cost.businesses.toLocaleString()}
+                    </span>{" "}
+                    Tavily credits: one for each business with no website on its
+                    listing
+                  </>
+                ) : (
+                  <>. No web search is set up, so there's no website check</>
+                )}
+                .
+              </dd>
+            </div>
+          </dl>
+          {(headline || note) && (
+            <p className="local-ticket-note" role="status">
+              {headline && <strong>{headline}.</strong>} {note}
+            </p>
+          )}
+          {cost.byName && ready && (
+            <p className="local-ticket-note">
+              Some trades are matched by business name, so a few may be missed.
+            </p>
+          )}
+          {error && (
+            <p className="error-message" role="alert">
+              {error}
+            </p>
+          )}
+          <Button type="submit" disabled={blocked || !ready || !!busy}>
+            {busy === "new" ? (
+              <LoaderCircle className="spin" size={16} />
+            ) : (
+              <Search size={16} />
+            )}
+            Find businesses
+          </Button>
+
+          {recent.length > 0 && (
+            <section
+              className="local-recent"
+              aria-labelledby="local-recent-title"
+            >
+              <h4 id="local-recent-title">Recent searches</h4>
+              <ul>
+                {recent.map((r) => (
+                  <li key={r.id}>
+                    <div>
+                      <strong>
+                        {r.trades.slice(0, 2).map(tradeLabel).join(", ")}
+                        {r.trades.length > 2 && ` +${r.trades.length - 2}`}
+                      </strong>
+                      <small>
+                        {r.cities.length
+                          ? r.cities.join(", ")
+                          : `Biggest cities: ${r.countries.map((c) => countryShort[c]).join(", ")}`}{" "}
+                        · {plural(r.saved ?? 0, "saved", "saved")}
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Run again: ${r.trades.map(tradeLabel).join(", ")}`}
+                      title="Run again"
+                      disabled={blocked || !!busy}
+                      onClick={() =>
+                        void run(
+                          {
+                            trades: r.trades,
+                            countries: r.countries,
+                            cities: r.cities,
+                            per_city: r.per_city,
+                          },
+                          r.id,
+                        )
+                      }
+                    >
+                      {busy === r.id ? (
+                        <LoaderCircle className="spin" size={14} />
+                      ) : (
+                        <RotateCcw size={14} />
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </aside>
+      </div>
     </form>
   );
 }
