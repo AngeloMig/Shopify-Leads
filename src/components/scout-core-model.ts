@@ -83,7 +83,7 @@ export const coreIsWorking = (state: CoreState) =>
 export function coreEvidence(
   detail: RunDetail | null,
   tasks: ResearchTask[],
-  kind: "audit" | "discovery",
+  kind: "audit" | "discovery" | "local",
 ): CoreEvidence[] {
   const contact = tasks.some(
     (t) =>
@@ -91,6 +91,39 @@ export function coreEvidence(
       typeof t.facts.emails === "number" &&
       t.facts.emails > 0,
   );
+  if (kind === "local")
+    return [
+      {
+        id: "search",
+        label: "Map searched",
+        ready: tasks.some(
+          (t) => t.stage === "search" && t.state === "completed",
+        ),
+      },
+      {
+        id: "verify",
+        label: "Website checked",
+        ready: tasks.some(
+          (t) => t.stage === "verify" && t.state === "completed",
+        ),
+      },
+      {
+        id: "contact",
+        label: "Social page found",
+        ready: tasks.some(
+          (t) =>
+            typeof t.facts.social_pages === "number" &&
+            t.facts.social_pages > 0,
+        ),
+      },
+      {
+        id: "queue",
+        label: "Leads saved",
+        ready: tasks.some(
+          (t) => t.stage === "queue" && t.state === "completed",
+        ),
+      },
+    ];
   if (kind === "discovery")
     return [
       {

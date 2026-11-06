@@ -16,6 +16,7 @@ import {
 import {
   localCountries,
   localStages,
+  biggestCities,
   localTradePresets,
   localTrades,
   maxSearchTrades,
@@ -371,7 +372,7 @@ function LocalSearchForm({
   const [trades, setTrades] = useState<string[]>(["construction"]),
     [query, setQuery] = useState(""),
     [countries, setCountries] = useState<Country[]>(["US"]),
-    [mode, setMode] = useState<"country" | "cities">("cities"),
+    [mode, setMode] = useState<"biggest" | "cities">("cities"),
     [cities, setCities] = useState(""),
     [perPlace, setPerPlace] = useState(20),
     [busy, setBusy] = useState<string | null>(null),
@@ -383,8 +384,11 @@ function LocalSearchForm({
           .map((c) => c.trim())
           .filter(Boolean)
       : [];
-  const areas = mode === "cities" ? list.length : countries.length;
-  const cost = estimate(trades, areas, list.length, perPlace);
+  const areas =
+    mode === "cities"
+      ? list.length
+      : countries.reduce((n, c) => n + biggestCities[c].length, 0);
+  const cost = estimate(trades, areas, areas, perPlace);
   const full = trades.length >= maxSearchTrades;
   const groups = [...new Set(localTrades.map((t) => t.group))];
   const q = query.trim().toLowerCase();
@@ -440,7 +444,7 @@ function LocalSearchForm({
   const ready =
     trades.length > 0 &&
     countries.length > 0 &&
-    (mode === "country" || (list.length > 0 && list.length <= 10));
+    (mode === "biggest" || (list.length > 0 && list.length <= 10));
   const option = (t: (typeof localTrades)[number]) => (
     <label key={t.id} className="local-check-option">
       <input
@@ -585,7 +589,7 @@ function LocalSearchForm({
           {(
             [
               ["cities", "Specific cities"],
-              ["country", "Whole country"],
+              ["biggest", "Biggest cities"],
             ] as const
           ).map(([id, label]) => (
             <label key={id} className="local-check-option">
@@ -618,11 +622,13 @@ function LocalSearchForm({
           </label>
         ) : (
           <small className="local-hint">
-            Searches all of{" "}
             {countries.length
-              ? countries.map((c) => countryShort[c]).join(", ")
-              : "the chosen countries"}
-            . Good for a first look; cities give more focused results.
+              ? countries
+                  .map(
+                    (c) => `${countryShort[c]}: ${biggestCities[c].join(", ")}`,
+                  )
+                  .join(" · ")
+              : "Pick a country to see its cities."}
           </small>
         )}
       </section>
@@ -644,7 +650,7 @@ function LocalSearchForm({
               </option>
             ))}
           </select>{" "}
-          businesses per trade in each {mode === "cities" ? "city" : "country"}.
+          businesses per trade in each city.
         </p>
       </section>
 
@@ -661,7 +667,7 @@ function LocalSearchForm({
               : !status.geoapify_configured
                 ? "Geoapify key needed"
                 : ready
-                  ? `${plural(trades.length, "trade")} · ${countries.map((c) => countryShort[c]).join(", ")} · ${mode === "cities" ? plural(list.length, "city", "cities") : "whole country"}`
+                  ? `${plural(trades.length, "trade")} · ${countries.map((c) => countryShort[c]).join(", ")} · ${mode === "cities" ? plural(list.length, "city", "cities") : `${plural(areas, "big city", "biggest cities")}`}`
                   : trades.length === 0
                     ? "Pick at least one trade"
                     : countries.length === 0
@@ -714,7 +720,9 @@ function LocalSearchForm({
                   <small>
                     {(r.cities.length
                       ? r.cities
-                      : r.countries.map((c) => `All of ${countryShort[c]}`)
+                      : r.countries.map(
+                          (c) => `Biggest cities in ${countryShort[c]}`,
+                        )
                     ).join(", ")}{" "}
                     · {formatDate(r.created_at, true)} ·{" "}
                     {plural(r.saved ?? 0, "business", "businesses")} saved

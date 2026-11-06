@@ -2,7 +2,7 @@
 // a day, one per geocode or details lookup and one per 20 places returned.
 // Every call goes through `charge` first, so it counts against the
 // workspace budget before any request is sent.
-import { providerJson } from "../lib/network.js";
+import { JobError } from "../lib/job-errors.js";
 import {
   readGeoapifyPlace,
   type GeoapifyPlace,
@@ -19,12 +19,32 @@ function key() {
     );
   return k;
 }
-const get = (path: string, params: Record<string, string>) => {
+// Geoapify says what was wrong with a request; keep that in the job's error.
+async function get(path: string, params: Record<string, string>) {
   const url = new URL(path, base);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   url.searchParams.set("apiKey", key());
-  return providerJson(url.href);
-};
+  const response = await fetch(url, { signal: AbortSignal.timeout(60000) });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const reason =
+      typeof body?.message === "string"
+        ? `: ${body.message.slice(0, 200)}`
+        : "";
+    throw new JobError(
+      `Geoapify request failed (${response.status})${reason}`,
+      [401, 403].includes(response.status)
+        ? "credentials"
+        : response.status === 429
+          ? "rate_limit"
+          : response.status >= 500
+            ? "temporary"
+            : "permanent",
+      "geoapify",
+    );
+  }
+  return body;
+}
 
 /**
  * The city's Geoapify place ID, which bounds the places search to it. The

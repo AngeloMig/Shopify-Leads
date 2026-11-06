@@ -52,7 +52,7 @@ describe("Reading a Geoapify place", () => {
         },
       ],
     });
-    expect(place!.tags).toContain("construction_company");
+    expect(place!.trade_tags).toContain("construction_company");
   });
   it("finds a website wherever OSM put it", () => {
     expect(
@@ -97,6 +97,45 @@ describe("Matching a trade", () => {
     expect(inTrade(localTrade("roofing")!, place("Copperline Roofing"))).toBe(
       true,
     );
+  });
+  it("doesn't take office buildings, head offices or suppliers for trades", () => {
+    const at = (name: string, categories: string[]) =>
+      readGeoapifyPlace(feature({ place_id: "51aaaaaaaa", name, categories }))!;
+    const construction = localTrade("construction")!;
+    expect(
+      inTrade(
+        construction,
+        at("Intel Corporation", [
+          "building",
+          "building.office",
+          "office.company",
+        ]),
+      ),
+    ).toBe(false);
+    expect(
+      inTrade(
+        construction,
+        at("Perry Brooks Building", ["building.office", "office.company"]),
+      ),
+    ).toBe(false);
+    expect(
+      inTrade(
+        construction,
+        at("Chuy's Restaurant Home Office", ["office.company"]),
+      ),
+    ).toBe(false);
+    expect(
+      inTrade(
+        construction,
+        at("Trimbuilt Construction Inc", ["office.company"]),
+      ),
+    ).toBe(true);
+    expect(
+      inTrade(
+        localTrade("electrician")!,
+        at("Crawford Electric Supply", ["service", "service.electrician"]),
+      ),
+    ).toBe(false);
   });
   it("keeps everything in a trade's own category, and only that", () => {
     const inCategory = (name: string, categories: string[]) =>

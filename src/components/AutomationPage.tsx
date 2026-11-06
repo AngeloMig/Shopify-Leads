@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Compass,
+  HardHat,
   LoaderCircle,
   Play,
   Plus,
@@ -26,13 +27,14 @@ import {
   stagesFor,
   stageState,
   targetFor,
-  workStages,
+  isLocalSearch,
+  stageName,
 } from "../../shared/job-activity";
 import type { Job, Lead } from "../../shared/types";
 import { demoOperations } from "../demo";
 import { api, formatDate } from "../lib";
 import { DiscoveryControls } from "./DiscoveryControls";
-import { DiscoveryFunnel } from "./DiscoveryFunnel";
+import { DiscoveryFunnel, LocalSearchFunnel } from "./DiscoveryFunnel";
 import { Button } from "./ui/button";
 import { Dialog } from "./ui/dialog";
 
@@ -59,7 +61,7 @@ const filters = {
 };
 type Filter = keyof typeof filters;
 const jobName = (job: Job) =>
-  `${job.type === "discovery" ? "Discovery" : "Audit"} · ${targetFor(job).label}`;
+  `${isLocalSearch(job) ? "Local search" : job.type === "discovery" ? "Discovery" : "Audit"} · ${targetFor(job).label}`;
 const canResume = (job: Job) =>
   job.status === "failed" || job.status === "blocked";
 const canCancel = (job: Job) =>
@@ -406,7 +408,7 @@ export function AutomationPage({
                 <ol className="auto-stages" aria-label="Job stages">
                   {stagesFor(job.type).map((stage) => (
                     <li key={stage} className={stageState(job, stage)}>
-                      {workStages[stage]}
+                      {stageName(stage, isLocalSearch(job))}
                     </li>
                   ))}
                 </ol>
@@ -520,7 +522,9 @@ export function AutomationPage({
                 onRetry={() => onRetry(job)}
                 onOpen={() => navigate(`/jobs/${job.id}`)}
                 onOpenLead={onOpenLead}
-                onLeads={() => navigate("/leads")}
+                onLeads={() =>
+                  navigate(isLocalSearch(job) ? "/local" : "/leads")
+                }
               />
             ))}
             {!listed.length && (
@@ -668,7 +672,9 @@ function JobRow({
   return (
     <article className="job-row">
       <div className={`job-icon ${job.status === "failed" ? "red" : ""}`}>
-        {job.type === "discovery" ? (
+        {isLocalSearch(job) ? (
+          <HardHat size={20} />
+        ) : job.type === "discovery" ? (
           <Compass size={20} />
         ) : (
           <Activity size={20} />
@@ -710,7 +716,11 @@ function JobRow({
         {job.type === "discovery" && !!funnel && (
           <details className="research-run-outcome">
             <summary>What it found</summary>
-            <DiscoveryFunnel value={funnel} />
+            {isLocalSearch(job) ? (
+              <LocalSearchFunnel value={funnel} />
+            ) : (
+              <DiscoveryFunnel value={funnel} />
+            )}
           </details>
         )}
         {(job.status === "running" || job.status === "queued") && (
@@ -742,7 +752,7 @@ function JobRow({
         )}
         {job.type === "discovery" && job.status === "completed" && (
           <Button variant="outline" size="sm" onClick={onLeads}>
-            Go to Leads
+            {isLocalSearch(job) ? "Go to Local businesses" : "Go to Leads"}
           </Button>
         )}
         <Button variant="ghost" size="sm" onClick={onOpen}>
@@ -764,7 +774,7 @@ function JobRow({
             size="sm"
             disabled={busy}
             onClick={onCancel}
-            aria-label={`Cancel ${job.type === "discovery" ? "discovery" : "audit"} job ${job.id}`}
+            aria-label={`Cancel ${isLocalSearch(job) ? "local search" : job.type === "discovery" ? "discovery" : "audit"} job ${job.id}`}
           >
             {cancelling ? (
               <LoaderCircle size={14} className="spin" />

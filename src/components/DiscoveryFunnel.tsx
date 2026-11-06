@@ -51,3 +51,33 @@ export function DiscoveryFunnel({ value }: { value: unknown }) {
     </div>
   );
 }
+
+/** What a local business search found, step by step. */
+export function LocalSearchFunnel({ value }: { value: unknown }) {
+  if (!record(value)) return null;
+  const number = (key: string) =>
+    typeof value[key] === "number" ? (value[key] as number) : 0;
+  const saved = number("saved");
+  return (
+    <div className="discovery-funnel">
+      <dl aria-label="Local search results">
+        {[
+          ["On the map", number("listed")],
+          ["Chain branches skipped", number("chains")],
+          ["In your trades", number("in_trade")],
+          ["Saved before", number("already_saved")],
+          ["Website on listing", number("listing_has_site")],
+          ["Checked on the web", number("checked")],
+          ["Website found", number("site_found")],
+          ["Saved as leads", saved],
+          ["No website found", saved - number("site_found")],
+        ].map(([label, n]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{n}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}

@@ -174,7 +174,7 @@ export function registerLocalBusinessRoutes(
       );
       const names = input.trades.map((t) => localTrade(t)!.label);
       const config: LocalSearchConfig = {
-        name: `${names.length === 1 ? names[0] : `${names.length} trades`} in ${(input.cities.length ? input.cities : input.countries).join(", ")}`,
+        name: `${names.length === 1 ? names[0] : `${names.length} trades`} in ${input.cities.length ? input.cities.join(", ") : `the biggest cities of ${input.countries.join(", ")}`}`,
         provider: "geoapify",
         search_id: search.id,
         trades: input.trades,

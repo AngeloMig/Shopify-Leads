@@ -435,7 +435,7 @@ export default function ResearchModel({
   const path = hoverEdge
     ? `${graph.nodes.find((n) => n.id === hoverEdge.source)?.label} → ${graph.nodes.find((n) => n.id === hoverEdge.target)?.label}`
     : hoverTask
-      ? `S.C.O.U.T. → ${workStages[hoverTask.stage]} → ${hoverTask.name}`
+      ? `S.C.O.U.T. → ${stages.find((x) => x.id === hoverTask.stage)?.label ?? workStages[hoverTask.stage]} → ${hoverTask.name}`
       : (hoverNode?.label ?? "S.C.O.U.T. → stage → task → result");
   return (
     <div
@@ -501,7 +501,9 @@ export default function ResearchModel({
             <option value="">Choose a task…</option>
             {tasks.map((t) => (
               <option key={t.id} value={t.id}>
-                {workStages[t.stage]} · {t.name} · {taskStatus[t.state]}
+                {stages.find((x) => x.id === t.stage)?.label ??
+                  workStages[t.stage]}{" "}
+                · {t.name} · {taskStatus[t.state]}
               </option>
             ))}
           </select>
@@ -634,7 +636,7 @@ export default function ResearchModel({
                 onBlur={() => setHovered(null)}
                 aria-label={
                   n.kind === "cluster"
-                    ? `Expand ${n.label} in ${workStages[n.stage!]}`
+                    ? `Expand ${n.label} in ${stages.find((x) => x.id === n.stage!)?.label ?? workStages[n.stage!]}`
                     : n.kind === "result"
                       ? `Inspect result for ${task?.name}`
                       : n.label

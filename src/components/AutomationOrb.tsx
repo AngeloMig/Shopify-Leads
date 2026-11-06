@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { targetFor } from "../../shared/job-activity";
+import { isLocalSearch, targetFor } from "../../shared/job-activity";
 import type { Job } from "../../shared/types";
 
 const MiniCore = lazy(() => import("./MiniCore"));
@@ -15,7 +15,7 @@ export function AutomationOrb({
   const job = jobs[0];
   const summary = `${jobs.length} ${jobs.length === 1 ? "job" : "jobs"} running`;
   const target = targetFor(job);
-  const detail = `${job.type === "discovery" ? "Discovery" : "Audit"} · ${target.domain ?? target.label} · ${job.progress}%`;
+  const detail = `${isLocalSearch(job) ? "Local search" : job.type === "discovery" ? "Discovery" : "Audit"} · ${target.domain ?? target.label} · ${job.progress}%`;
   return (
     <button
       className="automation-orb"

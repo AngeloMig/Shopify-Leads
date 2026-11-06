@@ -51,6 +51,35 @@ export type LocalSearch = {
 };
 export const localCountries: Country[] = ["US", "GB", "CA", "AU"];
 export const maxSearchTrades = 10;
+/**
+ * Searched when no cities are given. Geoapify can't search a whole country
+ * at once (its Places API takes a map area, and a country's boundary is too
+ * big), so "biggest cities" stands in for it.
+ */
+export const biggestCities: Record<Country, string[]> = {
+  US: [
+    "New York, NY",
+    "Los Angeles, CA",
+    "Chicago, IL",
+    "Houston, TX",
+    "Phoenix, AZ",
+  ],
+  GB: ["London", "Birmingham", "Manchester", "Glasgow", "Leeds"],
+  CA: [
+    "Toronto, ON",
+    "Montreal, QC",
+    "Vancouver, BC",
+    "Calgary, AB",
+    "Edmonton, AB",
+  ],
+  AU: [
+    "Sydney, NSW",
+    "Melbourne, VIC",
+    "Brisbane, QLD",
+    "Perth, WA",
+    "Adelaide, SA",
+  ],
+};
 
 // What a search can look for. A trade with its own Geoapify category takes
 // every business in it. Geoapify has no category for many trades (roofer,
@@ -89,7 +118,7 @@ export const localTrades: LocalTrade[] = [
     "construction",
     "Construction company",
     [],
-    /construct|builder|building|contract|remodel|renovat|\bhomes?\b|construction_company/,
+    /construct|builder|contractor|contracting|remodel|renovat|construction_company|\bbuilder\b/,
   ),
   t(build, "roofing", "Roofing contractor", [], /roof/),
   t(build, "plumbing", "Plumber", [], /plumb/),
@@ -355,10 +384,14 @@ export type GeoapifyPlace = {
   lon: number | null;
   osm_url: string | null;
   social_links: SocialLink[];
-  /** The OSM craft/office/shop tags and categories, for trade matching. */
+  /** Geoapify's categories for the place, space-separated. */
   tags: string;
+  /** The OpenStreetMap craft/office/shop values, for name-matched trades. */
+  trade_tags: string;
   /** Whether the response carried contact details at all (else ask Details). */
   has_contact_fields: boolean;
+  /** A branch of a brand or franchise, whose website is the brand's. */
+  chain: boolean;
 };
 
 /**
@@ -434,23 +467,34 @@ export function readGeoapifyPlace(
         ? `https://www.openstreetmap.org/${osmKind}/${osmId}`
         : null,
     social_links: social,
-    tags: [raw.craft, raw.office, raw.shop, categories]
+    tags: categories.toLowerCase(),
+    trade_tags: [raw.craft, raw.office, raw.shop]
       .map((v) => (typeof v === "string" ? v : ""))
       .join(" ")
       .toLowerCase(),
     has_contact_fields:
       "website" in p || "contact" in p || Object.keys(raw).length > 0,
+    chain: !!(text(p.brand) || text(raw.brand) || text(raw["brand:wikidata"])),
   };
 }
 
 /** Whether a business belongs to the trade searched for. */
+// Trades skip suppliers and rental yards: "Crawford Electric Supply" sells
+// to electricians and is not one. Building suppliers are the exception.
+const notATrade =
+  /suppl(y|ies)|wholesale|warehouse|depot|distribut|rental|\bhire\b|outlet/;
 export function inTrade(trade: LocalTrade, place: GeoapifyPlace) {
+  if (
+    trade.id !== "building_materials" &&
+    notATrade.test(place.name.toLowerCase())
+  )
+    return false;
   const categories = place.tags.split(/\s+/);
   if (trade.categories.some((c) => categories.includes(c))) return true;
-  return !!(
-    trade.broad &&
-    trade.match?.test(`${place.name} ${place.tags}`.toLowerCase())
-  );
+  if (!trade.broad || !trade.match) return false;
+  // Only the name and the craft/office tag say what a business does; the
+  // place's map categories (an office building, say) don't.
+  return trade.match.test(`${place.name} ${place.trade_tags}`.toLowerCase());
 }
 
 // Words that name the trade or the company form, not the business itself.

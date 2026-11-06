@@ -884,7 +884,7 @@ export default function App() {
                     "/reports":
                       "Evidence-backed audit reports, ready for a thoughtful conversation.",
                     "/jobs":
-                      "Scout finds Shopify stores, audits them, and adds qualified ones to Leads.",
+                      "Scout finds Shopify stores and local businesses, checks them, and adds the ones worth a call to your leads.",
                     "/local":
                       "Businesses on the map with no website of their own, such as a builder with only a Facebook page.",
                     "/outreach":

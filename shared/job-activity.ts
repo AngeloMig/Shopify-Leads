@@ -139,6 +139,26 @@ export function listWork(value: unknown, attempt: number): JobWork | null {
     events: work.events.filter((e) => e === latest || kept.get(e.stage) === e),
   };
 }
+/** A local business search runs as a discovery job with payload.kind "local". */
+export const isLocalSearch = (
+  job: Pick<Job, "type" | "payload"> | null | undefined,
+) => job?.type === "discovery" && job.payload?.kind === "local";
+const localStageNames: Partial<Record<WorkStage, string>> = {
+  search: "Search the map",
+  verify: "Check for websites",
+  queue: "Save leads",
+};
+/** A stage's name as this kind of job does it. */
+export const stageName = (stage: WorkStage, local = false) =>
+  (local && localStageNames[stage]) || workStages[stage];
+export const jobKindLabel = (
+  job: Pick<Job, "type" | "payload"> | null | undefined,
+) =>
+  isLocalSearch(job)
+    ? "Local business search"
+    : job?.type === "discovery"
+      ? "Store discovery"
+      : "Website audit";
 export const stagesFor = (type: Job["type"]): WorkStage[] =>
   type === "discovery"
     ? ["prepare", "search", "verify", "queue"]
@@ -171,8 +191,6 @@ export function targetFor(job: Job): WorkTarget {
     label:
       typeof job.payload.name === "string"
         ? job.payload.name
-        : job.type === "discovery"
-          ? "Store discovery"
-          : "Website audit",
+        : jobKindLabel(job),
   };
 }

@@ -7,6 +7,7 @@ import { db, checked, now } from "../lib/db.js";
 import type { ActivityEmitter } from "../lib/job-activity.js";
 import type { Charge } from "./providers.js";
 import {
+  biggestCities,
   broadCategories,
   inTrade,
   localTrade,
@@ -15,7 +16,7 @@ import {
   type LocalTrade,
   type SocialLink,
 } from "../../shared/local-business.js";
-import { countryNames, type Country } from "../../shared/types.js";
+import type { Country } from "../../shared/types.js";
 import { findCity, placeDetails, searchPlaces } from "./geoapify.js";
 import { searchWeb, websiteSearchProvider } from "./web-check.js";
 
@@ -31,6 +32,7 @@ export type LocalSearchConfig = {
 };
 export type LocalFunnel = {
   listed: number;
+  chains: number;
   in_trade: number;
   listing_has_site: number;
   already_saved: number;
@@ -88,6 +90,7 @@ export async function localDiscovery(
   const geoapify = () => charge("geoapify");
   const funnel: LocalFunnel = {
     listed: 0,
+    chains: 0,
     in_trade: 0,
     listing_has_site: 0,
     already_saved: 0,
@@ -97,31 +100,28 @@ export async function localDiscovery(
   };
   const own = [...new Set(trades.flatMap((t) => t.categories))];
   const broad = trades.some((t) => t.broad);
-  const wheres = config.cities.length ? config.cities : config.countries;
+  // With no cities, each country's biggest cities stand in for the country:
+  // Geoapify can't search a whole country at once.
+  const wheres = config.cities.length
+    ? config.cities.map((city) => ({ city, countries: config.countries }))
+    : config.countries.flatMap((c) =>
+        biggestCities[c].map((city) => ({ city, countries: [c] })),
+      );
   for (const [i, where] of wheres.entries()) {
-    const task = { key: `area:${i + 1}`, name: `Search ${where}` };
-    let area: Area | null;
-    if (config.cities.length) {
-      await emit("search", "started", `Finding ${where} on the map`, {
-        task: { ...task, state: "running" },
-      });
-      area = await findCity(where, config.countries, geoapify);
-    } else {
-      const country = where as Country;
-      area = {
-        filter: `countrycode:${country.toLowerCase()}`,
-        label: countryNames[country],
-        country,
-      };
-      await emit("search", "started", `Searching all of ${area.label}`, {
-        task: { ...task, state: "running" },
-      });
-    }
+    const task = { key: `area:${i + 1}`, name: `Search ${where.city}` };
+    await emit("search", "started", `Finding ${where.city} on the map`, {
+      task: { ...task, state: "running" },
+    });
+    const area: Area | null = await findCity(
+      where.city,
+      where.countries,
+      geoapify,
+    );
     if (!area) {
       await emit(
         "search",
         "skipped",
-        `Couldn't find ${where} in the chosen countries`,
+        `Couldn't find ${where.city} in the chosen countries`,
         { task: { ...task, state: "skipped" } },
       );
       continue;
@@ -142,9 +142,12 @@ export async function localDiscovery(
       found.push(
         ...(await searchPlaces(area.filter, broadCategories, 500, geoapify)),
       );
-    const unique = [...new Map(found.map((p) => [p.place_id, p])).values()];
+    // Branches of a brand or franchise use the brand's website: not leads.
+    const onMap = [...new Map(found.map((p) => [p.place_id, p])).values()];
+    const unique = onMap.filter((p) => !p.chain);
     const matching = assignTrades(unique, trades, config.per_city);
-    funnel.listed += unique.length;
+    funnel.listed += onMap.length;
+    funnel.chains += onMap.length - unique.length;
     funnel.in_trade += matching.length;
     const known = new Set(
       matching.length
@@ -172,7 +175,7 @@ export async function localDiscovery(
       {
         task: { ...task, state: "completed" },
         facts: {
-          listed: unique.length,
+          listed: onMap.length,
           in_trade: matching.length,
           new: fresh.length,
         },
@@ -187,10 +190,7 @@ export async function localDiscovery(
         funnel.listing_has_site++;
         continue;
       }
-      const city =
-        place.city ??
-        listed.city ??
-        (config.cities.length ? where : area.label);
+      const city = place.city ?? listed.city ?? where.city;
       let check: Record<string, unknown> = {
         website_check: "not_checked",
         found_site: null,

@@ -614,7 +614,7 @@ export default function TaskFlowMap({
         <div>
           <strong>
             {selectedTask
-              ? `S.C.O.U.T. → ${workStages[selectedTask.stage]} → ${selectedTask.name}`
+              ? `S.C.O.U.T. → ${stages.find((x) => x.id === selectedTask.stage)?.label ?? workStages[selectedTask.stage]} → ${selectedTask.name}`
               : "S.C.O.U.T. → stage → task → result"}
           </strong>
           <span>

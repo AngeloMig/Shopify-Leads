@@ -108,7 +108,7 @@ export default function ResearchNetwork({
   active: boolean;
   runKey: string;
   detail: RunDetail | null;
-  kind: "audit" | "discovery";
+  kind: "audit" | "discovery" | "local";
   targetLabel: string;
   onEvidence: () => void;
   selectedTask: string | null;
@@ -122,20 +122,29 @@ export default function ResearchNetwork({
   runs?: RunStar[];
   onRunSelect?: (id: string) => void;
 }) {
+  const stageLabel = (id: WorkStage) =>
+    stages.find((x) => x.id === id)?.label ?? workStages[id];
   const [corePalette, setCorePalette] = useState<CorePalette>("gold");
   // Discovery funnel counts drive the pipeline particles on the neural map.
   const funnel = useMemo(() => {
     const f = detail?.job.payload.funnel as Record<string, unknown> | undefined;
     const count = (v: unknown) =>
       typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
+    // A local search counts listings on the map, web checks and saved leads.
     return f
-      ? {
-          returned: count(f.returned),
-          checked: count(f.checked),
-          queued: count(f.queued),
-        }
+      ? kind === "local"
+        ? {
+            returned: count(f.listed),
+            checked: count(f.checked),
+            queued: count(f.saved),
+          }
+        : {
+            returned: count(f.returned),
+            checked: count(f.checked),
+            queued: count(f.queued),
+          }
       : null;
-  }, [detail]);
+  }, [detail, kind]);
   const root = useRef<HTMLDivElement>(null),
     seen = useRef<Set<string> | null>(null);
   const [paused, setPaused] = useState(false),
@@ -548,7 +557,7 @@ export default function ResearchNetwork({
                 {taskStatus[focus.state]}
               </span>
               <h4>{focus.name}</h4>
-              <p className="task-parent">Scout / {workStages[focus.stage]}</p>
+              <p className="task-parent">Scout / {stageLabel(focus.stage)}</p>
               {focus.url && (
                 <a
                   className="task-resource"
@@ -702,7 +711,7 @@ export default function ResearchNetwork({
             </>
           ) : (
             <>
-              <h4>{selected ? workStages[selected] : "Nothing to show yet"}</h4>
+              <h4>{selected ? stageLabel(selected) : "Nothing to show yet"}</h4>
               <p>Pick a stage or task on the map once this run has activity.</p>
             </>
           )}

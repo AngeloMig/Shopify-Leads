@@ -28,6 +28,9 @@ import {
   stagesFor,
   stageState,
   targetFor,
+  isLocalSearch,
+  jobKindLabel,
+  stageName,
   workStages,
   type RunDetail,
   type WorkStage,
@@ -241,6 +244,7 @@ export function ResearchSession({
     : null;
   const stage = focused ?? work?.stage ?? stagesFor(job?.type ?? "audit")[0];
   const allStages = stagesFor(job?.type ?? "audit");
+  const local = isLocalSearch(job);
   const stageDetail = (state: string) =>
     state === "active" && !active
       ? "Last recorded stage"
@@ -341,7 +345,7 @@ export function ResearchSession({
             <p>
               {preview
                 ? "See how a job looks while Scout works."
-                : `${job?.type === "audit" ? "Website audit" : "Store discovery"} · ${title}`}
+                : `${jobKindLabel(job)} · ${title}`}
             </p>
           </div>
         </div>
@@ -451,9 +455,11 @@ export function ResearchSession({
               <span className="research-address">
                 <Globe2 size={14} />
                 {target.domain ??
-                  (job?.type === "discovery"
-                    ? "Campaign discovery"
-                    : "Public website research")}
+                  (isLocalSearch(job)
+                    ? "Local business search"
+                    : job?.type === "discovery"
+                      ? "Campaign discovery"
+                      : "Public website research")}
               </span>
               <span className="research-live-state">
                 <i />
@@ -474,7 +480,7 @@ export function ResearchSession({
               key={job?.id ?? "empty"}
               runKey={job?.id ?? "empty"}
               detail={data ?? null}
-              kind={job?.type ?? "audit"}
+              kind={local ? "local" : (job?.type ?? "audit")}
               targetLabel={target.label}
               onEvidence={() => {
                 const evidenceTab =
@@ -497,7 +503,7 @@ export function ResearchSession({
                 const state = job ? stageState(job, id) : "pending";
                 return {
                   id,
-                  label: workStages[id],
+                  label: stageName(id, local),
                   state,
                   detail: stageDetail(state),
                 };
@@ -653,7 +659,7 @@ export function ResearchSession({
                   {selectedTask
                     ? tasks.find((t) => t.id === selectedTask)?.name
                     : focused
-                      ? workStages[focused]
+                      ? stageName(focused, local)
                       : "All stages"}{" "}
                   · Times in PHT
                 </span>
