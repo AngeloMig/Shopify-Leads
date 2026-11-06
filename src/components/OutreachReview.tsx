@@ -90,17 +90,21 @@ export function OutreachReview({
     [error, setError] = useState(""),
     [done, setDone] = useState(false);
   const lead = leads.find((l) => l.id === currentId);
-  // Keys work as soon as each store opens, without clicking into it first.
-  const root = useRef<HTMLDivElement>(null);
+  // Keys work anywhere in the review, as soon as each store opens.
+  const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {});
   useEffect(() => {
-    root.current?.focus({ preventScroll: true });
-  }, [currentId]);
+    const listen = (e: KeyboardEvent) => keyHandler.current(e);
+    window.addEventListener("keydown", listen);
+    return () => window.removeEventListener("keydown", listen);
+  }, []);
   const position = queue.indexOf(currentId);
   const move = (step: number) => {
     setError("");
     setConfirmSuppress(false);
     setCurrentId(queue[(position + step + queue.length) % queue.length]);
   };
+  // Nothing to act on once the queue is done.
+  keyHandler.current = () => {};
   if (done || !lead)
     return (
       <Dialog
@@ -163,6 +167,27 @@ export function OutreachReview({
       setBusy(null);
     }
   }
+  keyHandler.current = (e: KeyboardEvent) => {
+    const typing = (e.target as HTMLElement | null)?.matches?.(
+      "textarea,input,select",
+    );
+    // Cmd/Ctrl+Enter approves from the reason box too.
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      approve();
+      return;
+    }
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    const key = e.key.toLowerCase();
+    if (queue.length > 1 && (key === "arrowleft" || key === "arrowright"))
+      move(key === "arrowleft" ? -1 : 1);
+    else if (key === "u" && suggestion) setReason(suggestion);
+    else if (key === "a") approve();
+    else if (key === "n") reject();
+    else if (key === "s" && queue.length > 1) move(1);
+    else return;
+    e.preventDefault();
+  };
   const approve = () =>
     canApprove &&
     void decide("approved", () => onReview(lead, "approved", rationale));
@@ -177,32 +202,7 @@ export function OutreachReview({
       description={`${lead.domain} · ${demo ? "Fictional sample prospect" : "Outreach review"}`}
       className="review-dialog"
     >
-      <div
-        ref={root}
-        tabIndex={-1}
-        className="review-body"
-        onKeyDown={(e) => {
-          const typing = (e.target as HTMLElement).matches(
-            "textarea,input,select",
-          );
-          // Cmd/Ctrl+Enter approves from the reason box too.
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            approve();
-            return;
-          }
-          if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-          const key = e.key.toLowerCase();
-          if (queue.length > 1 && (key === "arrowleft" || key === "arrowright"))
-            move(key === "arrowleft" ? -1 : 1);
-          else if (key === "u" && suggestion) setReason(suggestion);
-          else if (key === "a") approve();
-          else if (key === "n") reject();
-          else if (key === "s" && queue.length > 1) move(1);
-          else return;
-          e.preventDefault();
-        }}
-      >
+      <div className="review-body">
         <div className="review-bar">
           <span>
             {[
