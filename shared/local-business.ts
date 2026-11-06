@@ -46,6 +46,8 @@ export type LocalSearch = {
   countries: Country[];
   per_city: number;
   created_at: string;
+  /** Businesses this search saved. */
+  saved?: number;
 };
 export const localCountries: Country[] = ["US", "GB", "CA", "AU"];
 export const maxSearchTrades = 10;
@@ -260,6 +262,52 @@ export const localTrades: LocalTrade[] = [
   t(other, "storage", "Self storage", ["rental.storage"]),
   t(other, "funeral", "Funeral director", ["service.funeral_directors"]),
 ];
+/** One-click groups of trades for the search form, each within the limit. */
+export const localTradePresets: { label: string; trades: string[] }[] = [
+  {
+    label: "Building trades",
+    trades: [
+      "construction",
+      "roofing",
+      "plumbing",
+      "electrician",
+      "hvac",
+      "carpenter",
+      "painting",
+      "concrete",
+      "masonry",
+      "fencing",
+    ],
+  },
+  {
+    label: "Home services",
+    trades: [
+      "landscaping",
+      "tree_service",
+      "cleaning",
+      "pressure_washing",
+      "pest_control",
+      "handyman",
+      "pools",
+      "solar",
+      "moving",
+      "flooring",
+    ],
+  },
+  {
+    label: "Auto",
+    trades: ["car_repair", "motorcycle_repair", "car_wash", "driving_school"],
+  },
+  {
+    label: "Food and drink",
+    trades: ["restaurant", "cafe", "takeaway", "pub", "bakery", "butcher"],
+  },
+  {
+    label: "Health and pets",
+    trades: ["dentist", "vet", "pet_services", "pet_boarding"],
+  },
+];
+
 /** The categories one search asks Geoapify for. */
 export const tradeCategories = (trade: LocalTrade) => [
   ...new Set([...trade.categories, ...(trade.broad ? broadCategories : [])]),

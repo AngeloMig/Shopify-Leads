@@ -3,7 +3,7 @@ import { defaultSettings } from "../shared/types";
 import { buildAlerts, type AlertFeed, type Digest } from "../shared/alerts";
 import { leadScoreFor } from "../shared/lead-score";
 import type { OperationsSnapshot } from "../shared/automation";
-import type { LocalBusiness } from "../shared/local-business";
+import type { LocalBusiness, LocalSearch } from "../shared/local-business";
 const rows: [
   string,
   string,
@@ -530,4 +530,24 @@ export const demoLocalBusinesses: LocalBusiness[] = [
       found_site: "summitstonemasonry.example",
     },
   ),
+];
+export const demoLocalSearches: LocalSearch[] = [
+  {
+    id: "local-search-1",
+    trades: ["construction", "roofing", "concrete"],
+    cities: ["Austin, TX", "Round Rock, TX"],
+    countries: ["US"],
+    per_city: 20,
+    created_at: new Date(Date.UTC(2026, 10, 4, 15)).toISOString(),
+    saved: 5,
+  },
+  {
+    id: "local-search-2",
+    trades: ["carpenter"],
+    cities: [],
+    countries: ["US"],
+    per_city: 20,
+    created_at: new Date(Date.UTC(2026, 10, 2, 15)).toISOString(),
+    saved: 1,
+  },
 ];

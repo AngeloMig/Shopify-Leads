@@ -88,6 +88,41 @@ export function registerLocalBusinessRoutes(
       res.json(row);
     }),
   );
+  app.get(
+    "/api/local-searches",
+    route(async (_req, res) => {
+      const searches = await checked(
+        db()
+          .from("local_searches")
+          .select("id,trades,cities,countries,per_city,created_at")
+          .eq("organization_id", res.locals.org)
+          .order("created_at", { ascending: false })
+          .limit(5),
+      );
+      const saved = searches.length
+        ? await checked(
+            db()
+              .from("local_businesses")
+              .select("search_id")
+              .eq("organization_id", res.locals.org)
+              .in(
+                "search_id",
+                searches.map((s: { id: string }) => s.id),
+              )
+              .limit(5000),
+          )
+        : [];
+      const count = new Map<string, number>();
+      for (const r of saved as { search_id: string }[])
+        count.set(r.search_id, (count.get(r.search_id) ?? 0) + 1);
+      res.json({
+        searches: searches.map((s: { id: string }) => ({
+          ...s,
+          saved: count.get(s.id) ?? 0,
+        })),
+      });
+    }),
+  );
   app.post(
     "/api/local-searches",
     route(async (req, res) => {
