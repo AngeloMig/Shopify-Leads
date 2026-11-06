@@ -322,6 +322,25 @@ export function registerWorkspaceRoutes(
               (u) => !u || /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(u),
               "Use the full address, starting with https://",
             ),
+          work: z
+            .array(
+              z
+                .object({
+                  title: z.string().trim().min(1).max(120),
+                  url: z
+                    .string()
+                    .trim()
+                    .max(300)
+                    .regex(
+                      /^https?:\/\/\S+\.\S+$/i,
+                      "Use a full https:// link",
+                    ),
+                  industry: z.string().trim().max(60).default(""),
+                })
+                .strict(),
+            )
+            .max(8)
+            .default([]),
         })
         .strict()
         .parse(req.body);

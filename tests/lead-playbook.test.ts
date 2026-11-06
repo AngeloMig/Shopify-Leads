@@ -141,6 +141,7 @@ describe("leadPlaybook with your details", () => {
     company: "Rivera Studio",
     address: "1 Example St, Brisbane QLD",
     portfolio_url: "https://www.riverastudio.example/",
+    work: [] as { title: string; url: string; industry: string }[],
   };
   it("fills your name, company, address and portfolio into the email", () => {
     const body = leadPlaybook(lead(), me).email!.body;
@@ -164,5 +165,43 @@ describe("leadPlaybook with your details", () => {
     const body = leadPlaybook(lead()).email!.body;
     expect(body).toContain("[Your name]");
     expect(body).not.toContain("recent work");
+  });
+});
+
+describe("leadPlaybook with matching work", () => {
+  it("points to a project in the store's industry instead of the portfolio", () => {
+    const sender = {
+      name: "Grant",
+      company: "Studio",
+      address: "",
+      portfolio_url: "https://studio.example",
+      work: [
+        {
+          title: "Harbor Pets",
+          url: "https://harborpets.example",
+          industry: "Pet products",
+        },
+        {
+          title: "Oak & Ash",
+          url: "https://oakash.example",
+          industry: "Home & furniture",
+        },
+      ],
+    };
+    const plan = leadPlaybook(
+      { ...lead(), industry: "Home & furniture" },
+      sender,
+    );
+    expect(plan.email!.body).toContain(
+      "We recently worked on Oak & Ash, another home & furniture store: https://oakash.example",
+    );
+    expect(plan.email!.body).not.toContain("recent work at");
+    expect(plan.call!.find((c) => c.label === "Next step")!.text).toContain(
+      "We did similar work for Oak & Ash, another home & furniture store.",
+    );
+    const other = leadPlaybook({ ...lead(), industry: "Electronics" }, sender);
+    expect(other.email!.body).toContain(
+      "You can see some of our recent work at https://studio.example",
+    );
   });
 });

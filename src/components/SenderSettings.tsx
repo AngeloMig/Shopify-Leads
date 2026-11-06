@@ -1,6 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { LoaderCircle } from "lucide-react";
-import { emptySender, portfolioLabel, type Sender } from "../../shared/sender";
+import { LoaderCircle, Plus, X } from "lucide-react";
+import {
+  emptySender,
+  maxCaseStudies,
+  portfolioLabel,
+  type CaseStudy,
+  type Sender,
+} from "../../shared/sender";
+import { industries } from "../../shared/types";
 import { saveSender, useSender } from "../sender-store";
 import { Button } from "./ui/button";
 import "../sender-settings.css";
@@ -20,22 +27,33 @@ export function SenderSettings({
   useEffect(() => {
     if (saved) setDraft(saved);
   }, [saved]);
-  const changed =
-    !!saved &&
-    (Object.keys(draft) as (keyof Sender)[]).some((k) => draft[k] !== saved[k]);
-  const set = (key: keyof Sender) => (value: string) =>
+  const changed = !!saved && JSON.stringify(draft) !== JSON.stringify(saved);
+  type TextKey = Exclude<keyof Sender, "work">;
+  const set = (key: TextKey) => (value: string) =>
     setDraft((d) => ({ ...d, [key]: value }));
+  const setWork = (i: number, patch: Partial<CaseStudy>) =>
+    setDraft((d) => ({
+      ...d,
+      work: d.work.map((w, j) => (j === i ? { ...w, ...patch } : w)),
+    }));
+  const https = (url: string) =>
+    url && !/^https?:\/\//i.test(url) ? `https://${url}` : url;
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
-      const url = draft.portfolio_url.trim();
+      // "grantwebsite.com" is taken to mean https://grantwebsite.com.
       await saveSender(demo, {
         ...draft,
-        // "grantwebsite.com" is taken to mean https://grantwebsite.com.
-        portfolio_url:
-          url && !/^https?:\/\//i.test(url) ? `https://${url}` : url,
+        portfolio_url: https(draft.portfolio_url.trim()),
+        work: draft.work
+          .map((w) => ({
+            ...w,
+            title: w.title.trim(),
+            url: https(w.url.trim()),
+          }))
+          .filter((w) => w.title && w.url),
       });
       notify("Saved. Your scripts now use these details.");
     } catch (err) {
@@ -45,7 +63,7 @@ export function SenderSettings({
     }
   }
   const field = (
-    key: keyof Sender,
+    key: TextKey,
     label: string,
     props: { placeholder: string; type?: string; autoComplete?: string },
   ) => (
@@ -99,6 +117,67 @@ export function SenderSettings({
           {portfolioLabel(draft.portfolio_url)}”.
         </p>
       )}
+      <fieldset className="sender-work" disabled={!saved}>
+        <legend>Work to show</legend>
+        <p>
+          A project in the same industry as the store goes in the email in place
+          of your portfolio link: “We recently worked on Oak & Ash, another home
+          & furniture store”.
+        </p>
+        {draft.work.map((w, i) => (
+          <div className="sender-work-row" key={i}>
+            <input
+              aria-label={`Project ${i + 1} name`}
+              placeholder="Client or project name"
+              value={w.title}
+              onChange={(e) => setWork(i, { title: e.target.value })}
+            />
+            <input
+              aria-label={`Project ${i + 1} link`}
+              placeholder="https://the-site.com"
+              value={w.url}
+              onChange={(e) => setWork(i, { url: e.target.value })}
+            />
+            <select
+              aria-label={`Project ${i + 1} industry`}
+              value={w.industry}
+              onChange={(e) => setWork(i, { industry: e.target.value })}
+            >
+              <option value="">Industry</option>
+              {industries.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={`Remove project ${i + 1}`}
+              onClick={() =>
+                setDraft((d) => ({
+                  ...d,
+                  work: d.work.filter((_, j) => j !== i),
+                }))
+              }
+            >
+              <X size={15} />
+            </button>
+          </div>
+        ))}
+        {draft.work.length < maxCaseStudies && (
+          <button
+            type="button"
+            className="text-button sender-add"
+            onClick={() =>
+              setDraft((d) => ({
+                ...d,
+                work: [...d.work, { title: "", url: "", industry: "" }],
+              }))
+            }
+          >
+            <Plus size={14} /> Add a project
+          </button>
+        )}
+      </fieldset>
       {error && (
         <p className="error-message" role="alert">
           {error}

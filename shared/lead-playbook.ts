@@ -2,7 +2,12 @@ import { reportIssues } from "./audit-presentation.js";
 import { explainFinding } from "./finding-explanation.js";
 import { mailStatus, rankedEmails } from "./lead-intelligence.js";
 import type { Finding, Lead } from "./types.js";
-import { emptySender, portfolioLabel, type Sender } from "./sender.js";
+import {
+  emptySender,
+  matchingWork,
+  portfolioLabel,
+  type Sender,
+} from "./sender.js";
 
 export type PlanNeed = {
   service: string;
@@ -33,7 +38,7 @@ type PlaybookLead = Pick<
   | "preferred_email"
   | "mail_checks"
   | "contact_url"
->;
+> & { industry?: string };
 const weight = { high: 0, medium: 1, low: 2 };
 const testedOn = (at: string | null) =>
   at
@@ -68,6 +73,8 @@ export function leadPlaybook(
   const me = sender.name || "[Your name]";
   const company = sender.company || "[Your company]";
   const work = sender.portfolio_url;
+  // A project in the same industry says more than a whole portfolio.
+  const similar = matchingWork(sender, lead.industry ?? "");
   const issues = reportIssues(lead.findings, []);
   const plain = (issue: (typeof issues)[number]) =>
     explainFinding(issue, lead.findings, []);
@@ -133,7 +140,13 @@ export function leadPlaybook(
         `I'm ${me} from ${company}. We work on Shopify stores, and we ran some public tests on ${lead.domain}.`,
         `Here's what we found:\n${found.map((f) => `- ${f}`).join("\n")}`,
         `Where we could help:\n${suggested.map((s) => `- ${s}`).join("\n")}`,
-        ...(work ? [`You can see some of our recent work at ${work}`] : []),
+        ...(similar
+          ? [
+              `We recently worked on ${similar.title}, another ${similar.industry.toLowerCase()} store: ${similar.url}`,
+            ]
+          : work
+            ? [`You can see some of our recent work at ${work}`]
+            : []),
         "Would it be useful if I sent over the short report? If this isn't for you, just say so and I won't contact you again.",
         [me, company, sender.address || "[Your business address]", work]
           .filter(Boolean)
@@ -159,7 +172,7 @@ export function leadPlaybook(
       { label: "Ask", text: questions[0] },
       {
         label: "Next step",
-        text: `We could look at ${suggested[0].charAt(0).toLowerCase()}${suggested[0].slice(1)}. Can I send you the short report?${work ? ` You can also see sites we've built at ${portfolioLabel(work)}.` : ""}`,
+        text: `We could look at ${suggested[0].charAt(0).toLowerCase()}${suggested[0].slice(1)}. Can I send you the short report?${similar ? ` We did similar work for ${similar.title}, another ${similar.industry.toLowerCase()} store.` : work ? ` You can also see sites we've built at ${portfolioLabel(work)}.` : ""}`,
       },
       {
         label: "If they say no",
