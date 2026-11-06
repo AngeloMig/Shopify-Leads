@@ -54,6 +54,7 @@ import {
   Workflow,
   X,
   AlertCircle,
+  CalendarCheck,
   CalendarDays,
   Mail,
   LockKeyhole,
@@ -85,6 +86,7 @@ import { Button } from "./components/ui/button";
 import { Dialog } from "./components/ui/dialog";
 import { LocalBusinesses } from "./components/LocalBusinesses";
 import { SenderSettings } from "./components/SenderSettings";
+import { TodayPage } from "./components/TodayPage";
 // Only the sign-in page shows it, so its animation kit loads with it
 const SignInDemo = lazy(() => import("./components/SignInDemo"));
 const empty: Snapshot = {
@@ -100,6 +102,7 @@ const empty: Snapshot = {
 };
 const navigation = [
   { label: "Overview", path: "/", icon: LayoutDashboard },
+  { label: "Today", path: "/today", icon: CalendarCheck },
   { label: "Store discovery", path: "/discovery", icon: Compass },
   { label: "Leads", path: "/leads", icon: Store },
   { label: "Local businesses", path: "/local", icon: HardHat },
@@ -878,7 +881,9 @@ export default function App() {
                       ? "From research to relationships"
                       : location.pathname === "/local"
                         ? "Beyond online stores"
-                        : "Shopify lead intelligence"}
+                        : location.pathname === "/today"
+                          ? "Your day"
+                          : "Shopify lead intelligence"}
               </div>
               <h1>
                 {location.pathname === "/"
@@ -905,6 +910,8 @@ export default function App() {
                       "Evidence-backed audit reports, ready for a thoughtful conversation.",
                     "/jobs":
                       "Scout finds Shopify stores and local businesses, checks them, and adds the ones worth a call to your leads.",
+                    "/today":
+                      "Follow-ups due, approved stores to email, and local businesses to call.",
                     "/local":
                       "Businesses on the map with no website of their own, such as a builder with only a Facebook page.",
                     "/outreach":
@@ -1451,6 +1458,21 @@ export default function App() {
               onStopDiscovery={() => void stopResearch()}
               onNewDiscovery={() => setShowDiscovery(true)}
               onOpenLead={setSelectedLead}
+            />
+          )}
+          {location.pathname === "/today" && (
+            <TodayPage
+              leads={data.leads}
+              demo={demo}
+              onOpenLead={setSelectedLead}
+              onStartReview={() => {
+                const first = [...pending].sort(
+                  (a, b) =>
+                    leadScoreFor(b).researchScore -
+                    leadScoreFor(a).researchScore,
+                )[0];
+                if (first) openReview(first, pending);
+              }}
             />
           )}
           {location.pathname === "/local" && (
