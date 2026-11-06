@@ -30,6 +30,7 @@ import { jobActivity, publishJobWork } from "./lib/job-activity.js";
 import { discoveryHistory } from "./lib/discovery-history.js";
 import { inspectBrowser } from "./modules/browser.js";
 import { recommend } from "./modules/ai.js";
+import { readSender } from "../shared/sender.js";
 import { createReport, reportVersion, reportAgency } from "./modules/report.js";
 import { median, qualifies } from "../shared/scoring.js";
 import { detectTiming, leadScore } from "../shared/lead-score.js";
@@ -1287,8 +1288,16 @@ export async function executeJob(
       "Organizing audit sections and rendering the PDF",
       { task: { key: "render", name: "Render audit PDF", state: "running" } },
     );
+    const reportSettings = await checked(
+      db()
+        .from("app_settings")
+        .select("config")
+        .eq("organization_id", org)
+        .maybeSingle(),
+    );
     const pdf = await createReport({
-      name: store.name,
+      sender: readSender(reportSettings?.config?.sender),
+      name: store.display_name || store.name,
       domain: store.domain,
       date: now(),
       audit_id: audit.id,

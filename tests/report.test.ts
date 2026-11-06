@@ -18,3 +18,86 @@ it("creates an actual PDF from evidence with no fabricated metrics", async () =>
   expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
   expect(pdf.length).toBeGreaterThan(3000);
 });
+
+it("names a source for every outside fact in the report", async () => {
+  const { phoneFacts } = await import("../server/modules/report");
+  expect(phoneFacts.length).toBeGreaterThanOrEqual(5);
+  for (const fact of phoneFacts) {
+    expect(fact.source.length).toBeGreaterThan(5);
+    expect(fact.text.length).toBeGreaterThan(20);
+  }
+});
+
+it("builds the owner's report with your details and plain wording", async () => {
+  const sample = (strategy: "mobile" | "desktop", n: number) => ({
+    strategy,
+    sample: n,
+    url: "https://fixture.example/",
+    tested_at: `2026-11-03T00:0${n}:00Z`,
+    scores: {
+      performance: 28,
+      seo: 92,
+      accessibility: 79,
+      "best-practices": 96,
+    },
+    diagnostics: {
+      "largest-contentful-paint": { numericValue: 15100 },
+      "cumulative-layout-shift": { numericValue: 0.04 },
+      "total-blocking-time": { numericValue: 2800 },
+    },
+    field_data: {
+      available: n === 1 && strategy === "mobile",
+      scope: "origin",
+      metrics: { LARGEST_CONTENTFUL_PAINT_MS: { percentile: 2660 } },
+    },
+    environment: {
+      lighthouse_version: "13.0.0",
+      form_factor: strategy,
+      throttling_method: "simulate",
+    },
+  });
+  const pdf = await createReport({
+    name: "Fixture Skin",
+    domain: "fixture.example",
+    date: "2026-11-03",
+    industry: "Beauty & skincare",
+    findings: [
+      {
+        id: "f1",
+        url: "https://fixture.example/",
+        category: "Images",
+        title: "Images without alt attributes",
+        severity: "medium",
+        kind: "verified",
+        confidence: "high",
+        evidence: "4/10 images have no alt attribute",
+        recommendation: "Add alt text.",
+      },
+    ] as never,
+    samples: [1, 2, 3].flatMap((n) => [
+      sample("mobile", n),
+      sample("desktop", n),
+    ]) as never,
+    recommendations: [],
+    activity: null,
+    priority: 0,
+    modernization: null,
+    technologies: [],
+    history: "",
+    sender: {
+      name: "Grant",
+      company: "Studio",
+      address: "",
+      portfolio_url: "https://studio.example/",
+      work: [
+        {
+          title: "Skinistry",
+          url: "https://studio.example/work/skinistry/",
+          industry: "Beauty & skincare",
+        },
+      ],
+    },
+  });
+  expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+  expect(pdf.length).toBeGreaterThan(8000);
+});

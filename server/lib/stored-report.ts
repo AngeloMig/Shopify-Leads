@@ -11,6 +11,7 @@ import type {
   Recommendation,
 } from "../../shared/types.js";
 import type { PsiSample } from "../modules/providers.js";
+import { readSender } from "../../shared/sender.js";
 
 /** Rebuild from retained evidence only; never calls a discovery/audit provider. */
 export async function savedReportInput(
@@ -35,6 +36,7 @@ export async function savedReportInput(
     recommendations,
     contacts,
     organization,
+    settings,
   ] = await Promise.all([
     checked(
       db()
@@ -107,11 +109,20 @@ export async function savedReportInput(
         .eq("id", organization_id)
         .single(),
     ),
+    checked(
+      db()
+        .from("app_settings")
+        .select("config")
+        .eq("organization_id", organization_id)
+        .maybeSingle(),
+    ),
   ]);
   if (audit.status !== "completed")
     throw new Error("Only completed audits have publishable reports");
   const input: ReportInput = {
-    name: store.name,
+    name: store.display_name || store.name,
+    industry: store.industry,
+    sender: readSender(settings?.config?.sender),
     domain: store.domain,
     audit_id: audit.id,
     date: audit.completed_at ?? report.created_at,
