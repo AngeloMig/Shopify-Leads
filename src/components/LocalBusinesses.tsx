@@ -20,6 +20,7 @@ import {
   localTradePresets,
   localTrades,
   maxSearchTrades,
+  tradeMatchesQuery,
   socialLabel,
   websiteCheckLabel,
   type LocalBusiness,
@@ -392,13 +393,7 @@ function LocalSearchForm({
   const full = trades.length >= maxSearchTrades;
   const groups = [...new Set(localTrades.map((t) => t.group))];
   const q = query.trim().toLowerCase();
-  const matches = q
-    ? localTrades.filter(
-        (t) =>
-          t.label.toLowerCase().includes(q) ||
-          t.group.toLowerCase().includes(q),
-      )
-    : [];
+  const matches = q ? localTrades.filter((t) => tradeMatchesQuery(t, q)) : [];
   const toggleTrade = (id: string) =>
     setTrades((on) =>
       on.includes(id)

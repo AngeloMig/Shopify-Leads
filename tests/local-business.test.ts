@@ -213,6 +213,25 @@ describe("Sorting one area's businesses into the chosen trades", () => {
   });
 });
 
+describe("The trade search box", () => {
+  it("finds trades by word form and by other names", async () => {
+    const { tradeMatchesQuery, localTrades } = await import(
+      "../shared/local-business"
+    );
+    const find = (q: string) =>
+      localTrades.filter((t) => tradeMatchesQuery(t, q)).map((t) => t.id);
+    expect(find("roofer")).toContain("roofing");
+    expect(find("baker")).toContain("bakery");
+    expect(find("vet")).toContain("vet");
+    expect(find("solicitor")).toEqual(["lawyer"]);
+    expect(find("realtor")).toEqual(["estate_agent"]);
+    expect(find("garage")).toContain("car_repair");
+    expect(find("barber")).toContain("hairdresser");
+    expect(find("builder")).toContain("construction");
+    expect(find("zzz")).toEqual([]);
+  });
+});
+
 describe("Reading the website check search", () => {
   it("finds no website when only listings and social pages turn up", () => {
     const v = readWebsiteSearch("Ridgeway Builders", [

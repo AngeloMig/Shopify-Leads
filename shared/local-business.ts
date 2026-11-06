@@ -337,6 +337,79 @@ export const localTradePresets: { label: string; trades: string[] }[] = [
   },
 ];
 
+// Other names people search by, beyond each trade's label.
+const tradeKeywords: Record<string, string> = {
+  construction: "builder general contractor building company",
+  roofing: "roofer roofs",
+  plumbing: "plumbers drains",
+  electrician: "electrical sparky",
+  hvac: "heating cooling air conditioning furnace ac",
+  carpenter: "joiner cabinet maker woodwork",
+  painting: "painters decorating",
+  concrete: "paving driveway asphalt",
+  masonry: "brickwork stone",
+  landscaping: "gardener lawn garden",
+  tree_service: "arborist tree surgeon stump",
+  fencing: "fences decks decking",
+  flooring: "tiler tiles carpet floors",
+  windows: "glazier glass doors",
+  kitchens: "kitchen bathroom fitter renovation",
+  handyman: "odd jobs repairs maintenance",
+  cleaning: "cleaner maid janitor",
+  pressure_washing: "power washing gutters",
+  pest_control: "exterminator termites",
+  pools: "swimming pool",
+  solar: "solar panels",
+  moving: "mover removalist removals",
+  chimney: "chimney sweep",
+  locksmith: "keys",
+  metal: "welder welding fabrication",
+  car_repair: "mechanic garage auto repair",
+  car_wash: "detailing valet",
+  hairdresser: "barber salon hair",
+  spa: "beauty salon nails",
+  gym: "fitness personal trainer",
+  cafe: "coffee shop",
+  takeaway: "fast food",
+  pub: "bar",
+  vet: "veterinarian veterinary animal clinic",
+  pet_services: "groomer dog grooming",
+  pet_boarding: "kennels cattery",
+  photographer: "photography",
+  tailor: "alterations",
+  shoe_repair: "cobbler",
+  accountant: "bookkeeper tax",
+  lawyer: "solicitor attorney legal",
+  estate_agent: "realtor realty property",
+  insurance: "broker",
+  childcare: "daycare nursery preschool",
+  storage: "storage units",
+  funeral: "undertaker",
+};
+// "roofer" finds Roofing, "baker" finds Bakery: words are compared by stem.
+const stem = (w: string) =>
+  w.replace(/(ers|er|ings|ing|ists|ist|ians|ian|ies|es|s)$/, "") || w;
+const words = (text: string) =>
+  text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 2)
+    .map(stem);
+/** Whether a trade matches what someone typed in the trade search. */
+export function tradeMatchesQuery(trade: LocalTrade, query: string) {
+  const asked = words(query);
+  if (!asked.length) return false;
+  const known = words(
+    `${trade.label} ${trade.group} ${tradeKeywords[trade.id] ?? ""}`,
+  );
+  return asked.every((q) =>
+    known.some(
+      (k) =>
+        k.startsWith(q) || (q.length >= 3 && k.length >= 3 && q.startsWith(k)),
+    ),
+  );
+}
+
 /** The categories one search asks Geoapify for. */
 export const tradeCategories = (trade: LocalTrade) => [
   ...new Set([...trade.categories, ...(trade.broad ? broadCategories : [])]),
