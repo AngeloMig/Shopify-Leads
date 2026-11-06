@@ -12,7 +12,9 @@ import {
   localTrade,
   localTrades,
   maxSearchTrades,
+  type LocalBusiness,
 } from "../shared/local-business.js";
+import { prospectScore } from "../shared/local-prospect.js";
 import type { Country } from "../shared/types.js";
 
 const route =
@@ -22,6 +24,23 @@ const route =
   };
 const columns =
   "id,place_id,trade,city,country,name,address,phone,email,opening_hours,lat,lon,osm_url,website_check,found_site,check_query,social_links,stage,notes,suppressed,found_at";
+// The columns a prospect score is made from, and how many rows to score at
+// once: Supabase hands back at most 1,000 rows per request.
+const scoring =
+  "id,trade,website_check,social_links,phone,email,opening_hours,stage,found_at";
+const scoredLimit = 1000;
+type ScoringRow = Pick<
+  LocalBusiness,
+  | "id"
+  | "trade"
+  | "website_check"
+  | "social_links"
+  | "phone"
+  | "email"
+  | "opening_hours"
+  | "stage"
+  | "found_at"
+>;
 const status = () => ({
   geoapify_configured: geoapifyConfigured(),
   website_check: websiteSearchProvider(),
@@ -41,57 +60,87 @@ export function registerLocalBusinessRoutes(
           stage: z
             .enum(["any", ...localStages] as [string, ...string[]])
             .default("any"),
-          has: z.enum(["any", "phone", "social"]).default("any"),
+          has: z.enum(["any", "phone", "social", "strong"]).default("any"),
+          sort: z.enum(["newest", "best"]).default("newest"),
           page: z.coerce.number().int().min(0).max(1000).default(0),
           size: z.coerce.number().int().min(5).max(50).default(20),
         })
         .parse(req.query);
       // The view, search and stage narrow everything on the page; "has" picks
       // within that, so its counts stay visible while it's on.
-      const base = (select: string, head = false) => {
-        let query = db()
-          .from("local_businesses")
-          .select(select, { count: "exact", head })
-          .eq("organization_id", res.locals.org)
-          .eq("suppressed", false);
-        if (input.view === "no_site")
-          query = query.in("website_check", ["no_site_found", "not_checked"]);
-        if (input.stage !== "any") query = query.eq("stage", input.stage);
-        if (input.q) {
-          const like = `%${input.q.replace(/[%_,()\\]/g, " ")}%`;
-          query = query.or(
-            `name.ilike.${like},city.ilike.${like},trade.ilike.${like}`,
-          );
-        }
-        return query;
-      };
-      type Query = ReturnType<typeof base>;
-      const withPhone = (q: Query) => q.not("phone", "is", null);
-      const withSocial = (q: Query) => q.not("social_links", "eq", "[]");
-      let rows = base(columns);
-      if (input.has === "phone") rows = withPhone(rows);
-      if (input.has === "social") rows = withSocial(rows);
-      const [{ data, count, error }, all, phone, social] = await Promise.all([
-        rows
-          .order("found_at", { ascending: false })
-          .range(
-            input.page * input.size,
-            input.page * input.size + input.size - 1,
-          ),
-        base("id", true),
-        withPhone(base("id", true)),
-        withSocial(base("id", true)),
-      ]);
-      for (const r of [all, phone, social])
-        if (r.error) throw new Error(r.error.message);
+      let query = db()
+        .from("local_businesses")
+        .select(scoring, { count: "exact" })
+        .eq("organization_id", res.locals.org)
+        .eq("suppressed", false);
+      if (input.view === "no_site")
+        query = query.in("website_check", ["no_site_found", "not_checked"]);
+      if (input.stage !== "any") query = query.eq("stage", input.stage);
+      if (input.q) {
+        const like = `%${input.q.replace(/[%_,()\\]/g, " ")}%`;
+        query = query.or(
+          `name.ilike.${like},city.ilike.${like},trade.ilike.${like}`,
+        );
+      }
+      // Scores come from a few columns, so the matching rows are scored
+      // here and only the page asked for is read in full.
+      const {
+        data: light,
+        count,
+        error,
+      } = await query
+        .order("found_at", { ascending: false })
+        .limit(scoredLimit);
       if (error) throw new Error(error.message);
+      const scored = ((light ?? []) as unknown as ScoringRow[]).map((r) => ({
+        ...r,
+        prospect: prospectScore(r),
+      }));
+      const strong = (r: (typeof scored)[number]) =>
+        r.prospect.tier === "strong" && r.stage !== "lost";
+      const picked = scored.filter((r) =>
+        input.has === "phone"
+          ? !!r.phone
+          : input.has === "social"
+            ? r.social_links.length > 0
+            : input.has === "strong"
+              ? strong(r)
+              : true,
+      );
+      // Best first: closed leads go last, then by score, newest on a tie.
+      if (input.sort === "best")
+        picked.sort(
+          (a, b) =>
+            Number(a.stage === "lost" || a.stage === "won") -
+              Number(b.stage === "lost" || b.stage === "won") ||
+            b.prospect.score - a.prospect.score,
+        );
+      const ids = picked
+        .slice(input.page * input.size, input.page * input.size + input.size)
+        .map((r) => r.id);
+      const full = ids.length
+        ? await checked(
+            db()
+              .from("local_businesses")
+              .select(columns)
+              .eq("organization_id", res.locals.org)
+              .in("id", ids),
+          )
+        : [];
+      const byId = new Map(
+        (full as unknown as LocalBusiness[]).map((r) => [r.id, r]),
+      );
       res.json({
-        rows: data ?? [],
-        total: count ?? 0,
+        rows: ids
+          .map((id) => byId.get(id))
+          .filter((r): r is LocalBusiness => !!r)
+          .map((r) => ({ ...r, prospect: prospectScore(r) })),
+        total: picked.length,
         counts: {
-          all: all.count ?? 0,
-          phone: phone.count ?? 0,
-          social: social.count ?? 0,
+          all: count ?? scored.length,
+          phone: scored.filter((r) => r.phone).length,
+          social: scored.filter((r) => r.social_links.length).length,
+          strong: scored.filter(strong).length,
         },
         ...status(),
       });

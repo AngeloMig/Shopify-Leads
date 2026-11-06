@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
+  ArrowDownWideNarrow,
   AtSign,
   ChevronLeft,
   ChevronRight,
@@ -11,6 +12,7 @@ import {
   Phone,
   RotateCcw,
   Search,
+  Target,
   X,
 } from "lucide-react";
 import {
@@ -27,6 +29,12 @@ import {
   type LocalSearch,
   type LocalStage,
 } from "../../shared/local-business";
+import {
+  bestBetTrades,
+  prospectScore,
+  tierLabel,
+  type Prospect,
+} from "../../shared/local-prospect";
 import { countryNames, type Country } from "../../shared/types";
 import { demoLocalBusinesses, demoLocalSearches } from "../demo";
 import { api, formatDate } from "../lib";
@@ -35,8 +43,11 @@ import { Dialog } from "./ui/dialog";
 import "../local-businesses.css";
 
 type View = "no_site" | "all";
-type Has = "any" | "phone" | "social";
-type Counts = { all: number; phone: number; social: number };
+type Has = "any" | "phone" | "social" | "strong";
+type Sort = "newest" | "best";
+type Counts = { all: number; phone: number; social: number; strong: number };
+type Row = LocalBusiness & { prospect?: Prospect };
+const scoreOf = (b: Row) => b.prospect ?? prospectScore(b);
 type Status = {
   geoapify_configured: boolean;
   website_check: "tavily" | "brave" | null;
@@ -95,10 +106,16 @@ export function LocalBusinesses({
     [q, setQ] = useState(""),
     [stage, setStage] = useState<LocalStage | "any">("any"),
     [has, setHas] = useState<Has>("any"),
+    [sort, setSort] = useState<Sort>("best"),
     [page, setPage] = useState(0),
-    [rows, setRows] = useState<LocalBusiness[]>([]),
+    [rows, setRows] = useState<Row[]>([]),
     [total, setTotal] = useState(0),
-    [counts, setCounts] = useState<Counts>({ all: 0, phone: 0, social: 0 }),
+    [counts, setCounts] = useState<Counts>({
+      all: 0,
+      phone: 0,
+      social: 0,
+      strong: 0,
+    }),
     [loading, setLoading] = useState(!demo),
     [loaded, setLoaded] = useState(demo),
     [error, setError] = useState(""),
@@ -106,7 +123,7 @@ export function LocalBusinesses({
       geoapify_configured: true,
       website_check: "tavily",
     }),
-    [open, setOpen] = useState<LocalBusiness | null>(null),
+    [open, setOpen] = useState<Row | null>(null),
     [saving, setSaving] = useState<string | null>(null),
     [revision, setRevision] = useState(0),
     [recent, setRecent] = useState<LocalSearch[]>(
@@ -147,15 +164,26 @@ export function LocalBusinesses({
               v.toLowerCase().includes(needle),
             )),
       );
+      const strong = (b: LocalBusiness) =>
+        prospectScore(b).tier === "strong" && b.stage !== "lost";
       const list = base.filter((b) =>
-        has === "phone" ? !!b.phone : has === "social" ? hasSocial(b) : true,
+        has === "phone"
+          ? !!b.phone
+          : has === "social"
+            ? hasSocial(b)
+            : has === "strong"
+              ? strong(b)
+              : true,
       );
+      if (sort === "best")
+        list.sort((a, b) => prospectScore(b).score - prospectScore(a).score);
       setRows(list.slice(page * pageSize, page * pageSize + pageSize));
       setTotal(list.length);
       setCounts({
         all: base.length,
         phone: base.filter((b) => b.phone).length,
         social: base.filter(hasSocial).length,
+        strong: base.filter(strong).length,
       });
       return;
     }
@@ -167,17 +195,18 @@ export function LocalBusinesses({
       q,
       stage,
       has,
+      sort,
       page: String(page),
       size: String(pageSize),
     });
-    api<{ rows: LocalBusiness[]; total: number; counts?: Counts } & Status>(
+    api<{ rows: Row[]; total: number; counts?: Counts } & Status>(
       `/local-businesses?${params}`,
     )
       .then((r) => {
         if (!current) return;
         setRows(r.rows);
         setTotal(r.total);
-        setCounts(r.counts ?? { all: r.total, phone: 0, social: 0 });
+        setCounts(r.counts ?? { all: r.total, phone: 0, social: 0, strong: 0 });
         setStatus({
           geoapify_configured: r.geoapify_configured,
           website_check: r.website_check,
@@ -189,7 +218,7 @@ export function LocalBusinesses({
     return () => {
       current = false;
     };
-  }, [demo, view, q, stage, has, page, revision]);
+  }, [demo, view, q, stage, has, sort, page, revision]);
 
   // With nothing found yet, the finder is the whole page.
   const empty = loaded && !error && counts.all === 0 && !filtered;
@@ -197,7 +226,7 @@ export function LocalBusinesses({
     if (empty) onFinder(true);
   }, [empty, onFinder]);
 
-  async function moveStage(b: LocalBusiness, next: LocalStage) {
+  async function moveStage(b: Row, next: LocalStage) {
     const before = rows;
     setRows((r) => r.map((x) => (x.id === b.id ? { ...x, stage: next } : x)));
     if (demo) return;
@@ -208,7 +237,9 @@ export function LocalBusinesses({
         { stage: next },
         "PATCH",
       );
-      setRows((r) => r.map((x) => (x.id === saved.id ? saved : x)));
+      setRows((r) =>
+        r.map((x) => (x.id === saved.id ? { ...x, ...saved } : x)),
+      );
     } catch (e) {
       setRows(before);
       notify(`Couldn't save the stage: ${(e as Error).message}`);
@@ -255,6 +286,16 @@ export function LocalBusinesses({
                   : "businesses checked"}
             </h2>
             <div className="local-has" aria-label="Show only">
+              <button
+                type="button"
+                className="local-has-strong"
+                aria-pressed={has === "strong"}
+                onClick={() => pick("strong")}
+              >
+                <Target size={14} />
+                <span className="local-num">{counts.strong}</span> strong
+                prospects
+              </button>
               <button
                 type="button"
                 aria-pressed={has === "phone"}
@@ -310,6 +351,18 @@ export function LocalBusinesses({
                 aria-label="Search businesses"
               />
             </label>
+            <button
+              type="button"
+              className="local-sort"
+              aria-pressed={sort === "best"}
+              onClick={() => {
+                setSort((v) => (v === "best" ? "newest" : "best"));
+                setPage(0);
+              }}
+            >
+              <ArrowDownWideNarrow size={15} />
+              Best prospects first
+            </button>
             <label className="local-stage-filter">
               <span>Stage</span>
               <select
@@ -346,7 +399,9 @@ export function LocalBusinesses({
                   ? "None of these have a phone number listed."
                   : has === "social"
                     ? "None of these have a social page."
-                    : "No business matches. Try another name, trade or city, or set Stage to Any."}
+                    : has === "strong"
+                      ? "No strong prospects here yet. Strong ones have no site, a phone or social page, and a trade where a site wins work."
+                      : "No business matches. Try another name, trade or city, or set Stage to Any."}
               </p>
             </div>
           ) : (
@@ -359,6 +414,17 @@ export function LocalBusinesses({
                   ))
                 : rows.map((b) => (
                     <li key={b.id} className="local-row" data-stage={b.stage}>
+                      <span
+                        className="local-score"
+                        data-tier={scoreOf(b).tier}
+                        title={`${tierLabel[scoreOf(b).tier]}: ${scoreOf(b).score} out of 100`}
+                      >
+                        <span className="local-num">{scoreOf(b).score}</span>
+                        <span className="sr-only">
+                          {tierLabel[scoreOf(b).tier]}, {scoreOf(b).score} out
+                          of 100
+                        </span>
+                      </span>
                       <button
                         type="button"
                         className="local-who"
@@ -655,7 +721,10 @@ function LocalSearchForm({
           </small>
         </h3>
         <div className="local-presets" aria-label="Quick picks">
-          {localTradePresets.map((p) => {
+          {[
+            { label: "Most likely to buy", trades: bestBetTrades },
+            ...localTradePresets,
+          ].map((p) => {
             const on = p.trades.every((id) => trades.includes(id));
             return (
               <button
@@ -939,7 +1008,7 @@ function LocalBusinessDetail({
   onClose,
   onSaved,
 }: {
-  lead: LocalBusiness;
+  lead: Row;
   demo: boolean;
   onClose: () => void;
   onSaved: (b: LocalBusiness) => void;
@@ -1013,6 +1082,24 @@ function LocalBusinessDetail({
                 </a>
               </li>
             )}
+          </ul>
+        </section>
+        <section>
+          <h3>
+            Why it scores{" "}
+            <span className="local-score" data-tier={scoreOf(lead).tier}>
+              <span className="local-num">{scoreOf(lead).score}</span>
+            </span>
+          </h3>
+          <ul className="local-reasons">
+            {scoreOf(lead).reasons.map((r) => (
+              <li key={r.text}>
+                <span className="local-num">
+                  {r.points ? `+${r.points}` : "·"}
+                </span>
+                {r.text}
+              </li>
+            ))}
           </ul>
         </section>
         <section>

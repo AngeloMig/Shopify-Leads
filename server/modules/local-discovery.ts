@@ -17,6 +17,7 @@ import {
   type SocialLink,
 } from "../../shared/local-business.js";
 import type { Country } from "../../shared/types.js";
+import { listingPriority } from "../../shared/local-prospect.js";
 import { findCity, placeDetails, searchPlaces } from "./geoapify.js";
 import { searchWeb, websiteSearchProvider } from "./web-check.js";
 
@@ -166,7 +167,10 @@ export async function localDiscovery(
       );
     // Branches of a brand or franchise use the brand's website: not leads.
     const onMap = [...new Map(found.map((p) => [p.place_id, p])).values()];
-    const unique = onMap.filter((p) => !p.chain);
+    // Likeliest buyers first, so each trade's cap keeps them.
+    const unique = onMap
+      .filter((p) => !p.chain)
+      .sort((a, b) => listingPriority(b) - listingPriority(a));
     const matching = assignTrades(unique, trades, config.per_city);
     funnel.listed += onMap.length;
     funnel.chains += onMap.length - unique.length;
