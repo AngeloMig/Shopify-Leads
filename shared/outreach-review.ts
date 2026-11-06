@@ -136,3 +136,39 @@ export function nextInQueue(
   }
   return null;
 }
+
+/**
+ * A reason written from what the checks found, for the reviewer to read and
+ * keep or change. Null while something still blocks an approval.
+ */
+export function suggestedApproval(lead: ReviewLead): string | null {
+  const checks = reviewChecks(lead);
+  if (checks.some((c) => c.status === "blocked")) return null;
+  const best = rankedEmails(
+    lead.emails,
+    lead.preferred_email,
+    lead.mail_checks,
+  )[0];
+  const parts = [
+    best && mailStatus(best.email, lead.mail_checks) !== "none"
+      ? `Business email ${best.email} is published on the store`
+      : "Contact through the store's public contact page",
+    lead.country && lead.country_evidence
+      ? `Country confirmed as ${countryNames[lead.country]}`
+      : null,
+    lead.shopify_verified ? "Shopify store confirmed" : null,
+    "Not on the do-not-contact list",
+  ].filter(Boolean);
+  return `${parts.join(". ")}.`;
+}
+/** Common reasons a store isn't one to contact, to pick instead of typing. */
+export function rejectionReasons(likelyAgency: boolean): string[] {
+  return [
+    ...(likelyAgency
+      ? ["Established brand with its own team or agency, not a fit."]
+      : []),
+    "Only a personal or support email; no general business contact.",
+    "Outside the countries or industries I work with.",
+    "Not a fit for the services I offer.",
+  ];
+}

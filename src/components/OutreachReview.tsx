@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -17,7 +17,9 @@ import {
   minRationale,
   minSuppressReason,
   nextInQueue,
+  rejectionReasons,
   reviewChecks,
+  suggestedApproval,
   type ReviewCheck,
 } from "../../shared/outreach-review";
 import { countryNames, type Lead } from "../../shared/types";
@@ -88,6 +90,11 @@ export function OutreachReview({
     [error, setError] = useState(""),
     [done, setDone] = useState(false);
   const lead = leads.find((l) => l.id === currentId);
+  // Keys work as soon as each store opens, without clicking into it first.
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    root.current?.focus({ preventScroll: true });
+  }, [currentId]);
   const position = queue.indexOf(currentId);
   const move = (step: number) => {
     setError("");
@@ -119,7 +126,14 @@ export function OutreachReview({
   const checks = reviewChecks(lead);
   const needs = approvalNeeds(lead, rationale);
   const intelligence = leadIntelligence(lead);
-  const score = leadScoreFor(lead).researchScore;
+  const scored = leadScoreFor(lead);
+  const score = scored.researchScore;
+  const agency = scored.brand?.verdict === "likely_agency";
+  const suggestion = suggestedApproval(lead);
+  const setReason = (text: string) =>
+    setDrafts((d) => ({ ...d, [lead.id]: text }));
+  const canApprove = !busy && needs.length === 0;
+  const canReject = !busy && reasonLength >= minRationale;
   async function decide(
     kind: "approved" | "rejected" | "suppress",
     run: () => Promise<void>,
@@ -149,6 +163,12 @@ export function OutreachReview({
       setBusy(null);
     }
   }
+  const approve = () =>
+    canApprove &&
+    void decide("approved", () => onReview(lead, "approved", rationale));
+  const reject = () =>
+    canReject &&
+    void decide("rejected", () => onReview(lead, "rejected", rationale));
   return (
     <Dialog
       open
@@ -158,13 +178,29 @@ export function OutreachReview({
       className="review-dialog"
     >
       <div
+        ref={root}
+        tabIndex={-1}
+        className="review-body"
         onKeyDown={(e) => {
-          if (
-            queue.length > 1 &&
-            (e.key === "ArrowLeft" || e.key === "ArrowRight") &&
-            !(e.target as HTMLElement).matches("textarea,input,select")
-          )
-            move(e.key === "ArrowLeft" ? -1 : 1);
+          const typing = (e.target as HTMLElement).matches(
+            "textarea,input,select",
+          );
+          // Cmd/Ctrl+Enter approves from the reason box too.
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            approve();
+            return;
+          }
+          if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+          const key = e.key.toLowerCase();
+          if (queue.length > 1 && (key === "arrowleft" || key === "arrowright"))
+            move(key === "arrowleft" ? -1 : 1);
+          else if (key === "u" && suggestion) setReason(suggestion);
+          else if (key === "a") approve();
+          else if (key === "n") reject();
+          else if (key === "s" && queue.length > 1) move(1);
+          else return;
+          e.preventDefault();
         }}
       >
         <div className="review-bar">
@@ -173,6 +209,7 @@ export function OutreachReview({
               lead.country && countryNames[lead.country],
               lead.industry,
               `Score ${score}`,
+              agency ? "Has its own team" : null,
               intelligence.main,
             ]
               .filter(Boolean)
@@ -224,6 +261,27 @@ export function OutreachReview({
                 ? "On the do-not-contact list"
                 : decisionLabels[lead.permission]}
             </p>
+            <div className="review-quick" aria-label="Reasons to use">
+              {suggestion && (
+                <button
+                  type="button"
+                  className="review-suggest"
+                  onClick={() => setReason(suggestion)}
+                >
+                  Use the checks as my reason <kbd>U</kbd>
+                </button>
+              )}
+              {rejectionReasons(agency).map((r) => (
+                <button
+                  type="button"
+                  key={r}
+                  className="review-reason"
+                  onClick={() => setReason(r)}
+                >
+                  {r.replace(/\.$/, "")}
+                </button>
+              ))}
+            </div>
             <label className="field-label">
               Why is this OK or not OK to contact?
               <textarea
@@ -245,34 +303,19 @@ export function OutreachReview({
               </p>
             )}
             <div className="review-actions">
-              <Button
-                disabled={!!busy || needs.length > 0}
-                onClick={() =>
-                  void decide("approved", () =>
-                    onReview(lead, "approved", rationale),
-                  )
-                }
-              >
+              <Button disabled={!canApprove} onClick={approve}>
                 {busy === "approved" ? (
                   <LoaderCircle size={15} className="spin" />
                 ) : (
                   <ShieldCheck size={15} />
                 )}
-                Approve
+                Approve <kbd>A</kbd>
               </Button>
-              <Button
-                variant="outline"
-                disabled={!!busy || reasonLength < minRationale}
-                onClick={() =>
-                  void decide("rejected", () =>
-                    onReview(lead, "rejected", rationale),
-                  )
-                }
-              >
+              <Button variant="outline" disabled={!canReject} onClick={reject}>
                 {busy === "rejected" && (
                   <LoaderCircle size={15} className="spin" />
                 )}
-                Not eligible
+                Not eligible <kbd>N</kbd>
               </Button>
             </div>
             <p className="review-needs" role="status">
@@ -283,7 +326,15 @@ export function OutreachReview({
           </section>
         </div>
         <footer className="review-footer">
-          <span>Scout never sends messages.</span>
+          <span>
+            Scout never sends messages.
+            {queue.length > 1 && (
+              <span className="review-keys">
+                {" "}
+                <kbd>S</kbd> skip · <kbd>←</kbd> <kbd>→</kbd> move
+              </span>
+            )}
+          </span>
           {!lead.suppressed && !confirmSuppress && (
             <button
               className="text-button"

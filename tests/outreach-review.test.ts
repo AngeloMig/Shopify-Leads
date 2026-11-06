@@ -103,3 +103,31 @@ describe("nextInQueue", () => {
     expect(nextInQueue(["a"], "a", open("a"))).toBeNull();
   });
 });
+
+describe("Reasons to review faster", () => {
+  it("writes the checks up as a reason that meets the minimum", async () => {
+    const { suggestedApproval, approvalNeeds } = await import(
+      "../shared/outreach-review"
+    );
+    const text = suggestedApproval(lead())!;
+    expect(text).toMatch(/^Business email .+ is published on the store\./);
+    expect(text).toContain("Not on the do-not-contact list.");
+    expect(approvalNeeds(lead(), text)).toEqual([]);
+  });
+  it("suggests nothing while a check still blocks approval", async () => {
+    const { suggestedApproval } = await import("../shared/outreach-review");
+    expect(suggestedApproval(lead({ contact_url: undefined }))).toBeNull();
+  });
+  it("offers the brand reason first only for a store with its own team", async () => {
+    const { rejectionReasons, minRationale } = await import(
+      "../shared/outreach-review"
+    );
+    expect(rejectionReasons(true)[0]).toContain("its own team");
+    expect(rejectionReasons(false).some((r) => r.includes("own team"))).toBe(
+      false,
+    );
+    expect(rejectionReasons(true).every((r) => r.length >= minRationale)).toBe(
+      true,
+    );
+  });
+});

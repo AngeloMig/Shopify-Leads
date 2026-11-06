@@ -913,7 +913,21 @@ export default function App() {
                   <ChevronDown size={14} />
                 </label>
               )}
-              {location.pathname === "/local" ? (
+              {location.pathname === "/outreach" && pending.length > 0 ? (
+                <Button
+                  onClick={() => {
+                    const first = [...pending].sort(
+                      (a, b) =>
+                        leadScoreFor(b).researchScore -
+                        leadScoreFor(a).researchScore,
+                    )[0];
+                    openReview(first, pending);
+                  }}
+                >
+                  <ShieldCheck size={16} />
+                  Start review · {pending.length} waiting
+                </Button>
+              ) : location.pathname === "/local" ? (
                 <Button
                   aria-expanded={localFinder}
                   aria-controls="local-finder"
