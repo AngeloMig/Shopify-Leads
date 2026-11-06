@@ -511,6 +511,20 @@ export function readGeoapifyPlace(
   add("tiktok", raw["contact:tiktok"], "https://www.tiktok.com/@");
   add("x", raw["contact:twitter"] ?? raw.twitter, "https://x.com/");
   add("youtube", raw["contact:youtube"], "https://www.youtube.com/");
+  // A "website" that is a Facebook page or a link-in-bio page means no site
+  // of their own: keep the page as a social link, and the business as a lead.
+  let website = asUrl(
+    pick("website", "raw:website", "raw:contact:website", "raw:url"),
+  );
+  const host = website ? hostOf(website) : null;
+  const network = host
+    ? Object.entries(socialHosts).find(([h]) => within(host, h))?.[1]
+    : undefined;
+  if (network && website) {
+    if (!social.some((s) => s.url === website))
+      social.push({ network, url: website });
+    website = null;
+  } else if (host && linkPages.some((h) => within(host, h))) website = null;
   const osmType = text(raw.osm_type);
   const osmId =
     num(raw.osm_id) ?? (text(raw.osm_id) ? Number(raw.osm_id) : null);
@@ -529,9 +543,7 @@ export function readGeoapifyPlace(
     address: text(p.formatted) ?? text(p.address_line2),
     phone: pick("contact.phone", "raw:phone", "raw:contact:phone"),
     email: pick("contact.email", "raw:email", "raw:contact:email"),
-    website: asUrl(
-      pick("website", "raw:website", "raw:contact:website", "raw:url"),
-    ),
+    website,
     opening_hours: pick("opening_hours", "raw:opening_hours"),
     lat: num(p.lat),
     lon: num(p.lon),
@@ -555,7 +567,7 @@ export function readGeoapifyPlace(
 // Trades skip suppliers and rental yards: "Crawford Electric Supply" sells
 // to electricians and is not one. Building suppliers are the exception.
 const notATrade =
-  /suppl(y|ies)|wholesale|warehouse|depot|distribut|rental|\bhire\b|outlet/;
+  /suppl(y|ies)|wholesale|warehouse|depot|distribut|rental|\bhire\b|outlet|merchants?\b|timber yard|trade (centre|center)/;
 export function inTrade(trade: LocalTrade, place: GeoapifyPlace) {
   if (
     trade.id !== "building_materials" &&
@@ -658,6 +670,16 @@ const socialHosts: Record<string, SocialNetwork> = {
   "twitter.com": "x",
   "youtube.com": "youtube",
 };
+/** Link-in-bio pages: a list of links, not a website of the business. */
+const linkPages = [
+  "linktr.ee",
+  "linkin.bio",
+  "beacons.ai",
+  "bio.link",
+  "taplink.cc",
+  "lnk.bio",
+  "msha.ke",
+];
 const hostOf = (url: string) => {
   try {
     return new URL(url).hostname.toLowerCase().replace(/^(www|m|mobile)\./, "");

@@ -17,7 +17,8 @@ import {
   type SocialLink,
 } from "../../shared/local-business.js";
 import type { Country } from "../../shared/types.js";
-import { listingPriority } from "../../shared/local-prospect.js";
+import { listingPriority, prospectScore } from "../../shared/local-prospect.js";
+import { guessSite } from "./domain-guess.js";
 import { findCity, placeDetails, searchPlaces } from "./geoapify.js";
 import { searchWeb, websiteSearchProvider } from "./web-check.js";
 
@@ -39,11 +40,19 @@ export type LocalFunnel = {
   already_saved: number;
   checked: number;
   site_found: number;
+  /** Sites found by trying likely domains, with no web search credit used. */
+  guessed: number;
   saved: number;
+  /** Saved leads that score as strong prospects. */
+  strong: number;
 };
 type Area = { filter: string; label: string; country: Country };
 /** Where an earlier run of this job stopped, read back from its payload. */
-export type LocalResume = { next_area?: unknown; funnel?: unknown };
+export type LocalResume = {
+  next_area?: unknown;
+  funnel?: unknown;
+  best?: unknown;
+};
 
 const merge = (a: SocialLink[], b: SocialLink[]) => [
   ...a,
@@ -100,8 +109,15 @@ export async function localDiscovery(
     already_saved: 0,
     checked: 0,
     site_found: 0,
+    guessed: 0,
     saved: 0,
+    strong: 0,
   };
+  // The best lead so far, for the "search finished" notification.
+  let best =
+    resume.best && typeof resume.best === "object"
+      ? (resume.best as { name: string; score: number })
+      : null;
   const own = [...new Set(trades.flatMap((t) => t.categories))];
   const broad = trades.some((t) => t.broad);
   // With no cities, each country's biggest cities stand in for the country:
@@ -130,7 +146,7 @@ export async function localDiscovery(
     );
   for (const [i, where] of wheres.entries()) {
     if (i < start) continue;
-    await outcome(sofar(i), { funnel, next_area: i });
+    await outcome(sofar(i), { funnel, next_area: i, best });
     const task = { key: `area:${i + 1}`, name: `Search ${where.city}` };
     await emit("search", "started", `Finding ${where.city} on the map`, {
       task: { ...task, state: "running" },
@@ -223,15 +239,36 @@ export async function localDiscovery(
         check_query: null,
         social_links: place.social_links,
       };
-      if (web) {
+      const checkTask = {
+        key: `check:${place.place_id}`,
+        name: "Website check",
+      };
+      await emit("verify", "started", `Checking for ${place.name}'s website`, {
+        task: { ...checkTask, state: "running" },
+      });
+      // Likely domains first: free, and most businesses that have a site
+      // are found this way, which saves the web search credit.
+      const guessed = await guessSite(
+        { name: place.name, phone: place.phone, city },
+        area.country,
+      );
+      if (guessed) {
+        funnel.guessed++;
+        funnel.site_found++;
+        check = {
+          website_check: "site_found",
+          found_site: guessed,
+          check_query: "Domain guess",
+          social_links: place.social_links,
+        };
+        await emit(
+          "verify",
+          "completed",
+          `Found their site at ${guessed} without a web search`,
+          { task: { ...checkTask, state: "completed" } },
+        );
+      } else if (web) {
         const query = `"${place.name}" ${city}`;
-        await emit("verify", "started", `Checking the web for ${place.name}`, {
-          task: {
-            key: `check:${place.place_id}`,
-            name: "Website check",
-            state: "running",
-          },
-        });
         await charge(web);
         const verdict = readWebsiteSearch(
           place.name,
@@ -251,17 +288,27 @@ export async function localDiscovery(
             ? `Found a site that looks like theirs: ${verdict.found_site}`
             : "No website found",
           {
-            task: {
-              key: `check:${place.place_id}`,
-              name: "Website check",
-              state: "completed",
-            },
+            task: { ...checkTask, state: "completed" },
             facts: {
               social_pages: (check.social_links as SocialLink[]).length,
             },
           },
         );
-      }
+      } else
+        await emit("verify", "skipped", "No web search set up to check", {
+          task: { ...checkTask, state: "skipped" },
+        });
+      const prospect = prospectScore({
+        trade: trade.label,
+        website_check: check.website_check as "not_checked",
+        social_links: check.social_links as SocialLink[],
+        phone: place.phone,
+        email: place.email,
+        opening_hours: place.opening_hours,
+      });
+      if (prospect.tier === "strong") funnel.strong++;
+      if (!best || prospect.score > best.score)
+        best = { name: place.name, score: prospect.score };
       await checked(
         db()
           .from("local_businesses")
@@ -294,7 +341,7 @@ export async function localDiscovery(
       funnel.saved++;
     }
     await progress(Math.round(((i + 1) / wheres.length) * 95));
-    await outcome(sofar(i + 1), { funnel, next_area: i + 1 });
+    await outcome(sofar(i + 1), { funnel, next_area: i + 1, best });
   }
   const noSite = funnel.saved - funnel.site_found;
   await emit(
@@ -305,8 +352,8 @@ export async function localDiscovery(
   );
   await outcome(
     web
-      ? `Saved ${noSite} businesses with no website found`
+      ? `Saved ${noSite} businesses with no website found, ${funnel.strong} of them strong prospects`
       : `Saved ${funnel.saved} listings with no website (no web search set up for the check)`,
-    { funnel },
+    { funnel, best },
   );
 }

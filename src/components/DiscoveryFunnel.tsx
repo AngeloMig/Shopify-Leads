@@ -67,10 +67,12 @@ export function LocalSearchFunnel({ value }: { value: unknown }) {
           ["In your trades", number("in_trade")],
           ["Saved before", number("already_saved")],
           ["Website on listing", number("listing_has_site")],
+          ["Site found by its domain (no credit)", number("guessed")],
           ["Checked on the web", number("checked")],
           ["Website found", number("site_found")],
           ["Saved as leads", saved],
           ["No website found", saved - number("site_found")],
+          ["Strong prospects", number("strong")],
         ].map(([label, n]) => (
           <div key={label}>
             <dt>{label}</dt>

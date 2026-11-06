@@ -44,6 +44,9 @@ vi.mock("../server/modules/geoapify", () => ({
   },
   placeDetails: async () => null,
 }));
+vi.mock("../server/modules/domain-guess", () => ({
+  guessSite: async () => null,
+}));
 vi.mock("../server/modules/web-check", () => ({
   websiteSearchProvider: () => null,
   searchWeb: async () => [],
@@ -90,7 +93,9 @@ describe("A local search stopped by the daily budget", () => {
     const last = out.at(-2)!;
     expect(last.details.next_area).toBe(2);
     expect(last.details.funnel.saved).toBe(2);
-    expect(last.result).toBe("Searched 2 of 5 cities; 2 with no website so far");
+    expect(last.result).toBe(
+      "Searched 2 of 5 cities; 2 with no website so far",
+    );
   });
   it("picks up at that city with its counts, and searches no city twice", async () => {
     const us = biggestCities.US;
