@@ -546,6 +546,35 @@ app.get("/api/reports/:id/download", async (req, res, next) => {
     next(e);
   }
 });
+// A link to the report a store owner can open: signed by Supabase Storage, so
+// it works without Scout being online, and it stops working after 30 days.
+const shareDays = 30;
+app.post("/api/reports/:id/share", async (req, res, next) => {
+  try {
+    const r = await checked(
+      db()
+        .from("reports")
+        .select("id,storage_path")
+        .eq("id", uuid.parse(req.params.id))
+        .eq("organization_id", res.locals.org)
+        .single(),
+    );
+    const storagePath = r.storage_path.endsWith(`/report-${reportVersion}.pdf`)
+      ? r.storage_path
+      : await publishSavedReport(res.locals.org, r.id);
+    const data = await checked(
+      db()
+        .storage.from("audit-artifacts")
+        .createSignedUrl(storagePath, shareDays * 86400),
+    );
+    res.json({
+      url: data.signedUrl,
+      expires_at: new Date(Date.now() + shareDays * 86400000).toISOString(),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
 app.get("/api/leads/:id/artifacts", async (req, res, next) => {
   try {
     const lead = await checked(

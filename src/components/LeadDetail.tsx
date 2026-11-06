@@ -606,6 +606,7 @@ export function LeadDetail({
             lead={lead}
             demo={demo}
             onLeave={onClose}
+            onRetest={() => onAudit(lead)}
             onOpenReview={onOpenReview}
             evidenceError={evidenceError}
             onRetryEvidence={() => setEvidenceAttempt((n) => n + 1)}

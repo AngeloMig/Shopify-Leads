@@ -1668,3 +1668,6 @@
   color: var(--primary-dark);
   font-weight: 600;
 }
+.plan-stale {
+  justify-content: space-between;
+}

@@ -14,6 +14,7 @@ import {
 } from "../../shared/lead-playbook";
 import type { Lead } from "../../shared/types";
 import { Link } from "react-router-dom";
+import { api, formatDate } from "../lib";
 import { emptySender } from "../../shared/sender";
 import { useSender } from "../sender-store";
 import { Button } from "./ui/button";
@@ -60,6 +61,7 @@ export function LeadPlan({
   lead,
   demo = false,
   onLeave,
+  onRetest,
   onOpenReview,
   evidenceError,
   onRetryEvidence,
@@ -68,6 +70,8 @@ export function LeadPlan({
   demo?: boolean;
   /** Close whatever the plan is shown in, before going to Settings. */
   onLeave?: () => void;
+  /** Run the audit again, so the numbers quoted are current. */
+  onRetest?: () => void;
   onOpenReview: (lead: Lead) => void;
   evidenceError?: string;
   onRetryEvidence?: () => void;
@@ -93,6 +97,34 @@ export function LeadPlan({
   const [subject, setSubject] = useState(plan.email?.subject ?? "");
   const [body, setBody] = useState(plan.email?.body ?? "");
   const [call, setCall] = useState(callText(plan));
+  const [linking, setLinking] = useState<"idle" | "busy" | "failed">("idle");
+  const age = lead.audited_at
+    ? Math.floor((Date.now() - Date.parse(lead.audited_at)) / 86400000)
+    : null;
+  // PageSpeed moves between runs; quote numbers they can see for themselves.
+  const stale = age !== null && age > 14;
+  async function addReportLink() {
+    if (!lead.report_id) return;
+    setLinking("busy");
+    try {
+      const { url, expires_at } = await api<{
+        url: string;
+        expires_at: string;
+      }>(`/reports/${lead.report_id}/share`, {});
+      const line = `Here's the short report with everything we found (the link works until ${formatDate(expires_at, true)}): ${url}`;
+      setBody((b) =>
+        b.includes("Would it be useful if I sent over the short report?")
+          ? b.replace(
+              "Would it be useful if I sent over the short report?",
+              `${line}\n\nHappy to talk it through if it's useful.`,
+            )
+          : `${b}\n\n${line}`,
+      );
+      setLinking("idle");
+    } catch {
+      setLinking("failed");
+    }
+  }
   useEffect(() => {
     setSubject(plan.email?.subject ?? "");
     setBody(plan.email?.body ?? "");
@@ -237,6 +269,19 @@ export function LeadPlan({
                 </button>
               </div>
             )}
+            {stale && (
+              <div className="plan-gate plan-stale" role="status">
+                <span>
+                  Audited {age} days ago. Re-test before you send, so the
+                  numbers match what they'll see.
+                </span>
+                {onRetest && (
+                  <button className="text-button" onClick={onRetest}>
+                    Re-test now
+                  </button>
+                )}
+              </div>
+            )}
             <p className="plan-to">
               {plan.contact ? `Contact: ${plan.contact}` : "No contact found."}
             </p>
@@ -276,6 +321,25 @@ export function LeadPlan({
                 )}
                 Scout doesn't send this.
               </small>
+              {channel === "email" && lead.report_id && !demo && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={
+                    linking === "busy" || body.includes("/audit-artifacts/")
+                  }
+                  onClick={() => void addReportLink()}
+                >
+                  {linking === "busy" && (
+                    <LoaderCircle size={14} className="spin" />
+                  )}
+                  {body.includes("/audit-artifacts/")
+                    ? "Report link added"
+                    : linking === "failed"
+                      ? "Couldn't make a link. Try again"
+                      : "Add report link"}
+                </Button>
+              )}
               <CopyButton
                 label={channel === "email" ? "Copy email" : "Copy call script"}
                 text={

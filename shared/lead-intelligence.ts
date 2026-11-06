@@ -177,6 +177,15 @@ const industryTerms: Record<string, string[]> = {
     "wardrobe",
     "knitwear",
     "t-shirt",
+    "streetwear",
+    "trainers",
+    "sneakers",
+    "activewear",
+    "yoga wear",
+    "swimwear",
+    "lingerie",
+    "jewelry",
+    "jewellery",
   ],
   "Beauty & skincare": [
     "skincare",
@@ -187,6 +196,12 @@ const industryTerms: Record<string, string[]> = {
     "serum",
     "cosmetics",
     "makeup",
+    "cosmeceutical",
+    "hair care",
+    "haircare",
+    "grooming",
+    "fragrance",
+    "perfume",
   ],
   "Home & furniture": [
     "furniture",
@@ -197,15 +212,42 @@ const industryTerms: Record<string, string[]> = {
     "dining table",
     "armchair",
     "home goods",
+    "homeware",
+    "homewares",
+    "bedding",
+    "linen bedding",
+    "bath linens",
+    "duvets",
+    "duvet",
+    "pillows",
+    "towels",
+    "mattress",
+    "mattresses",
+    "tableware",
+    "kitchenware",
+    "rugs",
+  ],
+  "Home decor": [
+    "pottery",
+    "ceramics",
+    "ceramic",
+    "candles",
+    "wall art",
+    "vases",
   ],
   "Food & beverage": [
     "coffee",
     "roasted",
     "tea",
+    "teas",
+    "loose leaf",
     "snacks",
     "chocolate",
+    "chocolates",
+    "gourmet",
     "beverage",
     "artisan food",
+    "spices",
   ],
   "Pet products": [
     "pet food",
@@ -214,13 +256,19 @@ const industryTerms: Record<string, string[]> = {
     "pet accessories",
     "dog toys",
     "pet supplies",
+    "dog beds",
+    "pet furniture",
   ],
   Electronics: [
     "electronics",
     "headphones",
+    "earbuds",
+    "speakers",
     "smartphone",
     "charging cable",
     "computer accessories",
+    "gaming keyboard",
+    "gaming mouse",
   ],
   "Health & wellness": [
     "supplements",
@@ -228,8 +276,42 @@ const industryTerms: Record<string, string[]> = {
     "wellness",
     "protein powder",
     "nutrition",
+    "herbal",
+    "gym equipment",
+    "fitness equipment",
   ],
 };
+/**
+ * Words that name a store's trade on their own. Any one of these is enough;
+ * other words need a second match. Phrases of two words or more always count.
+ */
+const strongTerms = new Set([
+  "skincare",
+  "furniture",
+  "cosmetics",
+  "electronics",
+  "clothing",
+  "apparel",
+  "streetwear",
+  "menswear",
+  "womenswear",
+  "bedding",
+  "homeware",
+  "homewares",
+  "pottery",
+  "ceramics",
+  "tea",
+  "teas",
+  "coffee",
+  "chocolates",
+  "earbuds",
+  "supplements",
+  "jewelry",
+  "jewellery",
+  "haircare",
+  "cosmeceutical",
+  "mattresses",
+]);
 export function classifyIndustry(
   pages: {
     title?: string;
@@ -244,7 +326,13 @@ export function classifyIndustry(
   );
   const text = observed
     .map((p) =>
-      [p.title, p.description, ...(p.h1 ?? [])].join(" ").toLowerCase(),
+      [p.title, p.description, ...(p.h1 ?? [])]
+        .join(" ")
+        .toLowerCase()
+        // "Décor" is "decor", and title separators split words.
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[–—|·]+/g, " "),
     )
     .join(" ");
   const scores = Object.entries(industryTerms)
@@ -257,23 +345,15 @@ export function classifyIndustry(
         ).test(text),
       ),
     }))
-    .sort((a, b) => b.hits.length - a.hits.length);
+    .map((s) => ({
+      ...s,
+      weight:
+        s.hits.length +
+        s.hits.filter((h) => strongTerms.has(h) || h.includes(" ")).length,
+    }))
+    .sort((a, b) => b.weight - a.weight);
   const best = scores[0];
-  if (
-    !best ||
-    (best.hits.length < 2 &&
-      !best.hits.some((hit) =>
-        [
-          "skincare",
-          "skin care",
-          "furniture",
-          "cosmetics",
-          "pet supplies",
-          "electronics",
-        ].includes(hit),
-      )) ||
-    best.hits.length === (scores[1]?.hits.length ?? 0)
-  )
+  if (!best || best.weight < 2 || best.weight === (scores[1]?.weight ?? 0))
     return {
       industry: "Unknown",
       industry_confidence: "unknown",
