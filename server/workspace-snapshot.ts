@@ -12,7 +12,7 @@ const summaryFindingColumns =
 const scoreColumns =
   "audit_id,technical_seo,performance,desktop,modernization,cro,created_at,catalog:breakdown->catalog,fit:breakdown->fit,timing:breakdown->timing,mail:breakdown->mail";
 const jobColumns =
-  "id,type,status,available_at,wait_reason,error_code,error_provider,progress,created_at,started_at,completed_at,error,attempts,max_attempts,api_usage,funnel:payload->funnel,result:payload->result,store_id:payload->store_id,query_id:payload->query_id,resumed_samples:payload->resumed_samples,name:payload->name,work_version:payload->work->version,work_stage:payload->work->stage,work_updated_at:payload->work->updated_at,work_target:payload->work->target";
+  "id,type,status,available_at,wait_reason,error_code,error_provider,progress,created_at,started_at,completed_at,error,attempts,max_attempts,api_usage,funnel:payload->funnel,result:payload->result,store_id:payload->store_id,query_id:payload->query_id,resumed_samples:payload->resumed_samples,name:payload->name,kind:payload->kind,work_version:payload->work->version,work_stage:payload->work->stage,work_updated_at:payload->work->updated_at,work_target:payload->work->target";
 const payloadKeys = [
   "funnel",
   "result",
@@ -20,6 +20,7 @@ const payloadKeys = [
   "query_id",
   "resumed_samples",
   "name",
+  "kind",
 ];
 async function readPages(
   makePage: (
