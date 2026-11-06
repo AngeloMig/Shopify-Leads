@@ -7,10 +7,13 @@ import { geoapifyConfigured } from "./modules/geoapify.js";
 import { websiteSearchProvider } from "./modules/web-check.js";
 import type { LocalSearchConfig } from "./modules/local-discovery.js";
 import {
+  localCountries,
   localStages,
   localTrade,
   localTrades,
+  maxSearchTrades,
 } from "../shared/local-business.js";
+import type { Country } from "../shared/types.js";
 
 const route =
   (fn: (req: Request, res: Response) => Promise<unknown>) =>
@@ -96,13 +99,23 @@ export function registerLocalBusinessRoutes(
         });
       const input = z
         .object({
-          trade: z.enum(localTrades.map((t) => t.id) as [string, ...string[]]),
+          trades: z
+            .array(
+              z.enum(localTrades.map((t) => t.id) as [string, ...string[]]),
+            )
+            .min(1)
+            .max(maxSearchTrades)
+            .transform((t) => [...new Set(t)]),
+          countries: z
+            .array(z.enum(localCountries as [Country, ...Country[]]))
+            .min(1)
+            .max(4)
+            .transform((c) => [...new Set(c)]),
           cities: z
             .array(z.string().trim().min(2).max(80))
-            .min(1)
             .max(10)
+            .default([])
             .transform((c) => [...new Set(c)]),
-          country: z.enum(["US", "GB", "CA", "AU"]),
           per_city: z.coerce.number().int().min(1).max(50).default(20),
         })
         .parse(req.body);
@@ -121,16 +134,17 @@ export function registerLocalBusinessRoutes(
             ...input,
             created_by: res.locals.user.id,
           })
-          .select("id,trade,cities,country,per_city,created_at")
+          .select("id,trades,cities,countries,per_city,created_at")
           .single(),
       );
+      const names = input.trades.map((t) => localTrade(t)!.label);
       const config: LocalSearchConfig = {
-        name: `${localTrade(input.trade)!.label} in ${input.cities.join(", ")}`,
+        name: `${names.length === 1 ? names[0] : `${names.length} trades`} in ${(input.cities.length ? input.cities : input.countries).join(", ")}`,
         provider: "geoapify",
         search_id: search.id,
-        trade: input.trade,
+        trades: input.trades,
         cities: input.cities,
-        country: input.country,
+        countries: input.countries,
         per_city: input.per_city,
         daily_api_budget: Number(settings?.config?.daily_api_budget) || 100,
       };
@@ -138,11 +152,7 @@ export function registerLocalBusinessRoutes(
         res.locals.org,
         "discovery",
         `local:${search.id}`,
-        {
-          kind: "local",
-          config,
-          search_id: search.id,
-        },
+        { kind: "local", config, search_id: search.id },
       );
       res.status(202).json({ search, job });
     }),

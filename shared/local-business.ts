@@ -41,81 +41,228 @@ export type LocalBusiness = {
 
 export type LocalSearch = {
   id: string;
-  trade: string;
+  trades: string[];
   cities: string[];
-  country: Country;
+  countries: Country[];
   per_city: number;
   created_at: string;
 };
+export const localCountries: Country[] = ["US", "GB", "CA", "AU"];
+export const maxSearchTrades = 10;
 
-// Geoapify has categories for some trades and not others (no roofer,
-// plumber or construction company). Those are read from broad company and
-// trade categories and matched by the business name or its OpenStreetMap
-// craft/office tag, so they find only businesses whose name or tag says so.
+// What a search can look for. A trade with its own Geoapify category takes
+// every business in it. Geoapify has no category for many trades (roofer,
+// plumber, construction company...), so those also read its broad company
+// and trade categories and keep a business there only when its name or
+// OpenStreetMap craft/office tag says the trade.
 export type LocalTrade = {
   id: string;
   label: string;
+  group: string;
+  /** Geoapify categories that belong to the trade outright. */
   categories: string[];
+  /** Also search the broad company and trade categories, matched by `match`. */
+  broad?: boolean;
   /** Name words or OSM craft/office tags that place a business in the trade. */
   match?: RegExp;
 };
-const broad = ["office.company", "commercial.trade"];
+export const broadCategories = ["office.company", "commercial.trade"];
+const t = (
+  group: string,
+  id: string,
+  label: string,
+  categories: string[],
+  match?: RegExp,
+): LocalTrade => ({ id, label, group, categories, broad: !!match, match });
+const build = "Construction and home services",
+  auto = "Auto",
+  beauty = "Beauty and fitness",
+  food = "Food and drink",
+  health = "Health and pets",
+  other = "Other local services";
+const materials = "commercial.houseware_and_hardware.building_materials";
 export const localTrades: LocalTrade[] = [
-  {
-    id: "construction",
-    label: "Construction company",
-    categories: [...broad, "service.metal_construction"],
-    match:
-      /construct|builder|building|contract|remodel|renovat|\bhomes?\b|carpent|construction_company/,
-  },
-  {
-    id: "roofing",
-    label: "Roofing contractor",
-    categories: broad,
-    match: /roof/,
-  },
-  { id: "plumbing", label: "Plumber", categories: broad, match: /plumb/ },
-  {
-    id: "hvac",
-    label: "HVAC contractor",
-    categories: broad,
-    match: /hvac|heating|air ?condition|cooling|furnace/,
-  },
-  {
-    id: "landscaping",
-    label: "Landscaper",
-    categories: [...broad, "commercial.garden"],
-    match: /landscap|lawn|tree service|gardener|garden design/,
-  },
-  {
-    id: "painting",
-    label: "Painter",
-    categories: broad,
-    match: /paint|decorat/,
-  },
-  {
-    id: "concrete",
-    label: "Concrete or paving",
-    categories: broad,
-    match: /concrete|paving|asphalt|stonemason|masonry/,
-  },
-  { id: "carpenter", label: "Carpenter", categories: ["service.carpenter"] },
-  {
-    id: "electrician",
-    label: "Electrician",
-    categories: ["service.electrician"],
-  },
-  {
-    id: "metal",
-    label: "Welding and metalwork",
-    categories: ["service.metal_construction"],
-  },
-  { id: "locksmith", label: "Locksmith", categories: ["service.locksmith"] },
-  {
-    id: "building_materials",
-    label: "Building materials supplier",
-    categories: ["commercial.houseware_and_hardware.building_materials"],
-  },
+  t(
+    build,
+    "construction",
+    "Construction company",
+    [],
+    /construct|builder|building|contract|remodel|renovat|\bhomes?\b|construction_company/,
+  ),
+  t(build, "roofing", "Roofing contractor", [], /roof/),
+  t(build, "plumbing", "Plumber", [], /plumb/),
+  t(build, "electrician", "Electrician", ["service.electrician"], /electric/),
+  t(
+    build,
+    "hvac",
+    "HVAC contractor",
+    [],
+    /hvac|heating|air ?condition|cooling|furnace/,
+  ),
+  t(
+    build,
+    "carpenter",
+    "Carpenter",
+    ["service.carpenter"],
+    /carpent|joiner|cabinet/,
+  ),
+  t(build, "painting", "Painter and decorator", [], /paint|decorat/),
+  t(
+    build,
+    "concrete",
+    "Concrete and paving",
+    [],
+    /concrete|paving|asphalt|driveway/,
+  ),
+  t(build, "masonry", "Bricklayer and stonemason", [], /mason|brick|stonework/),
+  t(
+    build,
+    "landscaping",
+    "Landscaper",
+    ["commercial.garden"],
+    /landscap|lawn|garden design|gardener|turf|irrigation/,
+  ),
+  t(build, "tree_service", "Tree service", [], /\btree|arborist|stump/),
+  t(build, "fencing", "Fence and deck builder", [], /fenc|deck/),
+  t(
+    build,
+    "flooring",
+    "Flooring and tiling",
+    [
+      `${materials}.flooring`,
+      `${materials}.tiles`,
+      "commercial.furniture_and_interior.carpet",
+    ],
+    /floor|tile|tiling|carpet/,
+  ),
+  t(
+    build,
+    "windows",
+    "Windows, doors and glass",
+    [`${materials}.windows`, `${materials}.doors`, `${materials}.glaziery`],
+    /window|glass|glaz|door/,
+  ),
+  t(
+    build,
+    "kitchens",
+    "Kitchen and bathroom fitter",
+    [
+      "commercial.furniture_and_interior.kitchen",
+      "commercial.furniture_and_interior.bathroom",
+    ],
+    /kitchen|bathroom/,
+  ),
+  t(build, "handyman", "Handyman", [], /handyman|odd job|property maintenance/),
+  t(
+    build,
+    "cleaning",
+    "Cleaning service",
+    ["service.cleaning"],
+    /clean|maid|janitor/,
+  ),
+  t(
+    build,
+    "pressure_washing",
+    "Pressure washing and gutters",
+    [],
+    /pressure wash|power wash|gutter/,
+  ),
+  t(build, "pest_control", "Pest control", [], /pest|termite|extermin/),
+  t(
+    build,
+    "pools",
+    "Pool builder and service",
+    ["commercial.houseware_and_hardware.swimming_pool"],
+    /\bpools?\b/,
+  ),
+  t(build, "solar", "Solar installer", [], /solar/),
+  t(
+    build,
+    "moving",
+    "Movers and removals",
+    ["office.logistics"],
+    /moving|movers|removal/,
+  ),
+  t(build, "chimney", "Chimney sweep", ["service.chimney_sweeper"]),
+  t(build, "locksmith", "Locksmith", [
+    "service.locksmith",
+    "service.key_cutter",
+  ]),
+  t(build, "metal", "Welding and metalwork", [
+    "service.metal_construction",
+    "service.blacksmith",
+  ]),
+  t(build, "architect", "Architect", ["office.architect"]),
+  t(build, "building_materials", "Building materials supplier", [materials]),
+  t(auto, "car_repair", "Car repair and mechanic", [
+    "service.vehicle.repair.car",
+  ]),
+  t(auto, "motorcycle_repair", "Motorcycle repair", [
+    "service.vehicle.repair.motorcycle",
+  ]),
+  t(
+    auto,
+    "car_wash",
+    "Car wash and detailing",
+    ["service.vehicle.car_wash"],
+    /detailing|car wash/,
+  ),
+  t(auto, "driving_school", "Driving school", ["education.driving_school"]),
+  t(beauty, "hairdresser", "Hairdresser and barber", [
+    "service.beauty.hairdresser",
+  ]),
+  t(beauty, "massage", "Massage therapist", ["service.beauty.massage"]),
+  t(beauty, "spa", "Spa and beauty salon", [
+    "service.beauty.spa",
+    "service.beauty.tanning_salon",
+  ]),
+  t(beauty, "tattoo", "Tattoo studio", ["service.beauty.tattoo"]),
+  t(beauty, "gym", "Gym and fitness studio", [
+    "sport.fitness.fitness_centre",
+    "sport.fitness.gym",
+  ]),
+  t(food, "restaurant", "Restaurant", ["catering.restaurant"]),
+  t(food, "cafe", "Cafe", ["catering.cafe"]),
+  t(food, "takeaway", "Takeaway and fast food", ["catering.fast_food"]),
+  t(food, "pub", "Pub and bar", ["catering.pub", "catering.bar"]),
+  t(food, "bakery", "Bakery", ["commercial.food_and_drink.bakery"]),
+  t(food, "butcher", "Butcher", ["commercial.food_and_drink.butcher"]),
+  t(health, "dentist", "Dentist", ["healthcare.dentist"]),
+  t(health, "vet", "Vet", ["pet.veterinary"]),
+  t(
+    health,
+    "pet_services",
+    "Pet grooming and services",
+    ["pet.service"],
+    /groom/,
+  ),
+  t(health, "pet_boarding", "Kennels and pet boarding", [
+    "pet.animal_boarding",
+  ]),
+  t(other, "florist", "Florist", ["commercial.florist"]),
+  t(other, "photographer", "Photographer", ["service.photographer"]),
+  t(other, "tailor", "Tailor and alterations", ["service.tailor"]),
+  t(other, "shoe_repair", "Shoe repair", ["service.shoemaker"]),
+  t(other, "accountant", "Accountant", [
+    "office.accountant",
+    "office.tax_advisor",
+  ]),
+  t(other, "lawyer", "Lawyer", ["office.lawyer", "office.notary"]),
+  t(other, "estate_agent", "Real estate agent", [
+    "office.estate_agent",
+    "service.estate_agent",
+  ]),
+  t(other, "insurance", "Insurance broker", ["office.insurance"]),
+  t(other, "childcare", "Childcare and daycare", [
+    "childcare",
+    "service.social_facility.day_care",
+  ]),
+  t(other, "storage", "Self storage", ["rental.storage"]),
+  t(other, "funeral", "Funeral director", ["service.funeral_directors"]),
+];
+/** The categories one search asks Geoapify for. */
+export const tradeCategories = (trade: LocalTrade) => [
+  ...new Set([...trade.categories, ...(trade.broad ? broadCategories : [])]),
 ];
 export const localTrade = (id: string) => localTrades.find((t) => t.id === id);
 
@@ -149,6 +296,8 @@ type GeoapifyFeature = {
 export type GeoapifyPlace = {
   place_id: string;
   name: string;
+  city: string | null;
+  country: Country | null;
   address: string | null;
   phone: string | null;
   email: string | null;
@@ -216,6 +365,13 @@ export function readGeoapifyPlace(
   return {
     place_id: id,
     name,
+    city: text(p.city),
+    country: (() => {
+      const code = text(p.country_code)?.toUpperCase();
+      return code === "US" || code === "GB" || code === "CA" || code === "AU"
+        ? code
+        : null;
+    })(),
     address: text(p.formatted) ?? text(p.address_line2),
     phone: pick("contact.phone", "raw:phone", "raw:contact:phone"),
     email: pick("contact.email", "raw:email", "raw:contact:email"),
@@ -241,9 +397,11 @@ export function readGeoapifyPlace(
 
 /** Whether a business belongs to the trade searched for. */
 export function inTrade(trade: LocalTrade, place: GeoapifyPlace) {
-  return (
-    !trade.match ||
-    trade.match.test(`${place.name} ${place.tags}`.toLowerCase())
+  const categories = place.tags.split(/\s+/);
+  if (trade.categories.some((c) => categories.includes(c))) return true;
+  return !!(
+    trade.broad &&
+    trade.match?.test(`${place.name} ${place.tags}`.toLowerCase())
   );
 }
 

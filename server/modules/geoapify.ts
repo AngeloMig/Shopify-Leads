@@ -26,10 +26,14 @@ const get = (path: string, params: Record<string, string>) => {
   return providerJson(url.href);
 };
 
-/** The city's Geoapify place ID, which bounds the places search to it. */
+/**
+ * The city's Geoapify place ID, which bounds the places search to it. The
+ * city is looked for in the selected countries only; "Perth, WA" or "Perth,
+ * Australia" picks one when two countries have the name.
+ */
 export async function findCity(
   city: string,
-  country: Country,
+  countries: Country[],
   charge: () => Promise<void>,
 ) {
   key();
@@ -37,20 +41,25 @@ export async function findCity(
   const data = await get("/v1/geocode/search", {
     text: city,
     type: "city",
-    filter: `countrycode:${country.toLowerCase()}`,
+    filter: `countrycode:${countries.map((c) => c.toLowerCase()).join(",")}`,
     limit: "1",
     format: "json",
     lang: "en",
   });
   const hit = Array.isArray(data.results) ? data.results[0] : null;
-  return typeof hit?.place_id === "string"
-    ? { place_id: hit.place_id as string, label: String(hit.formatted ?? city) }
+  const country = String(hit?.country_code ?? "").toUpperCase() as Country;
+  return typeof hit?.place_id === "string" && countries.includes(country)
+    ? {
+        filter: `place:${hit.place_id as string}`,
+        label: String(hit.formatted ?? city),
+        country,
+      }
     : null;
 }
 
-/** Places in the city's boundary for the given categories. */
+/** Places matching the filter (a city's boundary or a whole country). */
 export async function searchPlaces(
-  cityPlaceId: string,
+  filter: string,
   categories: string[],
   limit: number,
   charge: () => Promise<void>,
@@ -59,8 +68,8 @@ export async function searchPlaces(
   await charge();
   const data = await get("/v2/places", {
     categories: categories.join(","),
-    filter: `place:${cityPlaceId}`,
-    limit: String(Math.min(100, Math.max(1, limit))),
+    filter,
+    limit: String(Math.min(500, Math.max(1, limit))),
     lang: "en",
   });
   const features: unknown[] = Array.isArray(data.features) ? data.features : [];

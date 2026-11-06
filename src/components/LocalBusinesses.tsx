@@ -12,8 +12,10 @@ import {
   Search,
 } from "lucide-react";
 import {
+  localCountries,
   localStages,
   localTrades,
+  maxSearchTrades,
   socialLabel,
   websiteCheckLabel,
   type LocalBusiness,
@@ -308,9 +310,9 @@ function LocalSearchForm({
   status: Status;
   onQueued: () => void;
 }) {
-  const [trade, setTrade] = useState(localTrades[0].id),
+  const [trades, setTrades] = useState<string[]>(["construction"]),
+    [countries, setCountries] = useState<Country[]>(["US"]),
     [cities, setCities] = useState(""),
-    [country, setCountry] = useState<Country>("US"),
     [perCity, setPerCity] = useState(20),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -318,16 +320,27 @@ function LocalSearchForm({
     .split(/[\n;]+/)
     .map((c) => c.trim())
     .filter(Boolean);
-  const byName = !!localTrades.find((t) => t.id === trade)?.match;
+  const groups = [...new Set(localTrades.map((t) => t.group))];
+  const chosen = localTrades.filter((t) => trades.includes(t.id));
+  const areas = list.length || countries.length;
+  // Each area costs at most two map requests (one per kind of trade), plus a
+  // geocode per city; web checks come on top, one per business found.
+  const mapRequests =
+    areas *
+      (Number(chosen.some((t) => t.categories.length)) +
+        Number(chosen.some((t) => t.broad))) +
+    list.length;
+  const toggle = <T,>(value: T, on: T[], set: (v: T[]) => void) =>
+    set(on.includes(value) ? on.filter((v) => v !== value) : [...on, value]);
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
       await api("/local-searches", {
-        trade,
+        trades,
+        countries,
         cities: list,
-        country,
         per_city: perCity,
       });
       onQueued();
@@ -337,68 +350,102 @@ function LocalSearchForm({
       setBusy(false);
     }
   }
+  const tooMany = trades.length > maxSearchTrades || list.length > 10;
   const note = demo
     ? "Sample data. Connect your workspace to run a real search."
     : !status.geoapify_configured
       ? "Add GEOAPIFY_API_KEY to the server's .env, then restart the API and worker."
-      : [
-          byName
-            ? "This trade is matched by business name, so only businesses whose name says it are found."
-            : `${list.length || "No"} ${list.length === 1 ? "city" : "cities"} · up to ${list.length * perCity} businesses.`,
-          status.website_check
-            ? ""
-            : "No web search is set up, so businesses are saved without the website check.",
-        ]
-          .filter(Boolean)
-          .join(" ");
+      : tooMany
+        ? `Choose up to ${maxSearchTrades} trades and 10 cities per search.`
+        : [
+            `${chosen.length} ${chosen.length === 1 ? "trade" : "trades"} in ${list.length ? `${list.length} ${list.length === 1 ? "city" : "cities"}` : `all of ${countries.length} ${countries.length === 1 ? "country" : "countries"}`} · about ${mapRequests} map requests, plus one web check per business.`,
+            chosen.some((t) => t.broad)
+              ? "Some trades are matched by business name, so a business with a vague name may be missed."
+              : "",
+            status.website_check
+              ? ""
+              : "No web search is set up, so businesses are saved without the website check.",
+          ]
+            .filter(Boolean)
+            .join(" ");
   return (
     <form className="panel local-search" onSubmit={submit}>
       <div className="panel-heading">
         <div>
           <h2>Find businesses without a website</h2>
           <p>
-            Searches OpenStreetMap through Geoapify's free plan, then runs one
-            web search for each business with no website listed. Each request
-            counts toward today's discovery budget.
+            Pick as many trades and countries as you like. Searches
+            OpenStreetMap through Geoapify's free plan, then runs one web search
+            for each business with no website listed.
           </p>
         </div>
       </div>
+      <fieldset className="local-trades">
+        <legend>
+          Trades{" "}
+          <span className="count-badge">
+            {trades.length}/{maxSearchTrades}
+          </span>
+          {trades.length > 0 && (
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => setTrades([])}
+            >
+              Clear
+            </button>
+          )}
+        </legend>
+        <div className="local-trade-groups">
+          {groups.map((g) => (
+            <div key={g} className="local-trade-group">
+              <strong>{g}</strong>
+              {localTrades
+                .filter((t) => t.group === g)
+                .map((t) => (
+                  <label key={t.id} className="local-check-option">
+                    <input
+                      type="checkbox"
+                      checked={trades.includes(t.id)}
+                      disabled={
+                        !trades.includes(t.id) &&
+                        trades.length >= maxSearchTrades
+                      }
+                      onChange={() => toggle(t.id, trades, setTrades)}
+                    />
+                    {t.label}
+                  </label>
+                ))}
+            </div>
+          ))}
+        </div>
+      </fieldset>
       <div className="local-search-fields">
-        <label className="field-label">
-          Trade
-          <select value={trade} onChange={(e) => setTrade(e.target.value)}>
-            {localTrades.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <fieldset className="local-countries">
+          <legend>Countries</legend>
+          {localCountries.map((c) => (
+            <label key={c} className="local-check-option">
+              <input
+                type="checkbox"
+                checked={countries.includes(c)}
+                onChange={() => toggle(c, countries, setCountries)}
+              />
+              {countryNames[c]}
+            </label>
+          ))}
+        </fieldset>
         <label className="field-label local-cities">
-          Cities, one per line
+          Cities, one per line (optional)
           <textarea
-            rows={2}
+            rows={3}
             value={cities}
-            placeholder={"Austin, TX\nRound Rock, TX"}
+            placeholder={"Austin, TX\nToronto, ON\nManchester\nBrisbane, QLD"}
             onChange={(e) => setCities(e.target.value)}
-            required
           />
+          <small>Leave empty to search each country as a whole.</small>
         </label>
         <label className="field-label">
-          Country
-          <select
-            value={country}
-            onChange={(e) => setCountry(e.target.value as Country)}
-          >
-            {(Object.keys(countryNames) as Country[]).map((c) => (
-              <option key={c} value={c}>
-                {countryNames[c]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field-label">
-          Businesses per city
+          Businesses per trade, per place
           <select
             value={perCity}
             onChange={(e) => setPerCity(Number(e.target.value))}
@@ -424,8 +471,9 @@ function LocalSearchForm({
             demo ||
             !status.geoapify_configured ||
             busy ||
-            list.length === 0 ||
-            list.length > 10
+            tooMany ||
+            trades.length === 0 ||
+            countries.length === 0
           }
         >
           {busy ? (
