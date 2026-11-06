@@ -1225,12 +1225,26 @@ export async function executeJob(
       ...previousScore[0]?.breakdown?.mail,
       ...(await checkMailDomains(emails)),
     };
+    // Pages only a team-run brand links to, for the brand-size check.
+    const brand = {
+      links: homepage.links
+        .filter((l) =>
+          /\/(pages\/)?(careers|jobs|join-us|work-with-us|stockists|wholesale|retailers|where-to-buy|trade|press|media|newsroom|investors|investor-relations)\b/i.test(
+            new URL(l).pathname,
+          ),
+        )
+        .slice(0, 20),
+      locales: homepage.locales ?? 0,
+    };
     const priority = leadScore({
       findings,
       performance,
       activity,
       emails,
       mail,
+      domain: store.domain,
+      title: homepage.title || store.name,
+      brand_evidence: brand,
       contact_url: homepage.contact_url,
       catalog,
       fit,
@@ -1248,7 +1262,15 @@ export async function executeJob(
       cro: null,
       activity,
       priority: priority.priority,
-      breakdown: { ...priority, catalog, fit, timing, technologies, mail },
+      breakdown: {
+        ...priority,
+        catalog,
+        fit,
+        timing,
+        technologies,
+        mail,
+        brand,
+      },
     };
     await insert("lead_scores", {
       organization_id: org,

@@ -265,9 +265,11 @@ describe("Lead score", () => {
       catalog: catalog(),
       fit: { status: "fits", reasons: [] },
       timing: [{ kind: "score_drop", label: "", evidence: "Fell." }],
+      domain: "shop.example",
+      title: "Oak & Ash Home",
     });
     expect(strong.researchScore).toBe(100);
-    expect(weak.researchScore).toBeLessThan(40);
+    expect(weak.researchScore).toBeLessThanOrEqual(40);
   });
   it("gives no opportunity, fit or scope points without a verified finding", () => {
     const input = {
@@ -284,17 +286,19 @@ describe("Lead score", () => {
       expect(part(input, key).points).toBe(0);
     expect(leadScore(input).priority).toBe(0);
   });
-  it("counts slow mobile with a finding as a full opportunity", () =>
-    expect(
+  it("counts very slow mobile as a full opportunity, and slow as most of one", () => {
+    const at = (performance: number) =>
       part(
         {
           ...base,
-          performance: 30,
+          performance,
           findings: [{ kind: "verified", severity: "low", category: "SEO" }],
         },
         "verified_opportunity",
-      ).points,
-    ).toBe(25));
+      ).points;
+    expect(at(25)).toBe(20);
+    expect(at(40)).toBe(15);
+  });
   it("grades contact routes by what is published", () => {
     const contact = (over: Partial<LeadScoreInput>) =>
       part({ ...base, ...over }, "contact").points;
@@ -309,7 +313,7 @@ describe("Lead score", () => {
       { ...base, fit: { status: "outside", reasons: ["too small"] } },
       "service_fit",
     );
-    expect(outside.points).toBe(5);
+    expect(outside.points).toBe(4);
     expect(outside.reason).toContain("too small");
   });
   it("uses catalog dates for activity when known", () => {
@@ -331,19 +335,19 @@ describe("Lead score", () => {
     });
     expect(
       part({ ...base, timing: [signal("new_products")] }, "timing").points,
-    ).toBe(10);
+    ).toBe(8);
     expect(
       part(
         { ...base, timing: [signal("new_tool"), signal("new_products")] },
         "timing",
       ).points,
-    ).toBe(18);
+    ).toBe(14);
     expect(
       part(
         { ...base, timing: [signal("score_drop"), signal("new_tool")] },
         "timing",
       ).points,
-    ).toBe(20);
+    ).toBe(15);
   });
   it("explains every point and keeps the existing gates", () => {
     const result = leadScore({ ...base, permissionApproved: false });
@@ -365,7 +369,7 @@ describe("Raising a score", () => {
   it("points leads with no catalog at a re-audit, with the most it could add", () => {
     const [first] = leadScore({ ...base, emails: email }).raise;
     expect(first.label).toBe("Re-audit to read its catalog");
-    expect(first.points).toBe(29);
+    expect(first.points).toBe(23);
   });
   it("suggests an ideal client only once the catalog is known", () => {
     expect(steps({ catalog: catalog(), emails: email })).toEqual([

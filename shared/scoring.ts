@@ -15,6 +15,10 @@ export type PriorityEvidence = {
   active: Strength;
   appropriateContact: Strength;
   feasibleScope: Strength;
+  /** An independent business, not a brand with its own team. Unset counts in full. */
+  independent?: Strength;
+  /** The most it can score, whatever else it earns: a brand with its own team. */
+  cap?: number;
   countryVerified: boolean;
   shopifyVerified: boolean;
   permissionApproved: boolean;
@@ -22,14 +26,18 @@ export type PriorityEvidence = {
 };
 export function scorePriority(e: PriorityEvidence) {
   const components = {
-    service_fit: earned(20, e.serviceFit),
-    verified_opportunity: earned(25, e.verifiedOpportunity),
-    timing: earned(20, e.timingSignal),
+    service_fit: earned(15, e.serviceFit),
+    verified_opportunity: earned(20, e.verifiedOpportunity),
+    independent: earned(20, e.independent ?? 1),
+    timing: earned(15, e.timingSignal),
     activity: earned(10, e.active),
     contact: earned(10, e.appropriateContact),
-    feasible_scope: earned(15, e.feasibleScope),
+    feasible_scope: earned(10, e.feasibleScope),
   };
-  const researchScore = Object.values(components).reduce((a, b) => a + b, 0);
+  const researchScore = Math.min(
+    e.cap ?? 100,
+    Object.values(components).reduce((a, b) => a + b, 0),
+  );
   const gates = {
     country: e.countryVerified,
     platform: e.shopifyVerified,

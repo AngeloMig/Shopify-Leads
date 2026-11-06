@@ -20,6 +20,8 @@ export type PageEvidence = {
     loading: string | null;
   }[];
   links: string[];
+  /** Other language or country versions the page declares (hreflang). */
+  locales: number;
   contact_url: string | null;
   emails: PublicEmail[];
   country: Country | null;
@@ -384,6 +386,12 @@ export function inspectHtml(
     schemas: [...new Set(schemas)],
     images,
     links,
+    locales: new Set(
+      $("link[rel='alternate'][hreflang]")
+        .map((_, e) => ($(e).attr("hreflang") ?? "").toLowerCase())
+        .get()
+        .filter((h) => h && h !== "x-default"),
+    ).size,
     contact_url:
       links.find((l) => /\/((pages\/)?contact)/i.test(new URL(l).pathname)) ??
       null,

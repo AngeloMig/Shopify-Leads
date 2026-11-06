@@ -883,7 +883,7 @@
   line-height: 1.4;
 }
 .lead-score-parts > div + div {
-  border-top: 1px solid oklch(0.250 0.000 90 / 0.05);
+  border-top: 1px solid oklch(0.25 0 90 / 0.05);
 }
 .lead-score-parts dt {
   font-weight: 500;
@@ -991,6 +991,23 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A store that looks like a brand with its own team or agency. */
+.pipeline-brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pipeline-brand.likely_agency {
+  background: color-mix(in srgb, var(--red) 9%, var(--surface));
+  color: var(--red);
+}
 /* Outreach review: evidence on the left, the human decision on the right. */
 .review-dialog {
   width: min(780px, calc(100vw - 32px));

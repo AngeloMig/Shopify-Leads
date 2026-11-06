@@ -1,6 +1,7 @@
 import type { CatalogEvidence, FitResult, IdealClient } from "./catalog.js";
 import type { MailChecks } from "./lead-intelligence.js";
 import type { TimingSignal } from "./lead-score.js";
+import type { BrandEvidence } from "./brand-size.js";
 
 export type Country = "US" | "GB" | "CA" | "AU";
 export type Stage = "new" | "reviewing" | "qualified" | "hold" | "suppressed";
@@ -100,6 +101,8 @@ export type Lead = {
   catalog?: CatalogEvidence | null;
   fit?: FitResult | null;
   timing_signals?: TimingSignal[];
+  /** Home page links and locales the brand-size check reads. */
+  brand_evidence?: BrandEvidence | null;
   mail_checks?: MailChecks;
   outcome?: LeadOutcome | null;
   outcome_reason?: string | null;

@@ -546,6 +546,7 @@ export function ProspectPipeline({
                 ))}
               {visible.map((l) => {
                 const i = leadIntelligence(l);
+                const score = leadScoreFor(l);
                 const email = i.emails[0];
                 return (
                   <tr key={l.id}>
@@ -610,8 +611,21 @@ export function ProspectPipeline({
                           className="pipeline-score"
                           title="Research score. Open the lead to see why."
                         >
-                          {leadScoreFor(l).researchScore}/100
+                          {score.researchScore}/100
                         </span>
+                        {score.brand &&
+                          score.brand.verdict !== "independent" && (
+                            <span
+                              className={`pipeline-brand ${score.brand.verdict}`}
+                              title={score.brand.signals
+                                .map((x) => x.label)
+                                .join(". ")}
+                            >
+                              {score.brand.verdict === "likely_agency"
+                                ? "Has its own team"
+                                : "Possibly a big brand"}
+                            </span>
+                          )}
                         <span className="pipeline-mobile">
                           {l.performance !== null
                             ? `Mobile ${Math.round(l.performance)}/100`

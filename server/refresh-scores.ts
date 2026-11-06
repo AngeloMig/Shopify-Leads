@@ -24,7 +24,7 @@ for (const lead of leads) {
       db()
         .from("discovered_stores")
         .select(
-          "domain,activity,contact_url,country,country_evidence,shopify_verified",
+          "domain,name,activity,contact_url,country,country_evidence,shopify_verified",
         )
         .eq("organization_id", org)
         .eq("id", lead.store_id)
@@ -77,6 +77,9 @@ for (const lead of leads) {
     emails,
     mail,
     contact_url: store.contact_url,
+    domain: store.domain,
+    title: store.name,
+    brand_evidence: breakdown.brand ?? null,
     catalog: breakdown.catalog ?? null,
     fit: breakdown.fit ?? null,
     timing: breakdown.timing ?? [],

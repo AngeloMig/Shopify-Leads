@@ -110,6 +110,7 @@ describe("Evidence-based qualification", () => {
       active: false,
       appropriateContact: false,
       feasibleScope: false,
+      independent: false,
     };
     expect(scorePriority(evidence).researchScore).toBe(0);
   });

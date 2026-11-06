@@ -5,6 +5,7 @@ import {
   type MailChecks,
 } from "./lead-intelligence.js";
 import { scorePriority } from "./scoring.js";
+import { brandSize, type BrandEvidence, type BrandSize } from "./brand-size.js";
 import type { Finding, Lead, PublicEmail } from "./types.js";
 
 export type TimingSignal = {
@@ -97,6 +98,10 @@ export type LeadScoreInput = {
   catalog?: CatalogEvidence | null;
   fit?: FitResult | null;
   timing?: TimingSignal[] | null;
+  /** For the brand-size check: the store's domain, title and home page signals. */
+  domain?: string;
+  title?: string | null;
+  brand_evidence?: BrandEvidence | null;
   countryVerified: boolean;
   shopifyVerified: boolean;
   permissionApproved: boolean;
@@ -116,10 +121,17 @@ function opportunity(
       strength: 1,
       reason: "A high-severity finding is verified.",
     };
-  if (input.performance !== null && input.performance < 50)
+  // How slow it is matters: 25/100 is a much easier case to make than 48.
+  if (input.performance !== null && input.performance < 30)
     return {
       label,
       strength: 1,
+      reason: `Mobile performance is ${Math.round(input.performance)}/100: very slow, with a verified finding.`,
+    };
+  if (input.performance !== null && input.performance < 50)
+    return {
+      label,
+      strength: 0.75,
       reason: `Mobile performance is ${Math.round(input.performance)}/100 with a verified finding.`,
     };
   return verified.some((f) => f.severity === "medium")
@@ -249,13 +261,38 @@ function contact(input: LeadScoreInput): Part {
           : "No public contact route found.",
       };
 }
+function independence(input: LeadScoreInput, brand: BrandSize | null): Part {
+  const label = "Independent business";
+  if (!brand)
+    return { label, strength: 0.7, reason: "Brand size not checked." };
+  const seen = brand.signals.map((s) => s.label).join("; ");
+  return brand.verdict === "independent"
+    ? {
+        label,
+        strength: 1,
+        reason:
+          "No sign of a big brand: no country stores, department inboxes or staff lists.",
+      }
+    : brand.verdict === "possibly_established"
+      ? {
+          label,
+          strength: 0.5,
+          reason: `Possibly an established brand: ${seen}.`,
+        }
+      : {
+          label,
+          strength: 0,
+          reason: `Likely has its own team or agency: ${seen}.`,
+        };
+}
 const scoreWeights = {
-  service_fit: 20,
-  verified_opportunity: 25,
-  timing: 20,
+  service_fit: 15,
+  verified_opportunity: 20,
+  independent: 20,
+  timing: 15,
   activity: 10,
   contact: 10,
-  feasible_scope: 15,
+  feasible_scope: 10,
 };
 /** Things a researcher can actually do, with the most points each could add. */
 function raiseScore(
@@ -271,7 +308,10 @@ function raiseScore(
       points:
         room("activity") +
         room("timing") +
-        Math.max(0, 16 - earnedPoints.service_fit),
+        Math.max(
+          0,
+          Math.round(scoreWeights.service_fit * 0.8) - earnedPoints.service_fit,
+        ),
     });
   else if (!input.fit || input.fit.status === "not_set")
     steps.push({
@@ -297,9 +337,19 @@ const gateLabels = {
 /** Every point has its own evidence and a plain reason. */
 export function leadScore(input: LeadScoreInput) {
   const verified = input.findings.filter((f) => f.kind === "verified");
+  const brand = input.domain
+    ? brandSize({
+        domain: input.domain,
+        title: input.title,
+        emails: input.emails,
+        catalog: input.catalog,
+        evidence: input.brand_evidence,
+      })
+    : null;
   const evidence = {
     service_fit: serviceFit(input, verified),
     verified_opportunity: opportunity(input, verified),
+    independent: independence(input, brand),
     timing: timing(input.timing ?? []),
     activity: activity(input),
     contact: contact(input),
@@ -312,6 +362,9 @@ export function leadScore(input: LeadScoreInput) {
     active: evidence.activity.strength,
     appropriateContact: evidence.contact.strength,
     feasibleScope: evidence.feasible_scope.strength,
+    independent: evidence.independent.strength,
+    // A brand with its own team sits below every independent prospect.
+    cap: brand?.verdict === "likely_agency" ? 49 : undefined,
     countryVerified: input.countryVerified,
     shopifyVerified: input.shopifyVerified,
     permissionApproved: input.permissionApproved,
@@ -327,6 +380,8 @@ export function leadScore(input: LeadScoreInput) {
           ? "B"
           : "Hold",
     raise: raiseScore(input, result.components),
+    /** Whether it looks like a brand with its own team; null when not checked. */
+    brand,
     /** What still holds priority at 0, in plain words. */
     blockers: (Object.keys(gateLabels) as (keyof typeof gateLabels)[])
       .filter((gate) => !result.gates[gate])
@@ -351,6 +406,9 @@ export const leadScoreFor = (lead: Lead) =>
     catalog: lead.catalog,
     fit: lead.fit,
     timing: lead.timing_signals,
+    domain: lead.domain,
+    title: lead.original_name ?? lead.name,
+    brand_evidence: lead.brand_evidence,
     countryVerified: !!lead.country && !!lead.country_evidence,
     shopifyVerified: lead.shopify_verified,
     permissionApproved: lead.permission === "approved",

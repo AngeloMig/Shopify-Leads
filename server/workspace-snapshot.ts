@@ -10,7 +10,7 @@ const noId = "00000000-0000-0000-0000-000000000000";
 const summaryFindingColumns =
   "id,audit_id,category,title,severity,confidence,kind";
 const scoreColumns =
-  "audit_id,technical_seo,performance,desktop,modernization,cro,created_at,catalog:breakdown->catalog,fit:breakdown->fit,timing:breakdown->timing,mail:breakdown->mail";
+  "audit_id,technical_seo,performance,desktop,modernization,cro,created_at,catalog:breakdown->catalog,fit:breakdown->fit,timing:breakdown->timing,mail:breakdown->mail,brand:breakdown->brand";
 const jobColumns =
   "id,type,status,available_at,wait_reason,error_code,error_provider,progress,created_at,started_at,completed_at,error,attempts,max_attempts,api_usage,funnel:payload->funnel,result:payload->result,store_id:payload->store_id,query_id:payload->query_id,resumed_samples:payload->resumed_samples,name:payload->name,kind:payload->kind,work_version:payload->work->version,work_stage:payload->work->stage,work_updated_at:payload->work->updated_at,work_target:payload->work->target";
 const payloadKeys = [
@@ -179,6 +179,9 @@ export async function loadLeads(
         activity: s.activity ?? null,
         emails,
         mail,
+        domain: s.domain,
+        title: s.name,
+        brand_evidence: sc?.brand ?? null,
         contact_url: s.contact_url,
         catalog,
         fit,
@@ -227,6 +230,7 @@ export async function loadLeads(
         catalog,
         fit,
         timing_signals: timing,
+        brand_evidence: sc?.brand ?? null,
         mail_checks: mail,
         outcome: l.outcome ?? null,
         outcome_reason: l.outcome_reason ?? null,
