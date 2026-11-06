@@ -426,8 +426,8 @@ export const demoSnapshot: Snapshot = {
   organization: { id: "demo", name: "Acme Studio" },
 };
 
-// Fictional local businesses for the demo; in a live workspace the listing
-// details come from Google Places when the page loads and are never stored.
+// Fictional local businesses for the demo; a live workspace finds them on
+// OpenStreetMap through Geoapify.
 const local = (
   n: number,
   name: string,
@@ -435,13 +435,20 @@ const local = (
   city: string,
   check: LocalBusiness["website_check"],
   extra: Partial<LocalBusiness> = {},
-  listing: Partial<NonNullable<LocalBusiness["listing"]>> = {},
 ): LocalBusiness => ({
   id: `local-${n}`,
   place_id: `demo-place-${n}-example`,
   trade,
   city,
   country: "US",
+  name,
+  address: `${100 + n * 7} Sample Street, ${city}`,
+  phone: `(555) 01${String(n).padStart(2, "0")}-0000`,
+  email: null,
+  opening_hours: "Mo-Fr 07:00-17:00",
+  lat: null,
+  lon: null,
+  osm_url: null,
   website_check: check,
   found_site: null,
   check_query: `"${name}" ${city}`,
@@ -450,26 +457,13 @@ const local = (
   notes: "",
   suppressed: false,
   found_at: new Date(Date.UTC(2026, 10, 4 - (n % 4), 15)).toISOString(),
-  listing: {
-    name,
-    address: `${100 + n * 7} Sample Street, ${city}`,
-    maps_url: null,
-    status: "OPERATIONAL",
-    type: trade,
-    phone: `(555) 01${String(n).padStart(2, "0")}-0000`,
-    rating: 4 + (n % 9) / 10,
-    reviews: 12 + n * 5,
-    hours: ["Monday: 7:00 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"],
-    website: null,
-    ...listing,
-  },
   ...extra,
 });
 export const demoLocalBusinesses: LocalBusiness[] = [
   local(
     1,
     "Ridgeway Builders",
-    "General contractor",
+    "Construction company",
     "Austin, TX",
     "no_site_found",
     {
@@ -503,37 +497,33 @@ export const demoLocalBusinesses: LocalBusiness[] = [
   local(
     3,
     "Bluebonnet Concrete Co.",
-    "Concrete contractor",
+    "Concrete or paving",
     "Round Rock, TX",
     "no_site_found",
-  ),
-  local(
-    4,
-    "Hilltop Fence & Deck",
-    "Fence contractor",
-    "Austin, TX",
-    "no_site_found",
     {
-      social_links: [
-        {
-          network: "instagram",
-          url: "https://www.instagram.com/hilltopfence.example",
-        },
-      ],
-      stage: "contacted",
+      phone: null,
     },
   ),
+  local(4, "Hilltop Carpentry", "Carpenter", "Austin, TX", "no_site_found", {
+    social_links: [
+      {
+        network: "instagram",
+        url: "https://www.instagram.com/hilltopcarpentry.example",
+      },
+    ],
+    stage: "contacted",
+  }),
   local(
     5,
     "Lakeview Remodeling",
-    "General contractor",
+    "Construction company",
     "Round Rock, TX",
     "not_checked",
   ),
   local(
     6,
     "Summit Stone Masonry",
-    "Construction company",
+    "Concrete or paving",
     "Austin, TX",
     "site_found",
     {

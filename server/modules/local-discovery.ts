@@ -1,24 +1,24 @@
-// A local search: for each city, one Places Text Search for the trade, then a
-// web search per listing that links no website. What is saved is the place ID
-// and Scout's own check; Google's listing details are never stored.
+// A local search: for each city, find its boundary, list the trade's places
+// in it, keep those with no website, and check each with one web search.
+// Listing details come from OpenStreetMap through Geoapify and are stored
+// with the lead; Scout adds the website check and any social pages it finds.
 import { db, checked, now } from "../lib/db.js";
 import type { ActivityEmitter } from "../lib/job-activity.js";
 import type { Charge } from "./providers.js";
 import {
-  localQuery,
+  inTrade,
+  localTrade,
   readWebsiteSearch,
-  withoutWebsite,
+  type GeoapifyPlace,
+  type SocialLink,
 } from "../../shared/local-business.js";
 import type { Country } from "../../shared/types.js";
-import {
-  searchPlaces,
-  searchWeb,
-  websiteSearchProvider,
-} from "./google-places.js";
+import { findCity, placeDetails, searchPlaces } from "./geoapify.js";
+import { searchWeb, websiteSearchProvider } from "./web-check.js";
 
 export type LocalSearchConfig = {
   name: string;
-  provider: "google_places";
+  provider: "geoapify";
   search_id: string;
   trade: string;
   cities: string[];
@@ -28,12 +28,18 @@ export type LocalSearchConfig = {
 };
 export type LocalFunnel = {
   listed: number;
+  in_trade: number;
   listing_has_site: number;
   already_saved: number;
   checked: number;
   site_found: number;
   saved: number;
 };
+
+const merge = (a: SocialLink[], b: SocialLink[]) => [
+  ...a,
+  ...b.filter((s) => !a.some((x) => x.url === s.url)),
+];
 
 export async function localDiscovery(
   org: string,
@@ -43,9 +49,13 @@ export async function localDiscovery(
   progress: (n: number) => Promise<void>,
   emit: ActivityEmitter,
 ) {
+  const trade = localTrade(config.trade);
+  if (!trade) throw new Error(`Unknown trade: ${config.trade}`);
   const web = websiteSearchProvider();
+  const geoapify = () => charge("geoapify");
   const funnel: LocalFunnel = {
     listed: 0,
+    in_trade: 0,
     listing_has_site: 0,
     already_saved: 0,
     checked: 0,
@@ -53,69 +63,84 @@ export async function localDiscovery(
     saved: 0,
   };
   for (const [i, city] of config.cities.entries()) {
-    const query = localQuery(config.trade, city);
-    const task = { key: `places:${i + 1}`, name: `Search: ${query}` };
-    await emit("search", "started", `Searching Google Maps for ${query}`, {
+    const task = { key: `places:${i + 1}`, name: `${trade.label}: ${city}` };
+    await emit("search", "started", `Finding ${city} on the map`, {
       task: { ...task, state: "running" },
-      facts: { query, country: config.country },
+      facts: { city, country: config.country },
     });
+    const area = await findCity(city, config.country, geoapify);
+    if (!area) {
+      await emit(
+        "search",
+        "skipped",
+        `Couldn't find ${city} in ${config.country}`,
+        {
+          task: { ...task, state: "skipped" },
+        },
+      );
+      continue;
+    }
+    // Broad categories are matched by name, so ask for more than will be kept.
     const places = await searchPlaces(
-      query,
-      config.country,
-      config.per_city,
-      () => charge("google_places"),
+      area.place_id,
+      trade.categories,
+      trade.match ? 100 : config.per_city,
+      geoapify,
     );
-    const open = withoutWebsite(places);
+    const matching = places
+      .filter((p) => inTrade(trade, p))
+      .slice(0, config.per_city);
     funnel.listed += places.length;
-    funnel.listing_has_site += places.length - open.length;
+    funnel.in_trade += matching.length;
     const known = new Set(
-      open.length
+      matching.length
         ? (
             await checked(
               db()
                 .from("local_businesses")
                 .select("place_id")
                 .eq("organization_id", org)
+                .eq("source", "geoapify")
                 .in(
                   "place_id",
-                  open.map((p) => p.place_id),
+                  matching.map((p) => p.place_id),
                 ),
             )
           ).map((r: { place_id: string }) => r.place_id)
         : [],
     );
-    const fresh = open.filter((p) => !known.has(p.place_id));
-    funnel.already_saved += open.length - fresh.length;
+    const fresh = matching.filter((p) => !known.has(p.place_id));
+    funnel.already_saved += matching.length - fresh.length;
     await emit(
       "search",
       "completed",
-      `${places.length} listings, ${open.length} with no website linked, ${fresh.length} new`,
+      `${matching.length} ${trade.label.toLowerCase()} listings in ${area.label}, ${fresh.length} new`,
       {
         task: { ...task, state: "completed" },
         facts: {
-          listings: places.length,
-          no_website_linked: open.length,
+          listed: places.length,
+          in_trade: matching.length,
           new: fresh.length,
         },
       },
     );
-    for (const place of fresh) {
-      // The name is Google's and only used for this one search query.
-      const checkQuery = `"${place.name}" ${city}`;
-      let row: Record<string, unknown> = {
-        organization_id: org,
-        place_id: place.place_id,
-        search_id: config.search_id,
-        trade: config.trade,
-        city,
-        country: config.country,
+    for (const found of fresh) {
+      // A list result may leave out contact fields; the details lookup has them.
+      const place: GeoapifyPlace = found.has_contact_fields
+        ? found
+        : ((await placeDetails(found.place_id, geoapify)) ?? found);
+      if (place.website) {
+        funnel.listing_has_site++;
+        continue;
+      }
+      let check: Record<string, unknown> = {
         website_check: "not_checked",
         found_site: null,
         check_query: null,
-        social_links: [],
-        checked_at: now(),
+        social_links: place.social_links,
       };
       if (web) {
+        const query = `"${place.name}" ${city}`;
         await emit("verify", "started", `Checking the web for ${place.name}`, {
           task: {
             key: `check:${place.place_id}`,
@@ -126,51 +151,80 @@ export async function localDiscovery(
         await charge(web);
         const verdict = readWebsiteSearch(
           place.name,
-          await searchWeb(web, checkQuery, config.country),
+          await searchWeb(web, query, config.country),
         );
         funnel.checked++;
         if (verdict.website_check === "site_found") funnel.site_found++;
-        row = { ...row, ...verdict, check_query: checkQuery };
+        check = {
+          ...verdict,
+          social_links: merge(place.social_links, verdict.social_links),
+          check_query: query,
+        };
         await emit(
           "verify",
           "completed",
           verdict.found_site
             ? `Found a site that looks like theirs: ${verdict.found_site}`
-            : `No website found${verdict.social_links.length ? `; ${verdict.social_links.length} social pages` : ""}`,
+            : "No website found",
           {
             task: {
               key: `check:${place.place_id}`,
               name: "Website check",
               state: "completed",
             },
-            facts: { social_pages: verdict.social_links.length },
+            facts: {
+              social_pages: (check.social_links as SocialLink[]).length,
+            },
           },
         );
       }
-      // Upsert on the place ID: a business found twice in one run is kept once.
       await checked(
         db()
           .from("local_businesses")
-          .upsert(row, {
-            onConflict: "organization_id,place_id",
-            ignoreDuplicates: true,
-          }),
+          .upsert(
+            {
+              organization_id: org,
+              source: "geoapify",
+              place_id: place.place_id,
+              search_id: config.search_id,
+              trade: trade.label,
+              city,
+              country: config.country,
+              name: place.name.slice(0, 300),
+              address: place.address?.slice(0, 500) ?? null,
+              phone: place.phone?.slice(0, 100) ?? null,
+              email: place.email?.slice(0, 200) ?? null,
+              opening_hours: place.opening_hours?.slice(0, 500) ?? null,
+              lat: place.lat,
+              lon: place.lon,
+              osm_url: place.osm_url,
+              ...check,
+              checked_at: now(),
+            },
+            {
+              onConflict: "organization_id,source,place_id",
+              ignoreDuplicates: true,
+            },
+          ),
       );
       funnel.saved++;
     }
     await progress(Math.round(((i + 1) / config.cities.length) * 95));
     await outcome("running", { funnel });
   }
+  const noSite = funnel.saved - funnel.site_found;
   await emit(
     "queue",
     "completed",
-    `Saved ${funnel.saved} local businesses; ${funnel.saved - funnel.site_found} with no website found`,
-    { facts: { ...funnel } },
+    `Saved ${funnel.saved} local businesses; ${noSite} with no website found`,
+    {
+      facts: { ...funnel },
+    },
   );
   await outcome(
     web
-      ? `Saved ${funnel.saved - funnel.site_found} businesses with no website found`
-      : `Saved ${funnel.saved} listings with no website linked (no web search set up for the check)`,
+      ? `Saved ${noSite} businesses with no website found`
+      : `Saved ${funnel.saved} listings with no website (no web search set up for the check)`,
     { funnel },
   );
 }

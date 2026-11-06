@@ -21,8 +21,8 @@ export function retryAfter(value: string | null, now = Date.now()) {
 }
 export function providerName(url: string) {
   const host = new URL(url).hostname;
-  return host === "places.googleapis.com"
-    ? "google_places"
+  return host === "api.geoapify.com"
+    ? "geoapify"
     : host.includes("googleapis")
       ? "pagespeed"
       : host.includes("tavily")

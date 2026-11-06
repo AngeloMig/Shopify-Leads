@@ -101,6 +101,15 @@
   color: var(--primary-dark);
   font-size: 12.5px;
 }
+.local-phone {
+  color: var(--ink);
+  white-space: nowrap;
+}
+.local-attribution a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .local-attribution {
   color: var(--subtle);
   font-size: 11px;

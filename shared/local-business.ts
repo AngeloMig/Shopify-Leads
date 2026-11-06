@@ -1,5 +1,5 @@
-// Local businesses without a website: what Scout stores, what it fetches live
-// from Google Places, and the website check that decides "no website".
+// Local businesses without a website: what Scout stores about them, the
+// trades it can search, and the website check that decides "no website".
 import type { Country } from "./types.js";
 
 export type WebsiteCheck = "no_site_found" | "site_found" | "not_checked";
@@ -14,27 +14,21 @@ export type SocialNetwork =
   | "youtube";
 export type SocialLink = { network: SocialNetwork; url: string };
 
-/** A listing's details, fetched from Google Places when someone looks. */
-export type PlaceListing = {
-  name: string;
-  address: string | null;
-  maps_url: string | null;
-  status: string | null;
-  type: string | null;
-  phone?: string | null;
-  rating?: number | null;
-  reviews?: number | null;
-  hours?: string[];
-  website?: string | null;
-};
-
-/** Scout's own research on one business. Google content lives in `listing`. */
+/** One business found on the map, with Scout's own research on it. */
 export type LocalBusiness = {
   id: string;
   place_id: string;
   trade: string;
   city: string;
   country: Country;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  opening_hours: string | null;
+  lat: number | null;
+  lon: number | null;
+  osm_url: string | null;
   website_check: WebsiteCheck;
   found_site: string | null;
   check_query: string | null;
@@ -43,8 +37,6 @@ export type LocalBusiness = {
   notes: string;
   suppressed: boolean;
   found_at: string;
-  listing: PlaceListing | null;
-  listing_error?: "not_configured" | "budget" | "unavailable";
 };
 
 export type LocalSearch = {
@@ -54,115 +46,205 @@ export type LocalSearch = {
   country: Country;
   per_city: number;
   created_at: string;
-  saved?: number;
-  no_site?: number;
 };
 
-export const localTradeSuggestions = [
-  "Construction company",
-  "General contractor",
-  "Roofing contractor",
-  "Plumber",
-  "Electrician",
-  "Landscaper",
-  "Painter",
-  "Concrete contractor",
-  "HVAC contractor",
-  "Fence contractor",
+// Geoapify has categories for some trades and not others (no roofer,
+// plumber or construction company). Those are read from broad company and
+// trade categories and matched by the business name or its OpenStreetMap
+// craft/office tag, so they find only businesses whose name or tag says so.
+export type LocalTrade = {
+  id: string;
+  label: string;
+  categories: string[];
+  /** Name words or OSM craft/office tags that place a business in the trade. */
+  match?: RegExp;
+};
+const broad = ["office.company", "commercial.trade"];
+export const localTrades: LocalTrade[] = [
+  {
+    id: "construction",
+    label: "Construction company",
+    categories: [...broad, "service.metal_construction"],
+    match:
+      /construct|builder|building|contract|remodel|renovat|\bhomes?\b|carpent|construction_company/,
+  },
+  {
+    id: "roofing",
+    label: "Roofing contractor",
+    categories: broad,
+    match: /roof/,
+  },
+  { id: "plumbing", label: "Plumber", categories: broad, match: /plumb/ },
+  {
+    id: "hvac",
+    label: "HVAC contractor",
+    categories: broad,
+    match: /hvac|heating|air ?condition|cooling|furnace/,
+  },
+  {
+    id: "landscaping",
+    label: "Landscaper",
+    categories: [...broad, "commercial.garden"],
+    match: /landscap|lawn|tree service|gardener|garden design/,
+  },
+  {
+    id: "painting",
+    label: "Painter",
+    categories: broad,
+    match: /paint|decorat/,
+  },
+  {
+    id: "concrete",
+    label: "Concrete or paving",
+    categories: broad,
+    match: /concrete|paving|asphalt|stonemason|masonry/,
+  },
+  { id: "carpenter", label: "Carpenter", categories: ["service.carpenter"] },
+  {
+    id: "electrician",
+    label: "Electrician",
+    categories: ["service.electrician"],
+  },
+  {
+    id: "metal",
+    label: "Welding and metalwork",
+    categories: ["service.metal_construction"],
+  },
+  { id: "locksmith", label: "Locksmith", categories: ["service.locksmith"] },
+  {
+    id: "building_materials",
+    label: "Building materials supplier",
+    categories: ["commercial.houseware_and_hardware.building_materials"],
+  },
 ];
+export const localTrade = (id: string) => localTrades.find((t) => t.id === id);
 
-/** The Text Search phrase for one trade in one city. */
-export const localQuery = (trade: string, city: string) =>
-  `${trade.trim()} in ${city.trim()}`;
-
-// Field masks decide the Places billing tier: search needs the website field
-// to tell who has none; the list view needs only Pro fields; the open lead
-// adds phone, rating and hours.
-export const placesFields = {
-  search: [
-    "places.id",
-    "places.displayName",
-    "places.websiteUri",
-    "places.businessStatus",
-    "nextPageToken",
-  ],
-  list: [
-    "id",
-    "displayName",
-    "formattedAddress",
-    "googleMapsUri",
-    "businessStatus",
-    "primaryTypeDisplayName",
-  ],
-  detail: [
-    "id",
-    "displayName",
-    "formattedAddress",
-    "googleMapsUri",
-    "businessStatus",
-    "primaryTypeDisplayName",
-    "nationalPhoneNumber",
-    "internationalPhoneNumber",
-    "rating",
-    "userRatingCount",
-    "regularOpeningHours.weekdayDescriptions",
-    "websiteUri",
-  ],
-};
-
-type PlaceResource = {
-  id?: unknown;
-  displayName?: { text?: unknown };
-  formattedAddress?: unknown;
-  googleMapsUri?: unknown;
-  businessStatus?: unknown;
-  primaryTypeDisplayName?: { text?: unknown };
-  nationalPhoneNumber?: unknown;
-  internationalPhoneNumber?: unknown;
-  rating?: unknown;
-  userRatingCount?: unknown;
-  regularOpeningHours?: { weekdayDescriptions?: unknown };
-  websiteUri?: unknown;
-};
-const text = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
+const text = (v: unknown) =>
+  typeof v === "string" && v.trim() ? v.trim() : null;
 const num = (v: unknown) =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
+const asUrl = (v: unknown, base?: string) => {
+  const t = text(v);
+  if (!t) return null;
+  try {
+    const u = new URL(
+      /^https?:\/\//i.test(t)
+        ? t
+        : base
+          ? `${base}${t.replace(/^@/, "")}`
+          : `https://${t}`,
+    );
+    return u.protocol === "https:" || u.protocol === "http:" ? u.href : null;
+  } catch {
+    return null;
+  }
+};
 
-/** A Places resource as a listing, keeping only fields that came back. */
-export function readListing(place: PlaceResource, detail = false) {
-  const name = text(place.displayName?.text);
-  if (!name) return null;
-  const listing: PlaceListing = {
-    name,
-    address: text(place.formattedAddress),
-    maps_url: text(place.googleMapsUri),
-    status: text(place.businessStatus),
-    type: text(place.primaryTypeDisplayName?.text),
+type GeoapifyFeature = {
+  properties?: Record<string, unknown> & {
+    contact?: Record<string, unknown>;
+    datasource?: { raw?: Record<string, unknown>; url?: unknown };
   };
-  if (!detail) return listing;
-  const hours = place.regularOpeningHours?.weekdayDescriptions;
+};
+export type GeoapifyPlace = {
+  place_id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  opening_hours: string | null;
+  lat: number | null;
+  lon: number | null;
+  osm_url: string | null;
+  social_links: SocialLink[];
+  /** The OSM craft/office/shop tags and categories, for trade matching. */
+  tags: string;
+  /** Whether the response carried contact details at all (else ask Details). */
+  has_contact_fields: boolean;
+};
+
+/**
+ * A Geoapify feature as a business. Website and phone are read from the
+ * normalized fields first, then from the raw OpenStreetMap tags.
+ */
+export function readGeoapifyPlace(
+  feature: GeoapifyFeature,
+): GeoapifyPlace | null {
+  const p = feature.properties ?? {};
+  const raw = p.datasource?.raw ?? {};
+  const id = text(p.place_id);
+  const name = text(p.name) ?? text(raw.name);
+  if (!id || !name) return null;
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = k.startsWith("raw:")
+        ? raw[k.slice(4)]
+        : k.startsWith("contact.")
+          ? p.contact?.[k.slice(8)]
+          : p[k];
+      const t = text(v);
+      if (t) return t;
+    }
+    return null;
+  };
+  const social: SocialLink[] = [];
+  const add = (network: SocialNetwork, value: unknown, base: string) => {
+    const url = asUrl(value, base);
+    if (url && !social.some((s) => s.url === url))
+      social.push({ network, url });
+  };
+  add(
+    "facebook",
+    raw["contact:facebook"] ?? raw.facebook,
+    "https://www.facebook.com/",
+  );
+  add(
+    "instagram",
+    raw["contact:instagram"] ?? raw.instagram,
+    "https://www.instagram.com/",
+  );
+  add("linkedin", raw["contact:linkedin"], "https://www.linkedin.com/company/");
+  add("tiktok", raw["contact:tiktok"], "https://www.tiktok.com/@");
+  add("x", raw["contact:twitter"] ?? raw.twitter, "https://x.com/");
+  add("youtube", raw["contact:youtube"], "https://www.youtube.com/");
+  const osmType = text(raw.osm_type);
+  const osmId =
+    num(raw.osm_id) ?? (text(raw.osm_id) ? Number(raw.osm_id) : null);
+  const osmKind = { n: "node", w: "way", r: "relation" }[osmType ?? ""] ?? null;
+  const categories = Array.isArray(p.categories) ? p.categories.join(" ") : "";
   return {
-    ...listing,
-    phone:
-      text(place.nationalPhoneNumber) ?? text(place.internationalPhoneNumber),
-    rating: num(place.rating),
-    reviews: num(place.userRatingCount),
-    hours: Array.isArray(hours)
-      ? hours.filter((h): h is string => typeof h === "string").slice(0, 7)
-      : [],
-    website: text(place.websiteUri),
+    place_id: id,
+    name,
+    address: text(p.formatted) ?? text(p.address_line2),
+    phone: pick("contact.phone", "raw:phone", "raw:contact:phone"),
+    email: pick("contact.email", "raw:email", "raw:contact:email"),
+    website: asUrl(
+      pick("website", "raw:website", "raw:contact:website", "raw:url"),
+    ),
+    opening_hours: pick("opening_hours", "raw:opening_hours"),
+    lat: num(p.lat),
+    lon: num(p.lon),
+    osm_url:
+      osmKind && osmId && Number.isFinite(osmId)
+        ? `https://www.openstreetmap.org/${osmKind}/${osmId}`
+        : null,
+    social_links: social,
+    tags: [raw.craft, raw.office, raw.shop, categories]
+      .map((v) => (typeof v === "string" ? v : ""))
+      .join(" ")
+      .toLowerCase(),
+    has_contact_fields:
+      "website" in p || "contact" in p || Object.keys(raw).length > 0,
   };
 }
 
-/** Search results worth a website check: open and linking no website. */
-export function withoutWebsite(places: PlaceResource[]) {
-  return places.flatMap((p) => {
-    const id = text(p.id);
-    const name = text(p.displayName?.text);
-    if (!id || !name || text(p.websiteUri)) return [];
-    if (p.businessStatus && p.businessStatus !== "OPERATIONAL") return [];
-    return [{ place_id: id, name }];
-  });
+/** Whether a business belongs to the trade searched for. */
+export function inTrade(trade: LocalTrade, place: GeoapifyPlace) {
+  return (
+    !trade.match ||
+    trade.match.test(`${place.name} ${place.tags}`.toLowerCase())
+  );
 }
 
 // Words that name the trade or the company form, not the business itself.

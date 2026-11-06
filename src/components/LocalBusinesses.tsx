@@ -4,17 +4,16 @@ import {
   ChevronRight,
   Clock3,
   ExternalLink,
-  Globe,
   HardHat,
   LoaderCircle,
+  Mail,
   MapPin,
   Phone,
   Search,
-  Star,
 } from "lucide-react";
 import {
   localStages,
-  localTradeSuggestions,
+  localTrades,
   socialLabel,
   websiteCheckLabel,
   type LocalBusiness,
@@ -28,18 +27,42 @@ import { Dialog } from "./ui/dialog";
 import "../local-businesses.css";
 
 type View = "no_site" | "all";
-const pageSize = 10;
+type Status = {
+  geoapify_configured: boolean;
+  website_check: "tavily" | "brave" | null;
+};
+const pageSize = 20;
 const stageLabel: Record<LocalStage, string> = {
   new: "New",
   contacted: "Contacted",
   won: "Won",
   lost: "Lost",
 };
-const missing = {
-  not_configured: "Add a Google Places key to see listing details",
-  budget: "Today's listing lookups are used up",
-  unavailable: "Listing unavailable",
-};
+const mapUrl = (b: LocalBusiness) =>
+  b.osm_url ??
+  (b.lat != null && b.lon != null
+    ? `https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lon}#map=18/${b.lat}/${b.lon}`
+    : null);
+const tel = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
+
+function Attribution() {
+  return (
+    <span className="local-attribution">
+      Powered by{" "}
+      <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">
+        Geoapify
+      </a>{" "}
+      ·{" "}
+      <a
+        href="https://www.openstreetmap.org/copyright"
+        target="_blank"
+        rel="noreferrer"
+      >
+        © OpenStreetMap contributors
+      </a>
+    </span>
+  );
+}
 
 export function LocalBusinesses({
   demo,
@@ -54,7 +77,10 @@ export function LocalBusinesses({
     [total, setTotal] = useState(0),
     [loading, setLoading] = useState(!demo),
     [error, setError] = useState(""),
-    [configured, setConfigured] = useState(true),
+    [status, setStatus] = useState<Status>({
+      geoapify_configured: true,
+      website_check: "tavily",
+    }),
     [open, setOpen] = useState<LocalBusiness | null>(null),
     [revision, setRevision] = useState(0);
 
@@ -70,14 +96,17 @@ export function LocalBusinesses({
     let current = true;
     setLoading(true);
     setError("");
-    api<{ rows: LocalBusiness[]; total: number; places_configured: boolean }>(
+    api<{ rows: LocalBusiness[]; total: number } & Status>(
       `/local-businesses?view=${view}&page=${page}&size=${pageSize}`,
     )
       .then((r) => {
         if (!current) return;
         setRows(r.rows);
         setTotal(r.total);
-        setConfigured(r.places_configured);
+        setStatus({
+          geoapify_configured: r.geoapify_configured,
+          website_check: r.website_check,
+        });
       })
       .catch((e) => current && setError((e as Error).message))
       .finally(() => current && setLoading(false));
@@ -91,7 +120,7 @@ export function LocalBusinesses({
     <>
       <LocalSearchForm
         demo={demo}
-        configured={configured}
+        status={status}
         onQueued={() => {
           notify("Search queued. Track it in Automation jobs.");
           setTimeout(() => setRevision((n) => n + 1), 4000);
@@ -104,8 +133,8 @@ export function LocalBusinesses({
               Local businesses <span className="count-badge">{total}</span>
             </h2>
             <p>
-              Businesses whose Google listing links no website, checked against
-              a web search.
+              Businesses on the map with no website listed, checked against a
+              web search.
             </p>
           </div>
         </div>
@@ -147,7 +176,7 @@ export function LocalBusinesses({
           <div className="empty-state">
             <HardHat size={24} />
             <p>
-              No local businesses yet. Search a trade and a few cities to find
+              No local businesses yet. Pick a trade and a few cities to find
               businesses with no website.
             </p>
           </div>
@@ -158,6 +187,7 @@ export function LocalBusinesses({
                 <tr>
                   <th>Business</th>
                   <th>City</th>
+                  <th>Phone</th>
                   <th>Website</th>
                   <th>Social</th>
                   <th>Stage</th>
@@ -168,7 +198,7 @@ export function LocalBusinesses({
                 {loading && rows.length === 0
                   ? Array.from({ length: 4 }, (_, i) => (
                       <tr key={i} className="pipeline-skeleton-row">
-                        <td colSpan={6}>
+                        <td colSpan={7}>
                           <span className="pipeline-skeleton-line" />
                         </td>
                       </tr>
@@ -180,16 +210,20 @@ export function LocalBusinesses({
                             className="local-name"
                             onClick={() => setOpen(b)}
                           >
-                            <strong>
-                              {b.listing?.name ??
-                                (b.listing_error
-                                  ? missing[b.listing_error]
-                                  : "Listing unavailable")}
-                            </strong>
-                            <small>{b.listing?.type ?? b.trade}</small>
+                            <strong>{b.name}</strong>
+                            <small>{b.trade}</small>
                           </button>
                         </td>
                         <td>{b.city}</td>
+                        <td>
+                          {b.phone ? (
+                            <a className="local-phone" href={tel(b.phone)}>
+                              {b.phone}
+                            </a>
+                          ) : (
+                            <span className="unknown">Not listed</span>
+                          )}
+                        </td>
                         <td>
                           <span
                             className={`local-check local-check-${b.website_check}`}
@@ -224,9 +258,7 @@ export function LocalBusinesses({
           </div>
         )}
         <div className="table-footer">
-          <span className="local-attribution">
-            Listing details from Google Maps
-          </span>
+          <Attribution />
           <div className="pagination">
             <span>
               Page {page + 1} of {pages}
@@ -253,11 +285,12 @@ export function LocalBusinesses({
       {open && (
         <LocalBusinessDetail
           key={open.id}
-          listed={open}
+          lead={open}
           demo={demo}
           onClose={() => setOpen(null)}
           onSaved={(b) => {
-            setRows((r) => r.map((x) => (x.id === b.id ? { ...x, ...b } : x)));
+            setRows((r) => r.map((x) => (x.id === b.id ? b : x)));
+            setOpen(b);
             notify("Saved");
           }}
         />
@@ -268,14 +301,14 @@ export function LocalBusinesses({
 
 function LocalSearchForm({
   demo,
-  configured,
+  status,
   onQueued,
 }: {
   demo: boolean;
-  configured: boolean;
+  status: Status;
   onQueued: () => void;
 }) {
-  const [trade, setTrade] = useState("Construction company"),
+  const [trade, setTrade] = useState(localTrades[0].id),
     [cities, setCities] = useState(""),
     [country, setCountry] = useState<Country>("US"),
     [perCity, setPerCity] = useState(20),
@@ -285,6 +318,7 @@ function LocalSearchForm({
     .split(/[\n;]+/)
     .map((c) => c.trim())
     .filter(Boolean);
+  const byName = !!localTrades.find((t) => t.id === trade)?.match;
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -303,34 +337,42 @@ function LocalSearchForm({
       setBusy(false);
     }
   }
-  const blocked = demo || !configured;
+  const note = demo
+    ? "Sample data. Connect your workspace to run a real search."
+    : !status.geoapify_configured
+      ? "Add GEOAPIFY_API_KEY to the server's .env, then restart the API and worker."
+      : [
+          byName
+            ? "This trade is matched by business name, so only businesses whose name says it are found."
+            : `${list.length || "No"} ${list.length === 1 ? "city" : "cities"} · up to ${list.length * perCity} businesses.`,
+          status.website_check
+            ? ""
+            : "No web search is set up, so businesses are saved without the website check.",
+        ]
+          .filter(Boolean)
+          .join(" ");
   return (
     <form className="panel local-search" onSubmit={submit}>
       <div className="panel-heading">
         <div>
           <h2>Find businesses without a website</h2>
           <p>
-            One Google Maps search per city, then a web search for each listing
-            that links no website. Each request counts toward today's budget.
+            Searches OpenStreetMap through Geoapify's free plan, then runs one
+            web search for each business with no website listed. Each request
+            counts toward today's discovery budget.
           </p>
         </div>
       </div>
       <div className="local-search-fields">
         <label className="field-label">
           Trade
-          <input
-            list="local-trades"
-            value={trade}
-            onChange={(e) => setTrade(e.target.value)}
-            required
-            minLength={2}
-            maxLength={80}
-          />
-          <datalist id="local-trades">
-            {localTradeSuggestions.map((t) => (
-              <option key={t} value={t} />
+          <select value={trade} onChange={(e) => setTrade(e.target.value)}>
+            {localTrades.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
             ))}
-          </datalist>
+          </select>
         </label>
         <label className="field-label local-cities">
           Cities, one per line
@@ -356,12 +398,12 @@ function LocalSearchForm({
           </select>
         </label>
         <label className="field-label">
-          Listings per city
+          Businesses per city
           <select
             value={perCity}
             onChange={(e) => setPerCity(Number(e.target.value))}
           >
-            {[10, 20].map((n) => (
+            {[10, 20, 50].map((n) => (
               <option key={n} value={n}>
                 Up to {n}
               </option>
@@ -375,16 +417,16 @@ function LocalSearchForm({
         </p>
       )}
       <div className="local-search-actions">
-        <small>
-          {demo
-            ? "Sample data. Connect your workspace to run a real search."
-            : !configured
-              ? "Add GOOGLE_PLACES_API_KEY to the server's .env, then restart the API and worker."
-              : `${list.length || "No"} ${list.length === 1 ? "city" : "cities"} · up to ${list.length * perCity} listings`}
-        </small>
+        <small>{note}</small>
         <Button
           type="submit"
-          disabled={blocked || busy || list.length === 0 || list.length > 10}
+          disabled={
+            demo ||
+            !status.geoapify_configured ||
+            busy ||
+            list.length === 0 ||
+            list.length > 10
+          }
         >
           {busy ? (
             <LoaderCircle className="spin" size={16} />
@@ -399,117 +441,86 @@ function LocalSearchForm({
 }
 
 function LocalBusinessDetail({
-  listed,
+  lead,
   demo,
   onClose,
   onSaved,
 }: {
-  listed: LocalBusiness;
+  lead: LocalBusiness;
   demo: boolean;
   onClose: () => void;
   onSaved: (b: LocalBusiness) => void;
 }) {
-  const [lead, setLead] = useState(listed),
-    [loading, setLoading] = useState(!demo),
-    [stage, setStage] = useState(listed.stage),
-    [notes, setNotes] = useState(listed.notes),
+  const [stage, setStage] = useState(lead.stage),
+    [notes, setNotes] = useState(lead.notes),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  useEffect(() => {
-    if (demo) return;
-    let current = true;
-    api<LocalBusiness>(`/local-businesses/${listed.id}`)
-      .then((b) => current && setLead(b))
-      .catch((e) => current && setError((e as Error).message))
-      .finally(() => current && setLoading(false));
-    return () => {
-      current = false;
-    };
-  }, [demo, listed.id]);
   async function save() {
     setBusy(true);
     setError("");
     try {
-      const saved = demo
-        ? { ...lead, stage, notes }
-        : await api<LocalBusiness>(
-            `/local-businesses/${lead.id}`,
-            { stage, notes },
-            "PATCH",
-          );
-      onSaved({ ...lead, ...saved, listing: lead.listing });
+      onSaved(
+        demo
+          ? { ...lead, stage, notes }
+          : await api<LocalBusiness>(
+              `/local-businesses/${lead.id}`,
+              { stage, notes },
+              "PATCH",
+            ),
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
-  const l = lead.listing;
+  const map = mapUrl(lead);
   return (
     <Dialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title={l?.name ?? listed.listing?.name ?? "Local business"}
+      title={lead.name}
       description={`${lead.trade} · ${lead.city}`}
     >
       <div className="local-detail">
         <section>
           <h3>Listing</h3>
-          {loading ? (
-            <p className="local-note">
-              <LoaderCircle className="spin" size={14} /> Loading the Google
-              listing…
-            </p>
-          ) : l ? (
-            <ul className="local-facts">
-              {l.phone && (
-                <li>
-                  <Phone size={14} />
-                  <a href={`tel:${l.phone.replace(/[^\d+]/g, "")}`}>
-                    {l.phone}
-                  </a>
-                </li>
+          <ul className="local-facts">
+            <li>
+              <Phone size={14} />
+              {lead.phone ? (
+                <a href={tel(lead.phone)}>{lead.phone}</a>
+              ) : (
+                <span className="unknown">No phone listed</span>
               )}
-              {l.address && (
-                <li>
-                  <MapPin size={14} />
-                  {l.address}
-                </li>
-              )}
-              {l.rating != null && (
-                <li>
-                  <Star size={14} />
-                  {l.rating.toFixed(1)} from {l.reviews ?? 0} reviews
-                </li>
-              )}
-              {!!l.hours?.length && (
-                <li>
-                  <Clock3 size={14} />
-                  <span>{l.hours.join(" · ")}</span>
-                </li>
-              )}
-              {l.website && (
-                <li>
-                  <Globe size={14} />
-                  The listing now links a website: {l.website}
-                </li>
-              )}
-              {l.maps_url && (
-                <li>
-                  <ExternalLink size={14} />
-                  <a href={l.maps_url} target="_blank" rel="noreferrer">
-                    Open in Google Maps
-                  </a>
-                </li>
-              )}
-            </ul>
-          ) : (
-            <p className="local-note">
-              {lead.listing_error
-                ? missing[lead.listing_error]
-                : "Listing unavailable"}
-            </p>
-          )}
+            </li>
+            {lead.email && (
+              <li>
+                <Mail size={14} />
+                <a href={`mailto:${lead.email}`}>{lead.email}</a>
+              </li>
+            )}
+            {lead.address && (
+              <li>
+                <MapPin size={14} />
+                {lead.address}
+              </li>
+            )}
+            {lead.opening_hours && (
+              <li>
+                <Clock3 size={14} />
+                {lead.opening_hours}
+              </li>
+            )}
+            {map && (
+              <li>
+                <ExternalLink size={14} />
+                <a href={map} target="_blank" rel="noreferrer">
+                  Open in OpenStreetMap
+                </a>
+              </li>
+            )}
+          </ul>
         </section>
         <section>
           <h3>Website check</h3>
@@ -520,10 +531,10 @@ function LocalBusinessDetail({
           </p>
           <p className="local-note">
             {lead.website_check === "not_checked"
-              ? "The Google listing links no website. No web search was set up when it was found, so Scout hasn't looked further."
+              ? "The map listing has no website. No web search was set up when it was found, so Scout hasn't looked further."
               : lead.website_check === "site_found"
                 ? `A site that looks like theirs turned up: ${lead.found_site}.`
-                : `The Google listing links no website, and a web search for ${lead.check_query ?? "the business"} found none. That isn't proof they have none.`}
+                : `The map listing has no website, and a web search for ${lead.check_query ?? "the business"} found none. That isn't proof they have none.`}
           </p>
           {lead.social_links.length > 0 && (
             <ul className="local-facts">
@@ -572,9 +583,7 @@ function LocalBusinessDetail({
             Save
           </Button>
         </section>
-        <small className="local-attribution">
-          Listing details from Google Maps, fetched now and not stored.
-        </small>
+        <Attribution />
       </div>
     </Dialog>
   );

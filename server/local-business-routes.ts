@@ -3,12 +3,13 @@ import { z } from "zod";
 import { db, checked, now } from "./lib/db.js";
 import { uuid } from "./lib/validation.js";
 import { enqueue } from "./pipeline.js";
-import { placeListing, placesConfigured } from "./modules/google-places.js";
+import { geoapifyConfigured } from "./modules/geoapify.js";
+import { websiteSearchProvider } from "./modules/web-check.js";
 import type { LocalSearchConfig } from "./modules/local-discovery.js";
 import {
   localStages,
-  type LocalBusiness,
-  type PlaceListing,
+  localTrade,
+  localTrades,
 } from "../shared/local-business.js";
 
 const route =
@@ -17,43 +18,11 @@ const route =
     void fn(req, res).catch(next);
   };
 const columns =
-  "id,place_id,trade,city,country,website_check,found_site,check_query,social_links,stage,notes,suppressed,found_at";
-
-/** Google's listing for each row, fetched now and never saved. */
-async function withListings(
-  org: string,
-  rows: Omit<LocalBusiness, "listing">[],
-  level: "list" | "detail",
-): Promise<LocalBusiness[]> {
-  if (!placesConfigured())
-    return rows.map((r) => ({
-      ...r,
-      listing: null,
-      listing_error: "not_configured",
-    }));
-  return Promise.all(
-    rows.map(async (r) => {
-      const allowed = await checked(
-        db().rpc("reserve_places_view", { org, budget: 300 }),
-      );
-      if (!allowed)
-        return { ...r, listing: null, listing_error: "budget" as const };
-      try {
-        const listing: PlaceListing | null = await placeListing(
-          r.place_id,
-          level,
-        );
-        return {
-          ...r,
-          listing,
-          ...(listing ? {} : { listing_error: "unavailable" as const }),
-        };
-      } catch {
-        return { ...r, listing: null, listing_error: "unavailable" as const };
-      }
-    }),
-  );
-}
+  "id,place_id,trade,city,country,name,address,phone,email,opening_hours,lat,lon,osm_url,website_check,found_site,check_query,social_links,stage,notes,suppressed,found_at";
+const status = () => ({
+  geoapify_configured: geoapifyConfigured(),
+  website_check: websiteSearchProvider(),
+});
 
 export function registerLocalBusinessRoutes(
   app: Express,
@@ -65,8 +34,9 @@ export function registerLocalBusinessRoutes(
       const input = z
         .object({
           view: z.enum(["no_site", "all"]).default("no_site"),
+          q: z.string().trim().max(100).default(""),
           page: z.coerce.number().int().min(0).max(1000).default(0),
-          size: z.coerce.number().int().min(5).max(20).default(10),
+          size: z.coerce.number().int().min(5).max(50).default(20),
         })
         .parse(req.query);
       let query = db()
@@ -74,10 +44,14 @@ export function registerLocalBusinessRoutes(
         .select(columns, { count: "exact" })
         .eq("organization_id", res.locals.org)
         .eq("suppressed", false);
-      query =
-        input.view === "no_site"
-          ? query.in("website_check", ["no_site_found", "not_checked"])
-          : query;
+      if (input.view === "no_site")
+        query = query.in("website_check", ["no_site_found", "not_checked"]);
+      if (input.q) {
+        const like = `%${input.q.replace(/[%_,()\\]/g, " ")}%`;
+        query = query.or(
+          `name.ilike.${like},city.ilike.${like},trade.ilike.${like}`,
+        );
+      }
       const { data, count, error } = await query
         .order("found_at", { ascending: false })
         .range(
@@ -85,26 +59,7 @@ export function registerLocalBusinessRoutes(
           input.page * input.size + input.size - 1,
         );
       if (error) throw new Error(error.message);
-      res.json({
-        rows: await withListings(res.locals.org, data ?? [], "list"),
-        total: count ?? 0,
-        places_configured: placesConfigured(),
-      });
-    }),
-  );
-  app.get(
-    "/api/local-businesses/:id",
-    route(async (req, res) => {
-      const row = await checked(
-        db()
-          .from("local_businesses")
-          .select(columns)
-          .eq("organization_id", res.locals.org)
-          .eq("id", uuid.parse(req.params.id))
-          .single(),
-      );
-      const [lead] = await withListings(res.locals.org, [row], "detail");
-      res.json(lead);
+      res.json({ rows: data ?? [], total: count ?? 0, ...status() });
     }),
   );
   app.patch(
@@ -130,39 +85,25 @@ export function registerLocalBusinessRoutes(
       res.json(row);
     }),
   );
-  app.get(
-    "/api/local-searches",
-    route(async (_req, res) => {
-      const searches = await checked(
-        db()
-          .from("local_searches")
-          .select("id,trade,cities,country,per_city,created_at")
-          .eq("organization_id", res.locals.org)
-          .order("created_at", { ascending: false })
-          .limit(10),
-      );
-      res.json({ searches, places_configured: placesConfigured() });
-    }),
-  );
   app.post(
     "/api/local-searches",
     route(async (req, res) => {
       admin(res);
-      if (!placesConfigured())
+      if (!geoapifyConfigured())
         return res.status(409).json({
           error:
-            "Add GOOGLE_PLACES_API_KEY to the server's .env, then restart the API and worker.",
+            "Add GEOAPIFY_API_KEY to the server's .env, then restart the API and worker.",
         });
       const input = z
         .object({
-          trade: z.string().trim().min(2).max(80),
+          trade: z.enum(localTrades.map((t) => t.id) as [string, ...string[]]),
           cities: z
             .array(z.string().trim().min(2).max(80))
             .min(1)
             .max(10)
             .transform((c) => [...new Set(c)]),
           country: z.enum(["US", "GB", "CA", "AU"]),
-          per_city: z.coerce.number().int().min(1).max(20).default(20),
+          per_city: z.coerce.number().int().min(1).max(50).default(20),
         })
         .parse(req.body);
       const settings = await checked(
@@ -184,8 +125,8 @@ export function registerLocalBusinessRoutes(
           .single(),
       );
       const config: LocalSearchConfig = {
-        name: `${input.trade} in ${input.cities.join(", ")}`,
-        provider: "google_places",
+        name: `${localTrade(input.trade)!.label} in ${input.cities.join(", ")}`,
+        provider: "geoapify",
         search_id: search.id,
         trade: input.trade,
         cities: input.cities,

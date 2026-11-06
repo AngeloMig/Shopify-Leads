@@ -2,35 +2,106 @@ import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { readFile, readdir } from "node:fs/promises";
 import {
+  inTrade,
+  localTrade,
   nameTokens,
-  readListing,
+  readGeoapifyPlace,
   readWebsiteSearch,
-  withoutWebsite,
 } from "../shared/local-business";
 
-describe("Which Places results get a website check", () => {
-  it("keeps open listings that link no website", () => {
+const feature = (properties: Record<string, unknown>) => ({ properties });
+describe("Reading a Geoapify place", () => {
+  it("reads contact details from normalized fields, then raw OSM tags", () => {
+    const place = readGeoapifyPlace(
+      feature({
+        place_id: "51abcdef0123",
+        name: "Ridgeway Builders",
+        formatted: "1 Sample St, Austin, TX 78701, United States",
+        lat: 30.27,
+        lon: -97.74,
+        categories: ["office", "office.company"],
+        datasource: {
+          raw: {
+            phone: "+1 555 010 0000",
+            "contact:facebook": "ridgewaybuilders",
+            instagram: "https://www.instagram.com/ridgeway.builds/",
+            office: "construction_company",
+            opening_hours: "Mo-Fr 07:00-17:00",
+            osm_type: "n",
+            osm_id: 12345,
+          },
+        },
+      }),
+    );
+    expect(place).toMatchObject({
+      place_id: "51abcdef0123",
+      name: "Ridgeway Builders",
+      phone: "+1 555 010 0000",
+      website: null,
+      opening_hours: "Mo-Fr 07:00-17:00",
+      osm_url: "https://www.openstreetmap.org/node/12345",
+      has_contact_fields: true,
+      social_links: [
+        {
+          network: "facebook",
+          url: "https://www.facebook.com/ridgewaybuilders",
+        },
+        {
+          network: "instagram",
+          url: "https://www.instagram.com/ridgeway.builds/",
+        },
+      ],
+    });
+    expect(place!.tags).toContain("construction_company");
+  });
+  it("finds a website wherever OSM put it", () => {
     expect(
-      withoutWebsite([
-        {
-          id: "place-aaaaaaaa",
-          displayName: { text: "Ridgeway Builders" },
-          businessStatus: "OPERATIONAL",
-        },
-        {
-          id: "place-bbbbbbbb",
-          displayName: { text: "Has Site Co" },
-          websiteUri: "https://hassite.example",
-        },
-        {
-          id: "place-cccccccc",
-          displayName: { text: "Closed Roofing" },
-          businessStatus: "CLOSED_PERMANENTLY",
-        },
-        { id: "place-dddddddd", displayName: { text: "" } },
-        { displayName: { text: "No ID" } },
-      ]),
-    ).toEqual([{ place_id: "place-aaaaaaaa", name: "Ridgeway Builders" }]);
+      readGeoapifyPlace(
+        feature({ place_id: "51aaaaaaaa", name: "A", website: "a.example" }),
+      )!.website,
+    ).toBe("https://a.example/");
+    expect(
+      readGeoapifyPlace(
+        feature({
+          place_id: "51aaaaaaaa",
+          name: "A",
+          datasource: { raw: { "contact:website": "https://a.example" } },
+        }),
+      )!.website,
+    ).toBe("https://a.example/");
+  });
+  it("asks for details when the result carried no contact fields", () => {
+    expect(
+      readGeoapifyPlace(feature({ place_id: "51aaaaaaaa", name: "A" }))!
+        .has_contact_fields,
+    ).toBe(false);
+    expect(readGeoapifyPlace(feature({ place_id: "51aaaaaaaa" }))).toBeNull();
+  });
+});
+
+describe("Matching a trade", () => {
+  const place = (name: string, raw: Record<string, unknown> = {}) =>
+    readGeoapifyPlace(
+      feature({ place_id: "51aaaaaaaa", name, datasource: { raw } }),
+    )!;
+  it("matches broad categories by name or OSM tag", () => {
+    const construction = localTrade("construction")!;
+    expect(inTrade(construction, place("Ridgeway Builders"))).toBe(true);
+    expect(
+      inTrade(
+        construction,
+        place("Hill Partners", { office: "construction_company" }),
+      ),
+    ).toBe(true);
+    expect(inTrade(construction, place("Hill Accounting"))).toBe(false);
+    expect(inTrade(localTrade("roofing")!, place("Copperline Roofing"))).toBe(
+      true,
+    );
+  });
+  it("keeps everything in a trade's own category", () => {
+    expect(inTrade(localTrade("electrician")!, place("Spark & Sons"))).toBe(
+      true,
+    );
   });
 });
 
@@ -130,38 +201,6 @@ describe("Reading the website check search", () => {
   });
 });
 
-describe("Reading a Places listing", () => {
-  it("keeps only fields that came back", () => {
-    expect(
-      readListing(
-        {
-          displayName: { text: "Ridgeway Builders" },
-          formattedAddress: "1 Sample St, Austin, TX",
-          nationalPhoneNumber: "(555) 010-0000",
-          rating: 4.6,
-          userRatingCount: 31,
-          regularOpeningHours: {
-            weekdayDescriptions: ["Monday: 7 AM–5 PM", 3],
-          },
-        },
-        true,
-      ),
-    ).toEqual({
-      name: "Ridgeway Builders",
-      address: "1 Sample St, Austin, TX",
-      maps_url: null,
-      status: null,
-      type: null,
-      phone: "(555) 010-0000",
-      rating: 4.6,
-      reviews: 31,
-      hours: ["Monday: 7 AM–5 PM"],
-      website: null,
-    });
-    expect(readListing({ displayName: { text: "" } })).toBeNull();
-  });
-});
-
 const org = "11111111-1111-4111-8111-111111111111";
 let pg: PGlite;
 describe("Local business tables (real embedded PostgreSQL)", () => {
@@ -187,116 +226,114 @@ describe("Local business tables (real embedded PostgreSQL)", () => {
   it("keeps one row per place and rejects unknown check states", async () => {
     const insert = (check: string) =>
       pg.exec(
-        `insert into local_businesses(organization_id,place_id,trade,city,country,website_check) values('${org}','place-aaaaaaaa','Builder','Austin, TX','US','${check}')`,
+        `insert into local_businesses(organization_id,place_id,trade,city,country,name,website_check) values('${org}','place-aaaaaaaa','Builder','Austin, TX','US','Ridgeway','${check}')`,
       );
     await insert("no_site_found");
     await expect(insert("no_site_found")).rejects.toThrow(/unique/);
     await expect(
       pg.exec(
-        `insert into local_businesses(organization_id,place_id,trade,city,country,website_check) values('${org}','place-bbbbbbbb','Builder','Austin, TX','US','maybe')`,
+        `insert into local_businesses(organization_id,place_id,trade,city,country,name,website_check) values('${org}','place-bbbbbbbb','Builder','Austin, TX','US','Ridgeway','maybe')`,
       ),
     ).rejects.toThrow(/check/);
   });
-  it("caps live listing lookups per day", async () => {
-    await pg.exec(
-      `insert into app_settings(organization_id,config) values('${org}','{"places_view_daily_budget":2}') on conflict(organization_id) do update set config=excluded.config`,
-    );
-    const take = async () =>
-      (
-        await pg.query<{ ok: boolean }>(
-          `select public.reserve_places_view('${org}',300) as ok`,
-        )
-      ).rows[0].ok;
-    expect([await take(), await take(), await take()]).toEqual([
-      true,
-      true,
-      false,
-    ]);
-  });
 });
 
-describe("Places and website-check requests", () => {
+describe("Geoapify and website-check requests", () => {
   const calls: { url: string; init: RequestInit }[] = [];
   const realFetch = globalThis.fetch;
   beforeAll(() => {
-    process.env.GOOGLE_PLACES_API_KEY = "test-places-key";
+    process.env.GEOAPIFY_API_KEY = "test-geoapify-key";
     process.env.TAVILY_API_KEY = "test-tavily-key";
     globalThis.fetch = (async (url: string, init: RequestInit = {}) => {
       calls.push({ url: String(url), init });
-      const body = String(url).includes("searchText")
+      const u = String(url);
+      const body = u.includes("/geocode/")
         ? {
-            places: [
+            results: [
               {
-                id: "place-aaaaaaaa",
-                displayName: { text: "Ridgeway Builders" },
+                place_id: "city-austin-0001",
+                formatted: "Austin, TX, United States",
               },
             ],
           }
-        : String(url).includes("tavily")
+        : u.includes("/v2/places")
           ? {
-              results: [
-                {
-                  url: "https://www.facebook.com/ridgeway",
-                  title: "Ridgeway Builders",
-                },
+              features: [
+                feature({ place_id: "51aaaaaaaa", name: "Ridgeway Builders" }),
               ],
             }
-          : {
-              id: "place-aaaaaaaa",
-              displayName: { text: "Ridgeway Builders" },
-              rating: 4.5,
-            };
+          : u.includes("place-details")
+            ? {
+                features: [
+                  feature({
+                    place_id: "51aaaaaaaa",
+                    name: "Ridgeway Builders",
+                    contact: { phone: "555" },
+                  }),
+                ],
+              }
+            : {
+                results: [
+                  {
+                    url: "https://www.facebook.com/ridgeway",
+                    title: "Ridgeway Builders",
+                  },
+                ],
+              };
       return new Response(JSON.stringify(body), { status: 200 });
     }) as typeof fetch;
   });
   afterAll(() => {
     globalThis.fetch = realFetch;
-    delete process.env.GOOGLE_PLACES_API_KEY;
+    delete process.env.GEOAPIFY_API_KEY;
     delete process.env.TAVILY_API_KEY;
   });
-  it("charges before searching and asks only for the fields it needs", async () => {
-    const { searchPlaces, placeListing, searchWeb, websiteSearchProvider } =
-      await import("../server/modules/google-places");
+  it("charges before every request and bounds places to the city", async () => {
+    const { findCity, searchPlaces, placeDetails } = await import(
+      "../server/modules/geoapify"
+    );
+    const { searchWeb, websiteSearchProvider } = await import(
+      "../server/modules/web-check"
+    );
     let charged = 0;
+    const charge = async () => {
+      expect(calls).toHaveLength(charged);
+      charged++;
+    };
+    const city = await findCity("Austin, TX", "US", charge);
+    expect(city).toEqual({
+      place_id: "city-austin-0001",
+      label: "Austin, TX, United States",
+    });
+    const geocode = new URL(calls[0].url);
+    expect(geocode.pathname).toBe("/v1/geocode/search");
+    expect(Object.fromEntries(geocode.searchParams)).toMatchObject({
+      text: "Austin, TX",
+      type: "city",
+      filter: "countrycode:us",
+      apiKey: "test-geoapify-key",
+    });
     const places = await searchPlaces(
-      "Builder in Austin, TX",
-      "US",
-      50,
-      async () => {
-        charged++;
-        expect(calls).toHaveLength(0);
-      },
+      city!.place_id,
+      ["office.company", "commercial.trade"],
+      500,
+      charge,
     );
-    expect(charged).toBe(1);
-    expect(places).toHaveLength(1);
-    const search = calls[0];
-    expect(search.url).toBe(
-      "https://places.googleapis.com/v1/places:searchText",
-    );
-    const headers = search.init.headers as Record<string, string>;
-    expect(headers["X-Goog-FieldMask"]).toBe(
-      "places.id,places.displayName,places.websiteUri,places.businessStatus,nextPageToken",
-    );
-    expect(JSON.parse(String(search.init.body))).toMatchObject({
-      textQuery: "Builder in Austin, TX",
-      pageSize: 20,
-      regionCode: "US",
+    expect(places.map((p) => p.name)).toEqual(["Ridgeway Builders"]);
+    const list = new URL(calls[1].url);
+    expect(Object.fromEntries(list.searchParams)).toMatchObject({
+      categories: "office.company,commercial.trade",
+      filter: "place:city-austin-0001",
+      limit: "100",
     });
-    expect(await placeListing("place-aaaaaaaa", "detail")).toMatchObject({
-      name: "Ridgeway Builders",
-      rating: 4.5,
-    });
-    expect(
-      (calls[1].init.headers as Record<string, string>)["X-Goog-FieldMask"],
-    ).toContain("nationalPhoneNumber");
+    expect((await placeDetails("51aaaaaaaa", charge))!.phone).toBe("555");
+    expect(new URL(calls[2].url).searchParams.get("id")).toBe("51aaaaaaaa");
+    expect(charged).toBe(3);
     expect(websiteSearchProvider()).toBe("tavily");
-    const hits = await searchWeb(
-      "tavily",
-      '"Ridgeway Builders" Austin, TX',
-      "US",
-    );
-    expect(hits).toHaveLength(1);
-    expect(JSON.parse(String(calls[2].init.body))).toMatchObject({
+    expect(
+      await searchWeb("tavily", '"Ridgeway Builders" Austin, TX', "US"),
+    ).toHaveLength(1);
+    expect(JSON.parse(String(calls[3].init.body))).toMatchObject({
       query: '"Ridgeway Builders" Austin, TX',
       country: "united states",
       max_results: 10,

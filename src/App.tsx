@@ -886,7 +886,7 @@ export default function App() {
                     "/jobs":
                       "Scout finds Shopify stores, audits them, and adds qualified ones to Leads.",
                     "/local":
-                      "Businesses with a Google listing but no website of their own, such as a builder with only a Facebook page.",
+                      "Businesses on the map with no website of their own, such as a builder with only a Facebook page.",
                     "/outreach":
                       "Review contact eligibility and country-specific evidence before any outreach.",
                     "/settings":
