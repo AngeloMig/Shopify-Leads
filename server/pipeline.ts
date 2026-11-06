@@ -166,6 +166,7 @@ export async function executeJob(
         outcome,
         progress,
         emit,
+        job.payload,
       );
       return;
     }

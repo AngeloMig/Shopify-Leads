@@ -41,6 +41,8 @@ export type LocalFunnel = {
   saved: number;
 };
 type Area = { filter: string; label: string; country: Country };
+/** Where an earlier run of this job stopped, read back from its payload. */
+export type LocalResume = { next_area?: unknown; funnel?: unknown };
 
 const merge = (a: SocialLink[], b: SocialLink[]) => [
   ...a,
@@ -81,6 +83,7 @@ export async function localDiscovery(
   outcome: (message: string, details: Record<string, unknown>) => Promise<void>,
   progress: (n: number) => Promise<void>,
   emit: ActivityEmitter,
+  resume: LocalResume = {},
 ) {
   const trades = config.trades
     .map(localTrade)
@@ -107,7 +110,26 @@ export async function localDiscovery(
     : config.countries.flatMap((c) =>
         biggestCities[c].map((city) => ({ city, countries: [c] })),
       );
+  // A run stopped by the daily budget picks up at the city it was on, with
+  // the counts it had; leads it already saved there are skipped, not recharged.
+  const start = Math.min(
+    Math.max(0, Math.floor(Number(resume.next_area) || 0)),
+    wheres.length,
+  );
+  if (start && resume.funnel && typeof resume.funnel === "object")
+    for (const key of Object.keys(funnel) as (keyof LocalFunnel)[])
+      funnel[key] = Number((resume.funnel as LocalFunnel)[key]) || 0;
+  const sofar = (done: number) =>
+    `Searched ${done} of ${wheres.length} cities; ${funnel.saved - funnel.site_found} with no website so far`;
+  if (start)
+    await emit(
+      "search",
+      "note",
+      `Picking up at ${wheres[start]?.city ?? "the end"}, city ${start + 1} of ${wheres.length}`,
+    );
   for (const [i, where] of wheres.entries()) {
+    if (i < start) continue;
+    await outcome(sofar(i), { funnel, next_area: i });
     const task = { key: `area:${i + 1}`, name: `Search ${where.city}` };
     await emit("search", "started", `Finding ${where.city} on the map`, {
       task: { ...task, state: "running" },
@@ -268,7 +290,7 @@ export async function localDiscovery(
       funnel.saved++;
     }
     await progress(Math.round(((i + 1) / wheres.length) * 95));
-    await outcome("running", { funnel });
+    await outcome(sofar(i + 1), { funnel, next_area: i + 1 });
   }
   const noSite = funnel.saved - funnel.site_found;
   await emit(

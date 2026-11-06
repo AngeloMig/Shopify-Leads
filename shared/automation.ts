@@ -71,6 +71,13 @@ export function onlineWorkers(data: OperationsSnapshot | null) {
     ) ?? []
   );
 }
+/** A job waiting out the daily request budget: paused, not failed. */
+export const budgetPause = (job: Job, reason?: string | null) =>
+  reason === "budget" ||
+  job.wait_reason === "budget" ||
+  job.error_code === "budget" ||
+  /budget exhausted/i.test(job.error ?? "");
+
 export function jobPresentation(job: Job, data: OperationsSnapshot | null) {
   const active = onlineWorkers(data),
     processing = active.some((w) => w.state !== "paused");
@@ -116,18 +123,19 @@ export function jobPresentation(job: Job, data: OperationsSnapshot | null) {
         ? `Eligible ${philippineTime(provider.blocked_until)}.`
         : "Provider configuration needs attention before requests can continue.",
     };
+  if (future && budgetPause(job, queued?.reason))
+    return {
+      label: "Budget reached",
+      detail: `Paused at today's request limit. Continues by itself ${philippineTime(available!)}.`,
+    };
   if (future)
     return {
       label:
-        queued?.reason === "budget" ||
-        job.wait_reason === "budget" ||
-        /budget exhausted/i.test(job.error ?? "")
-          ? "Budget reached"
-          : job.error_code === "rate_limit"
-            ? "Rate limited"
-            : job.wait_reason === "retry"
-              ? "Retry scheduled"
-              : "Scheduled",
+        job.error_code === "rate_limit"
+          ? "Rate limited"
+          : job.wait_reason === "retry"
+            ? "Retry scheduled"
+            : "Scheduled",
       detail: `Eligible ${philippineTime(available!)}.`,
     };
   if (queued?.reason === "backlog")

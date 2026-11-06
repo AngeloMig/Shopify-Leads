@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   automationStatus,
+  budgetPause,
   jobPresentation,
   needsAttention,
   philippineTime,
@@ -731,7 +732,7 @@ function JobRow({
             <small>{job.progress}%</small>
           </div>
         )}
-        {job.error && (
+        {job.error && !(job.status === "queued" && budgetPause(job)) && (
           <details
             className="job-diagnostic"
             open={job.status === "blocked" || job.status === "failed"}
