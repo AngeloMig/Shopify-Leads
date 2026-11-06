@@ -2,6 +2,7 @@ import { reportIssues } from "./audit-presentation.js";
 import { explainFinding } from "./finding-explanation.js";
 import { mailStatus, rankedEmails } from "./lead-intelligence.js";
 import type { Finding, Lead } from "./types.js";
+import { emptySender, portfolioLabel, type Sender } from "./sender.js";
 
 export type PlanNeed = {
   service: string;
@@ -59,7 +60,14 @@ export const hasFullEvidence = (lead: Pick<Lead, "findings">) =>
  * What this store needs and what to say about it, from saved evidence alone. Only
  * verified findings reach the script, and it claims no sales or revenue effects.
  */
-export function leadPlaybook(lead: PlaybookLead): LeadPlaybook {
+export function leadPlaybook(
+  lead: PlaybookLead,
+  sender: Sender = emptySender,
+): LeadPlaybook {
+  // Your details where they're set, placeholders to fill in where they aren't.
+  const me = sender.name || "[Your name]";
+  const company = sender.company || "[Your company]";
+  const work = sender.portfolio_url;
   const issues = reportIssues(lead.findings, []);
   const plain = (issue: (typeof issues)[number]) =>
     explainFinding(issue, lead.findings, []);
@@ -122,17 +130,20 @@ export function leadPlaybook(lead: PlaybookLead): LeadPlaybook {
       subject: `A few things we noticed on ${lead.domain}`,
       body: [
         `Hi ${lead.name} team,`,
-        `I'm [Your name] from [Your company]. We work on Shopify stores, and we ran some public tests on ${lead.domain}.`,
+        `I'm ${me} from ${company}. We work on Shopify stores, and we ran some public tests on ${lead.domain}.`,
         `Here's what we found:\n${found.map((f) => `- ${f}`).join("\n")}`,
         `Where we could help:\n${suggested.map((s) => `- ${s}`).join("\n")}`,
+        ...(work ? [`You can see some of our recent work at ${work}`] : []),
         "Would it be useful if I sent over the short report? If this isn't for you, just say so and I won't contact you again.",
-        "[Your name]\n[Your company]\n[Your business address]",
+        [me, company, sender.address || "[Your business address]", work]
+          .filter(Boolean)
+          .join("\n"),
       ].join("\n\n"),
     },
     call: [
       {
         label: "Open",
-        text: `Hi, this is [Your name] from [Your company]. Could I speak with whoever looks after the ${lead.name} website?`,
+        text: `Hi, this is ${me} from ${company}. Could I speak with whoever looks after the ${lead.name} website?`,
       },
       {
         label: "Why you're calling",
@@ -148,7 +159,7 @@ export function leadPlaybook(lead: PlaybookLead): LeadPlaybook {
       { label: "Ask", text: questions[0] },
       {
         label: "Next step",
-        text: `We could look at ${suggested[0].charAt(0).toLowerCase()}${suggested[0].slice(1)}. Can I send you the short report?`,
+        text: `We could look at ${suggested[0].charAt(0).toLowerCase()}${suggested[0].slice(1)}. Can I send you the short report?${work ? ` You can also see sites we've built at ${portfolioLabel(work)}.` : ""}`,
       },
       {
         label: "If they say no",

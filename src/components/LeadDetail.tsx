@@ -591,6 +591,8 @@ export function LeadDetail({
         {tab === "plan" && (
           <LeadPlan
             lead={lead}
+            demo={demo}
+            onLeave={onClose}
             onOpenReview={onOpenReview}
             evidenceError={evidenceError}
             onRetryEvidence={() => setEvidenceAttempt((n) => n + 1)}

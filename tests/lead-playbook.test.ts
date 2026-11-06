@@ -134,3 +134,35 @@ describe("leadPlaybook", () => {
     expect(plan.needs.at(-1)?.severity).toBe("low");
   });
 });
+
+describe("leadPlaybook with your details", () => {
+  const me = {
+    name: "Grant Rivera",
+    company: "Rivera Studio",
+    address: "1 Example St, Brisbane QLD",
+    portfolio_url: "https://www.riverastudio.example/",
+  };
+  it("fills your name, company, address and portfolio into the email", () => {
+    const body = leadPlaybook(lead(), me).email!.body;
+    expect(body).toContain("I'm Grant Rivera from Rivera Studio.");
+    expect(body).toContain(
+      "You can see some of our recent work at https://www.riverastudio.example/",
+    );
+    expect(body).toMatch(
+      /Grant Rivera\nRivera Studio\n1 Example St, Brisbane QLD\nhttps:\/\/www\.riverastudio\.example\/$/,
+    );
+    expect(body).not.toContain("[Your");
+  });
+  it("names the portfolio the way you'd say it on a call", () => {
+    const call = leadPlaybook(lead(), me).call!;
+    expect(call[0].text).toContain("this is Grant Rivera from Rivera Studio");
+    expect(call.find((c) => c.label === "Next step")!.text).toContain(
+      "You can also see sites we've built at riverastudio.example.",
+    );
+  });
+  it("keeps placeholders, and no portfolio line, for details not set", () => {
+    const body = leadPlaybook(lead()).email!.body;
+    expect(body).toContain("[Your name]");
+    expect(body).not.toContain("recent work");
+  });
+});

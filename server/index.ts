@@ -208,6 +208,18 @@ app.post("/api/settings", async (req, res, next) => {
             .single(),
         )
       : await insert("discovery_queries", row);
+    // Budgets come from the campaign form; anything else kept here (such as
+    // your outreach details) stays as it was.
+    const kept =
+      (
+        await checked(
+          db()
+            .from("app_settings")
+            .select("config")
+            .eq("organization_id", res.locals.org)
+            .maybeSingle(),
+        )
+      )?.config ?? {};
     await checked(
       db()
         .from("app_settings")
@@ -215,6 +227,7 @@ app.post("/api/settings", async (req, res, next) => {
           {
             organization_id: res.locals.org,
             config: {
+              ...kept,
               retention_days: config.retention_days,
               daily_api_budget: config.daily_api_budget,
               discovery_daily_budget:

@@ -10,6 +10,7 @@ import type { LeadEvidence } from "./workspace-snapshot.js";
 import type { Lead } from "../shared/types.js";
 import { industries } from "../shared/types.js";
 import { queryPerformance } from "../shared/discovery-search.js";
+import { readSender } from "../shared/sender.js";
 
 const route =
   (fn: (req: Request, res: Response) => Promise<unknown>) =>
@@ -199,6 +200,57 @@ export function registerWorkspaceRoutes(
       res.json(
         (await load(res.locals.org, [String(req.params.id)], "full"))[0],
       );
+    }),
+  );
+  // Who outreach comes from, filled into the email and call scripts.
+  const senderConfig = async (org: string) =>
+    ((
+      await checked(
+        db()
+          .from("app_settings")
+          .select("config")
+          .eq("organization_id", org)
+          .maybeSingle(),
+      )
+    )?.config ?? {}) as Record<string, unknown>;
+  app.get(
+    "/api/sender",
+    route(async (_req, res) => {
+      res.json(readSender((await senderConfig(res.locals.org)).sender));
+    }),
+  );
+  app.put(
+    "/api/sender",
+    route(async (req, res) => {
+      admin(res);
+      const text = (max: number) => z.string().trim().max(max).default("");
+      const sender = z
+        .object({
+          name: text(120),
+          company: text(160),
+          address: text(300),
+          portfolio_url: z
+            .string()
+            .trim()
+            .max(300)
+            .default("")
+            .refine(
+              (u) => !u || /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(u),
+              "Use the full address, starting with https://",
+            ),
+        })
+        .strict()
+        .parse(req.body);
+      const config = await senderConfig(res.locals.org);
+      await checked(
+        db()
+          .from("app_settings")
+          .upsert(
+            { organization_id: res.locals.org, config: { ...config, sender } },
+            { onConflict: "organization_id" },
+          ),
+      );
+      res.json(sender);
     }),
   );
   app.get(

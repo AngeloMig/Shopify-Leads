@@ -84,6 +84,7 @@ import { DiscoveryControls } from "./components/DiscoveryControls";
 import { Button } from "./components/ui/button";
 import { Dialog } from "./components/ui/dialog";
 import { LocalBusinesses } from "./components/LocalBusinesses";
+import { SenderSettings } from "./components/SenderSettings";
 // Only the sign-in page shows it, so its animation kit loads with it
 const SignInDemo = lazy(() => import("./components/SignInDemo"));
 const empty: Snapshot = {
@@ -1212,6 +1213,9 @@ export default function App() {
                     </Button>
                   )}
                 </div>
+              )}
+              {location.pathname === "/settings" && (
+                <SenderSettings demo={demo} notify={notify} />
               )}
               <OperationsStatus key={data.organization.id} live={!demo} />
               <DiscoveryWorkbench

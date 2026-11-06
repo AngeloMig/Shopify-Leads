@@ -13,6 +13,9 @@ import {
   planText,
 } from "../../shared/lead-playbook";
 import type { Lead } from "../../shared/types";
+import { Link } from "react-router-dom";
+import { emptySender } from "../../shared/sender";
+import { useSender } from "../sender-store";
 import { Button } from "./ui/button";
 
 const severityLabels = { high: "Do first", medium: "Next", low: "Later" };
@@ -55,20 +58,37 @@ function CopyButton({
 /** A starting point for a person to edit. Scout never sends any of it. */
 export function LeadPlan({
   lead,
+  demo = false,
+  onLeave,
   onOpenReview,
   evidenceError,
   onRetryEvidence,
 }: {
   lead: Lead;
+  demo?: boolean;
+  /** Close whatever the plan is shown in, before going to Settings. */
+  onLeave?: () => void;
   onOpenReview: (lead: Lead) => void;
   evidenceError?: string;
   onRetryEvidence?: () => void;
 }) {
   const ready = hasFullEvidence(lead);
+  const sender = useSender(demo);
   const plan = useMemo(
-    () => leadPlaybook(ready ? lead : { ...lead, findings: [] }),
-    [lead, ready],
+    () =>
+      leadPlaybook(
+        ready ? lead : { ...lead, findings: [] },
+        sender ?? emptySender,
+      ),
+    [lead, ready, sender],
   );
+  const missing = sender
+    ? [
+        !sender.name && "your name",
+        !sender.company && "company",
+        !sender.portfolio_url && "portfolio link",
+      ].filter((m): m is string => !!m)
+    : [];
   const [channel, setChannel] = useState<"email" | "call">("email");
   const [subject, setSubject] = useState(plan.email?.subject ?? "");
   const [body, setBody] = useState(plan.email?.body ?? "");
@@ -243,8 +263,18 @@ export function LeadPlan({
             </label>
             <footer>
               <small>
-                Replace the [brackets] and edit it to sound like you. Scout
-                doesn't send this.
+                {missing.length ? (
+                  <>
+                    <Link to="/settings#your-details" onClick={onLeave}>
+                      Add {missing.join(", ").replace(/, ([^,]*)$/, " and $1")}
+                    </Link>{" "}
+                    in Settings to fill these in, or replace the
+                    [brackets].{" "}
+                  </>
+                ) : (
+                  "Edit it to sound like you. "
+                )}
+                Scout doesn't send this.
               </small>
               <CopyButton
                 label={channel === "email" ? "Copy email" : "Copy call script"}

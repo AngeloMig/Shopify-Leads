@@ -1,0 +1,46 @@
+/* Settings: who outreach comes from. */
+.sender-settings {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 20px 22px 18px;
+}
+.sender-head h2 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.sender-head p {
+  max-width: 62ch;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.sender-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+  margin-top: 14px;
+}
+.sender-grid .field-label {
+  margin-bottom: 14px;
+}
+.sender-preview {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.sender-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+@media (max-width: 640px) {
+  .sender-settings {
+    padding: 18px 16px;
+  }
+  .sender-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
