@@ -11,6 +11,11 @@ import type { Lead } from "../shared/types.js";
 import { industries } from "../shared/types.js";
 import { queryPerformance } from "../shared/discovery-search.js";
 import { readSender } from "../shared/sender.js";
+import {
+  contactKinds,
+  readContactLog,
+  type ContactRow,
+} from "../shared/contact-log.js";
 
 const route =
   (fn: (req: Request, res: Response) => Promise<unknown>) =>
@@ -37,8 +42,14 @@ export function registerWorkspaceRoutes(
               "review",
               "won",
               "lost",
+              "due",
             ])
             .default("all"),
+          /** The user's own date, for follow-ups due today. */
+          today: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .optional(),
           country: z.enum(["all", "US", "GB", "CA", "AU"]).default("all"),
           stage: z
             .enum([
@@ -57,6 +68,29 @@ export function registerWorkspaceRoutes(
           size: z.coerce.number().int().min(5).max(50).default(10),
         })
         .parse(req.query);
+      // Follow-ups due by today, read from the contact log.
+      const due =
+        input.view === "due"
+          ? [
+              ...readContactLog(
+                (await checked(
+                  db()
+                    .from("lead_activities")
+                    .select("lead_id,details,created_at")
+                    .eq("organization_id", res.locals.org)
+                    .eq("action", "contact_logged")
+                    .order("created_at", { ascending: false })
+                    .limit(5000),
+                )) as ContactRow[],
+              ),
+            ]
+              .filter(
+                ([, c]) =>
+                  !!c.follow_up_at &&
+                  c.follow_up_at <= (input.today ?? now().slice(0, 10)),
+              )
+              .map(([id]) => id)
+          : [];
       const search = (byScore: boolean) => {
         let query = db()
           .from("lead_search_index")
@@ -77,6 +111,13 @@ export function registerWorkspaceRoutes(
           query = query.eq("permission", "unknown").gte("opportunity_rank", 0);
         if (input.view === "won" || input.view === "lost")
           query = query.eq("outcome", input.view);
+        if (input.view === "due")
+          query = query
+            .in(
+              "id",
+              due.length ? due : ["00000000-0000-0000-0000-000000000000"],
+            )
+            .is("outcome", null);
         if (input.sort === "opportunity") {
           if (byScore)
             query = query.order("research_score", {
@@ -200,6 +241,49 @@ export function registerWorkspaceRoutes(
       res.json(
         (await load(res.locals.org, [String(req.params.id)], "full"))[0],
       );
+    }),
+  );
+  app.post(
+    "/api/leads/:id/contact",
+    route(async (req, res) => {
+      const id = uuid.parse(req.params.id);
+      const input = z
+        .object({
+          kind: z.enum(contactKinds),
+          follow_up_at: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .nullable(),
+        })
+        .strict()
+        .parse(req.body);
+      const lead = await checked(
+        db()
+          .from("leads")
+          .update({ updated_at: now() })
+          .eq("organization_id", res.locals.org)
+          .eq("id", id)
+          .select("id")
+          .maybeSingle(),
+      );
+      if (!lead) return res.status(404).json({ error: "Lead not found" });
+      await insert("lead_activities", {
+        organization_id: res.locals.org,
+        lead_id: id,
+        actor: res.locals.user.id,
+        action: "contact_logged",
+        details: input,
+      });
+      const log = await checked(
+        db()
+          .from("lead_activities")
+          .select("lead_id,details,created_at")
+          .eq("organization_id", res.locals.org)
+          .eq("action", "contact_logged")
+          .eq("lead_id", id)
+          .limit(500),
+      );
+      res.json(readContactLog(log as ContactRow[]).get(id) ?? null);
     }),
   );
   // Who outreach comes from, filled into the email and call scripts.

@@ -365,12 +365,30 @@ export default function App() {
       updateDemo(
         data.leads.map((l) =>
           l.id === lead.id
-            ? { ...l, ...patch, name: patch.display_name ?? l.name }
+            ? {
+                ...l,
+                ...patch,
+                name: patch.display_name ?? l.name,
+                ...(patch.contact
+                  ? {
+                      contact: {
+                        ...patch.contact,
+                        touches: (l.contact?.touches ?? 0) + 1,
+                      },
+                    }
+                  : {}),
+              }
             : l,
         ),
       );
     else {
-      const { display_name, preferred_email, industry, ...leadPatch } = patch;
+      const { display_name, preferred_email, industry, contact, ...leadPatch } =
+        patch;
+      if (contact)
+        await api(`/leads/${lead.id}/contact`, {
+          kind: contact.kind,
+          follow_up_at: contact.follow_up_at,
+        });
       if (Object.keys(leadPatch).length)
         await api(`/leads/${lead.id}`, leadPatch, "PATCH");
       if (

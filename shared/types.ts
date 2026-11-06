@@ -2,6 +2,7 @@ import type { CatalogEvidence, FitResult, IdealClient } from "./catalog.js";
 import type { MailChecks } from "./lead-intelligence.js";
 import type { TimingSignal } from "./lead-score.js";
 import type { BrandEvidence } from "./brand-size.js";
+import type { ContactState } from "./contact-log.js";
 
 export type Country = "US" | "GB" | "CA" | "AU";
 export type Stage = "new" | "reviewing" | "qualified" | "hold" | "suppressed";
@@ -105,6 +106,8 @@ export type Lead = {
   brand_evidence?: BrandEvidence | null;
   mail_checks?: MailChecks;
   outcome?: LeadOutcome | null;
+  /** The latest time you got in touch, and when to follow up. */
+  contact?: ContactState | null;
   outcome_reason?: string | null;
   outcome_at?: string | null;
 };

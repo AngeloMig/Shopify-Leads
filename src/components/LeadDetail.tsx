@@ -24,6 +24,7 @@ import {
 } from "../../shared/lead-intelligence";
 import { countryNames, industries, lostReasons } from "../../shared/types";
 import { leadScoreFor } from "../../shared/lead-score";
+import { ContactLog } from "./ContactLog";
 import { api, formatDate } from "../lib";
 import { Dialog } from "./ui/dialog";
 import { Button } from "./ui/button";
@@ -379,6 +380,18 @@ export function LeadDetail({
             </p>
           )}
         </section>
+        <ContactLog
+          contact={lead.contact ?? null}
+          closed={!!lead.outcome}
+          busy={busy}
+          onLog={(contact) =>
+            void action(() =>
+              onUpdate(lead, {
+                contact: { ...contact, touches: lead.contact?.touches ?? 0 },
+              }),
+            )
+          }
+        />
         <section className="lead-outcome" aria-label="Sales outcome">
           <h3>Outcome</h3>
           <p className="muted">

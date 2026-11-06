@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  contactLabel,
+  followUpLabel,
+  isDue,
+  localDay,
+} from "../../shared/contact-log";
+import {
   ChevronLeft,
   ChevronRight,
   Download,
@@ -43,6 +49,7 @@ const views = [
   ["strong", "Strong opportunities"],
   ["missing_contact", "Missing email"],
   ["review", "Needs review"],
+  ["due", "Due today"],
   ["won", "Won"],
   ["lost", "Lost"],
 ];
@@ -140,6 +147,7 @@ export function ProspectPipeline({
   }
   const query = new URLSearchParams({
     ...filters,
+    today: localDay(),
     page: String(page),
     size: String(size),
   }).toString();
@@ -205,6 +213,7 @@ export function ProspectPipeline({
               (filters.view === "missing_contact" && !i.emails.length) ||
               (filters.view === "won" && l.outcome === "won") ||
               (filters.view === "lost" && l.outcome === "lost") ||
+              (filters.view === "due" && isDue(l)) ||
               (filters.view === "review" &&
                 l.permission === "unknown" &&
                 !l.suppressed))
@@ -633,7 +642,18 @@ export function ProspectPipeline({
                         </span>
                       </div>
                       <small className="pipeline-audit-date">
-                        Audited {formatDate(l.audited_at, true)}
+                        {l.contact && !l.outcome ? (
+                          <span
+                            className={`pipeline-touch${isDue(l) ? " due" : ""}`}
+                          >
+                            {contactLabel[l.contact.kind]}{" "}
+                            {formatDate(l.contact.at, true)}
+                            {l.contact.follow_up_at &&
+                              ` · ${followUpLabel(l.contact.follow_up_at)}`}
+                          </span>
+                        ) : (
+                          <>Audited {formatDate(l.audited_at, true)}</>
+                        )}
                       </small>
                     </td>
                     <td>

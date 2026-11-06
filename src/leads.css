@@ -1614,3 +1614,57 @@
     display: none;
   }
 }
+/* Contact log: each touch, and the next one. */
+.lead-contact-log {
+  display: grid;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.lead-contact-log strong {
+  color: var(--primary-dark);
+}
+.lead-contact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lead-contact-kind {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.lead-contact-kind:hover:not(:disabled) {
+  border-color: var(--subtle);
+}
+.lead-contact-kind[data-kind="replied"],
+.lead-contact-kind[data-kind="call_booked"] {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+.lead-contact-follow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.lead-contact-follow select {
+  width: auto;
+  min-height: 32px;
+  padding: 0 28px 0 10px;
+}
+.pipeline-touch {
+  color: var(--muted);
+}
+.pipeline-touch.due {
+  color: var(--primary-dark);
+  font-weight: 600;
+}

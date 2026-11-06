@@ -1,4 +1,5 @@
 import { db, checked } from "./lib/db.js";
+import { readContactLog, type ContactRow } from "../shared/contact-log.js";
 import { leadScore } from "../shared/lead-score.js";
 import { shortBusinessName } from "../shared/lead-intelligence.js";
 import { listWork } from "../shared/job-activity.js";
@@ -59,74 +60,94 @@ export async function loadLeads(
   const domains = stores.length
     ? stores.map((s) => s.domain)
     : ["no-loaded-domain.invalid"];
-  const [scores, findings, recs, reports, reviews, suppression, contacts] =
-    await Promise.all([
-      checked(
-        db()
-          .from("lead_scores")
-          .select(scoreColumns)
-          .eq("organization_id", org)
-          .in("audit_id", auditIds)
-          .order("created_at", { ascending: false })
-          .limit(5000),
-      ) as Promise<Record<string, any>[]>,
-      readPages((start, end) =>
-        db()
-          .from("audit_findings")
-          .select(evidence === "full" ? "*" : summaryFindingColumns)
-          .eq("organization_id", org)
-          .in("audit_id", auditIds)
-          .order("id")
-          .range(start, end),
-      ),
-      evidence === "full"
-        ? readPages((start, end) =>
-            db()
-              .from("ai_recommendations")
-              .select("*")
-              .eq("organization_id", org)
-              .in("audit_id", auditIds)
-              .order("id")
-              .range(start, end),
-          )
-        : [],
-      checked(
-        db()
-          .from("reports")
-          .select("id,audit_id")
-          .eq("organization_id", org)
-          .in("audit_id", auditIds)
-          .order("created_at", { ascending: false })
-          .limit(5000),
-      ),
-      readPages((start, end) =>
-        db()
-          .from("contact_permission_reviews")
-          .select("*")
-          .eq("organization_id", org)
-          .in("store_id", storeIds)
-          .order("reviewed_at", { ascending: false })
-          .order("id")
-          .range(start, end),
-      ),
-      checked(
-        db()
-          .from("suppression_list")
-          .select("domain")
-          .eq("organization_id", org)
-          .in("domain", domains),
-      ),
-      readPages((start, end) =>
-        db()
-          .from("contacts")
-          .select("*")
-          .eq("organization_id", org)
-          .in("store_id", storeIds)
-          .order("verified_at", { ascending: false })
-          .order("id")
-          .range(start, end),
-      ),
-    ]);
+  const leadIds = leadRows.length ? leadRows.map((l) => l.id) : [noId];
+  const [
+    scores,
+    findings,
+    recs,
+    reports,
+    reviews,
+    suppression,
+    contacts,
+    touches,
+  ] = await Promise.all([
+    checked(
+      db()
+        .from("lead_scores")
+        .select(scoreColumns)
+        .eq("organization_id", org)
+        .in("audit_id", auditIds)
+        .order("created_at", { ascending: false })
+        .limit(5000),
+    ) as Promise<Record<string, any>[]>,
+    readPages((start, end) =>
+      db()
+        .from("audit_findings")
+        .select(evidence === "full" ? "*" : summaryFindingColumns)
+        .eq("organization_id", org)
+        .in("audit_id", auditIds)
+        .order("id")
+        .range(start, end),
+    ),
+    evidence === "full"
+      ? readPages((start, end) =>
+          db()
+            .from("ai_recommendations")
+            .select("*")
+            .eq("organization_id", org)
+            .in("audit_id", auditIds)
+            .order("id")
+            .range(start, end),
+        )
+      : [],
+    checked(
+      db()
+        .from("reports")
+        .select("id,audit_id")
+        .eq("organization_id", org)
+        .in("audit_id", auditIds)
+        .order("created_at", { ascending: false })
+        .limit(5000),
+    ),
+    readPages((start, end) =>
+      db()
+        .from("contact_permission_reviews")
+        .select("*")
+        .eq("organization_id", org)
+        .in("store_id", storeIds)
+        .order("reviewed_at", { ascending: false })
+        .order("id")
+        .range(start, end),
+    ),
+    checked(
+      db()
+        .from("suppression_list")
+        .select("domain")
+        .eq("organization_id", org)
+        .in("domain", domains),
+    ),
+    readPages((start, end) =>
+      db()
+        .from("contacts")
+        .select("*")
+        .eq("organization_id", org)
+        .in("store_id", storeIds)
+        .order("verified_at", { ascending: false })
+        .order("id")
+        .range(start, end),
+    ),
+    // Every time you got in touch, for each lead's latest contact.
+    checked(
+      db()
+        .from("lead_activities")
+        .select("lead_id,details,created_at")
+        .eq("organization_id", org)
+        .eq("action", "contact_logged")
+        .in("lead_id", leadIds)
+        .limit(5000),
+    ) as Promise<ContactRow[]>,
+  ]);
+  const contactLog = readContactLog(touches);
   return leadRows
     .map((l): Lead | null => {
       const s = l.store;
@@ -235,6 +256,7 @@ export async function loadLeads(
         outcome: l.outcome ?? null,
         outcome_reason: l.outcome_reason ?? null,
         outcome_at: l.outcome_at ?? null,
+        contact: contactLog.get(l.id) ?? null,
         permission: approved
           ? "approved"
           : permission?.status === "rejected"
