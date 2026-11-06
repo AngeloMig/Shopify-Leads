@@ -91,6 +91,14 @@ Active Shopify stores with unverified countries enter a pending review queue. An
 
 The Jobs and Settings screens show worker heartbeat status and daily discovery/audit request counts. Separate category limits and the shared total apply workspace-wide and reset at midnight UTC. Budget-blocked jobs wait until the next UTC day without exhausting attempts. For an existing always-on server, see [worker deployment](docs/WORKER_DEPLOYMENT.md) and `compose.worker.yaml`; a prepared deployment configuration is not evidence of a deployed worker.
 
+## Local businesses without a website
+
+**Local businesses** finds trades with a Google listing but no website of their own, such as a builder with only a Facebook page. Apply migration `011_local_businesses.sql`, add `GOOGLE_PLACES_API_KEY` (a Google Maps Platform key with Places API (New) enabled) to `.env`, and restart the API and worker.
+
+A search takes one trade and up to 10 cities. For each city Scout runs one Places Text Search (up to 20 listings), keeps open listings that link no website, and runs one web search for each on Tavily (or Brave, when storage is allowed) for `"<business name>" <city>`. A result counts as their own site when its domain carries a word that is distinctly the business's and the page title names it; directories and social networks don't count, and social pages that name the business are kept as contact routes. "No website found" means none was linked and none turned up, not proof that none exists. Without a web search provider, listings are saved as "Listing has no website".
+
+Google's terms let Scout keep the place ID but not the listing's name, address, phone or rating, so those are fetched live: the list asks for basic fields and an opened lead adds phone, rating and hours. Each lookup counts against a separate daily cap (`places_view_daily_budget` in settings, 300 by default). Searches count against the discovery budget and run as discovery jobs, so **Stop discovery** cancels them. Places bills per request after Google's monthly free usage; see [Places pricing](https://developers.google.com/maps/billing-and-pricing/pricing).
+
 ## Outreach review
 
 Review opens one store at a time: the checks and their sources on the left, the decision on the right, strongest leads first, moving to the next lead after each decision. A line always says what's still needed before approval. Approval still requires a written reason of at least 20 characters, country evidence, a public contact page and no do-not-contact record, and it lasts 30 days. Scout records the decision and sends nothing.

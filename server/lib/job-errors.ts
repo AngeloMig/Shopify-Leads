@@ -21,17 +21,19 @@ export function retryAfter(value: string | null, now = Date.now()) {
 }
 export function providerName(url: string) {
   const host = new URL(url).hostname;
-  return host.includes("googleapis")
-    ? "pagespeed"
-    : host.includes("tavily")
-      ? "tavily"
-      : host.includes("brave")
-        ? "brave"
-        : host.includes("storeleads")
-          ? "storeleads"
-          : host.includes("openai")
-            ? "openai"
-            : "provider";
+  return host === "places.googleapis.com"
+    ? "google_places"
+    : host.includes("googleapis")
+      ? "pagespeed"
+      : host.includes("tavily")
+        ? "tavily"
+        : host.includes("brave")
+          ? "brave"
+          : host.includes("storeleads")
+            ? "storeleads"
+            : host.includes("openai")
+              ? "openai"
+              : "provider";
 }
 export function classifyJobError(error: unknown) {
   if (error instanceof JobError) return error;

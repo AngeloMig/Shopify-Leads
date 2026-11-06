@@ -3,6 +3,7 @@ import { defaultSettings } from "../shared/types";
 import { buildAlerts, type AlertFeed, type Digest } from "../shared/alerts";
 import { leadScoreFor } from "../shared/lead-score";
 import type { OperationsSnapshot } from "../shared/automation";
+import type { LocalBusiness } from "../shared/local-business";
 const rows: [
   string,
   string,
@@ -424,3 +425,119 @@ export const demoSnapshot: Snapshot = {
   reports: 156,
   organization: { id: "demo", name: "Acme Studio" },
 };
+
+// Fictional local businesses for the demo; in a live workspace the listing
+// details come from Google Places when the page loads and are never stored.
+const local = (
+  n: number,
+  name: string,
+  trade: string,
+  city: string,
+  check: LocalBusiness["website_check"],
+  extra: Partial<LocalBusiness> = {},
+  listing: Partial<NonNullable<LocalBusiness["listing"]>> = {},
+): LocalBusiness => ({
+  id: `local-${n}`,
+  place_id: `demo-place-${n}-example`,
+  trade,
+  city,
+  country: "US",
+  website_check: check,
+  found_site: null,
+  check_query: `"${name}" ${city}`,
+  social_links: [],
+  stage: "new",
+  notes: "",
+  suppressed: false,
+  found_at: new Date(Date.UTC(2026, 10, 4 - (n % 4), 15)).toISOString(),
+  listing: {
+    name,
+    address: `${100 + n * 7} Sample Street, ${city}`,
+    maps_url: null,
+    status: "OPERATIONAL",
+    type: trade,
+    phone: `(555) 01${String(n).padStart(2, "0")}-0000`,
+    rating: 4 + (n % 9) / 10,
+    reviews: 12 + n * 5,
+    hours: ["Monday: 7:00 AM – 5:00 PM", "Saturday: Closed", "Sunday: Closed"],
+    website: null,
+    ...listing,
+  },
+  ...extra,
+});
+export const demoLocalBusinesses: LocalBusiness[] = [
+  local(
+    1,
+    "Ridgeway Builders",
+    "General contractor",
+    "Austin, TX",
+    "no_site_found",
+    {
+      social_links: [
+        {
+          network: "facebook",
+          url: "https://www.facebook.com/ridgewaybuilders.example",
+        },
+        {
+          network: "instagram",
+          url: "https://www.instagram.com/ridgewaybuilders.example",
+        },
+      ],
+    },
+  ),
+  local(
+    2,
+    "Copperline Roofing",
+    "Roofing contractor",
+    "Austin, TX",
+    "no_site_found",
+    {
+      social_links: [
+        {
+          network: "facebook",
+          url: "https://www.facebook.com/copperlineroofing.example",
+        },
+      ],
+    },
+  ),
+  local(
+    3,
+    "Bluebonnet Concrete Co.",
+    "Concrete contractor",
+    "Round Rock, TX",
+    "no_site_found",
+  ),
+  local(
+    4,
+    "Hilltop Fence & Deck",
+    "Fence contractor",
+    "Austin, TX",
+    "no_site_found",
+    {
+      social_links: [
+        {
+          network: "instagram",
+          url: "https://www.instagram.com/hilltopfence.example",
+        },
+      ],
+      stage: "contacted",
+    },
+  ),
+  local(
+    5,
+    "Lakeview Remodeling",
+    "General contractor",
+    "Round Rock, TX",
+    "not_checked",
+  ),
+  local(
+    6,
+    "Summit Stone Masonry",
+    "Construction company",
+    "Austin, TX",
+    "site_found",
+    {
+      found_site: "summitstonemasonry.example",
+    },
+  ),
+];

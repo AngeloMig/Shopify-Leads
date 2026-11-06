@@ -13,6 +13,7 @@ import {
 } from "./lib/validation.js";
 import { enqueue } from "./pipeline.js";
 import { loadLeads, snapshot } from "./workspace-snapshot.js";
+import { registerLocalBusinessRoutes } from "./local-business-routes.js";
 import { registerWorkspaceRoutes } from "./workspace-routes.js";
 import { deliverAlerts } from "./lib/alerts.js";
 import { registerJobActivityRoutes } from "./job-activity-routes.js";
@@ -163,6 +164,7 @@ const admin = (res: express.Response) => {
 };
 registerJobActivityRoutes(app);
 registerWorkspaceRoutes(app, loadLeads, admin);
+registerLocalBusinessRoutes(app, admin);
 app.get("/api/snapshot", async (_req, res, next) => {
   try {
     res.json(await snapshot(res.locals.org));

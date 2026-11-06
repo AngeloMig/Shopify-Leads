@@ -22,6 +22,10 @@ import { lighthouseIdentity } from "../shared/audit-presentation.js";
 import { checkpointedPageSpeed } from "./lib/checkpoints.js";
 import { JobError } from "./lib/job-errors.js";
 import { savedDiscovery } from "./modules/saved-discovery.js";
+import {
+  localDiscovery,
+  type LocalSearchConfig,
+} from "./modules/local-discovery.js";
 import { jobActivity, publishJobWork } from "./lib/job-activity.js";
 import { discoveryHistory } from "./lib/discovery-history.js";
 import { inspectBrowser } from "./modules/browser.js";
@@ -154,6 +158,17 @@ export async function executeJob(
     },
   );
   if (job.type === "discovery") {
+    if (job.payload.kind === "local") {
+      await localDiscovery(
+        org,
+        job.payload.config as LocalSearchConfig,
+        charge,
+        outcome,
+        progress,
+        emit,
+      );
+      return;
+    }
     if (config.provider === "tavily" && job.payload.query_id) {
       await savedDiscovery(
         job,

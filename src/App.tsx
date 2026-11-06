@@ -47,6 +47,7 @@ import {
   Settings,
   ShieldCheck,
   Wrench,
+  HardHat,
   Store,
   Target,
   TrendingUp,
@@ -82,6 +83,7 @@ import { DiscoveryForm } from "./components/DiscoveryForm";
 import { DiscoveryControls } from "./components/DiscoveryControls";
 import { Button } from "./components/ui/button";
 import { Dialog } from "./components/ui/dialog";
+import { LocalBusinesses } from "./components/LocalBusinesses";
 // Only the sign-in page shows it, so its animation kit loads with it
 const SignInDemo = lazy(() => import("./components/SignInDemo"));
 const empty: Snapshot = {
@@ -99,6 +101,7 @@ const navigation = [
   { label: "Overview", path: "/", icon: LayoutDashboard },
   { label: "Store discovery", path: "/discovery", icon: Compass },
   { label: "Leads", path: "/leads", icon: Store },
+  { label: "Local businesses", path: "/local", icon: HardHat },
   { label: "Website audits", path: "/audits", icon: Activity },
   { label: "Website improvements", path: "/modernization", icon: Wrench },
   { label: "CRO opportunities", path: "/cro", icon: MousePointer2 },
@@ -179,8 +182,7 @@ export default function App() {
     navigate = useNavigate();
   const data = demo ? demoData : liveData;
   const leadsWorkspace =
-    data.organization.id ||
-    (demo ? "" : rememberedWorkspace(session?.user.id));
+    data.organization.id || (demo ? "" : rememberedWorkspace(session?.user.id));
   const activeSettings =
     campaignId === "new"
       ? newCampaign
@@ -854,7 +856,9 @@ export default function App() {
                     ? "Find your next opportunity"
                     : location.pathname === "/leads"
                       ? "From research to relationships"
-                      : "Shopify lead intelligence"}
+                      : location.pathname === "/local"
+                        ? "Beyond online stores"
+                        : "Shopify lead intelligence"}
               </div>
               <h1>
                 {location.pathname === "/"
@@ -881,6 +885,8 @@ export default function App() {
                       "Evidence-backed audit reports, ready for a thoughtful conversation.",
                     "/jobs":
                       "Scout finds Shopify stores, audits them, and adds qualified ones to Leads.",
+                    "/local":
+                      "Businesses with a Google listing but no website of their own, such as a builder with only a Facebook page.",
                     "/outreach":
                       "Review contact eligibility and country-specific evidence before any outreach.",
                     "/settings":
@@ -1147,7 +1153,9 @@ export default function App() {
                 !demo && liveData === empty
                   ? null
                   : `${leadRevision}-${data.jobs
-                      .filter((j) => j.type === "audit" && j.status === "completed")
+                      .filter(
+                        (j) => j.type === "audit" && j.status === "completed",
+                      )
                       .map((j) => j.id)
                       .join(",")}`
               }
@@ -1396,6 +1404,9 @@ export default function App() {
               onNewDiscovery={() => setShowDiscovery(true)}
               onOpenLead={setSelectedLead}
             />
+          )}
+          {location.pathname === "/local" && (
+            <LocalBusinesses demo={demo} notify={notify} />
           )}
           {location.pathname === "/outreach" && (
             <>
