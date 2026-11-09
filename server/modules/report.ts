@@ -743,8 +743,9 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
     offer
       ? [
           `Start with: ${offer}`,
-          input.sender?.offer_scope ||
-            "A small first step, agreed before any work starts.",
+          (input.sender?.offer_scope
+            ? input.sender.offer_scope.replace(/([^.!?])$/, "$1.")
+            : "") || "A small first step, agreed before any work starts.",
         ]
       : [
           "We talk it through",
