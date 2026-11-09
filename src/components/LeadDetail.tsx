@@ -190,6 +190,9 @@ export function LeadDetail({
       };
     }
   }, [lead?.id, lead?.audited_at, demo]);
+  const completedAudits = history.filter(
+    (h) => h.status === "completed",
+  ).length;
   async function action(fn: () => Promise<void>) {
     setError("");
     setBusy(true);
@@ -533,6 +536,12 @@ export function LeadDetail({
             </p>
           )}
         </section>
+        {lead.outcome === "won" && completedAudits < 2 && !demo && (
+          <p className="muted detail-hint">
+            Re-audit the store when your work is live to get a before-and-after
+            report for {lead.name}, and a case study for you.
+          </p>
+        )}
         <div className="detail-actions">
           <Button
             size="sm"
@@ -546,6 +555,28 @@ export function LeadDetail({
             <RefreshCw size={14} />
             Re-audit store
           </Button>
+          {!demo && completedAudits >= 2 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                void action(async () => {
+                  const { url } = await api<{ url: string }>(
+                    `/leads/${lead.id}/before-after`,
+                    {},
+                  );
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.rel = "noreferrer";
+                  a.click();
+                })
+              }
+            >
+              <FileText size={14} />
+              Before and after
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"

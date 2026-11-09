@@ -17,7 +17,10 @@ import { registerLocalBusinessRoutes } from "./local-business-routes.js";
 import { registerWorkspaceRoutes } from "./workspace-routes.js";
 import { deliverAlerts } from "./lib/alerts.js";
 import { registerJobActivityRoutes } from "./job-activity-routes.js";
-import { createReport, reportVersion } from "./modules/report.js";
+import { createReport, reportAgency, reportVersion } from "./modules/report.js";
+import { createBeforeAfterReport } from "./modules/before-after-report.js";
+import { readSender } from "../shared/sender.js";
+import type { Finding, PsiSample } from "../shared/types.js";
 import { publishSavedReport } from "./lib/stored-report.js";
 import { lostReasons } from "../shared/types.js";
 const app = express();
@@ -536,6 +539,103 @@ app.get("/api/reports/:id/download", async (req, res, next) => {
         .single(),
     );
     const filename = `${store.domain.replace(/[^a-z0-9.-]/gi, "_")}-audit.pdf`;
+    const data = await checked(
+      db()
+        .storage.from("audit-artifacts")
+        .createSignedUrl(storagePath, 60, { download: filename }),
+    );
+    res.json({ url: data.signedUrl });
+  } catch (e) {
+    next(e);
+  }
+});
+// Before and after: the first completed audit against the latest, for a client
+// whose store you've worked on. Re-test the store after the work to compare.
+app.post("/api/leads/:id/before-after", async (req, res, next) => {
+  try {
+    const org = res.locals.org;
+    const lead = await checked(
+      db()
+        .from("leads")
+        .select("store_id")
+        .eq("id", uuid.parse(req.params.id))
+        .eq("organization_id", org)
+        .single(),
+    );
+    const audits = await checked(
+      db()
+        .from("audit_runs")
+        .select("id,started_at,completed_at")
+        .eq("organization_id", org)
+        .eq("store_id", lead.store_id)
+        .eq("status", "completed")
+        .order("completed_at", { ascending: true }),
+    );
+    if (audits.length < 2)
+      return res.status(400).json({
+        error:
+          "This store has one completed audit. Re-test it after your work, then compare.",
+      });
+    const [first, last] = [audits[0], audits[audits.length - 1]];
+    const snapshotOf = async (audit: (typeof audits)[number]) => {
+      const [metrics, findings] = await Promise.all([
+        checked(
+          db()
+            .from("audit_metrics")
+            .select("*")
+            .eq("organization_id", org)
+            .eq("audit_id", audit.id),
+        ),
+        checked(
+          db()
+            .from("audit_findings")
+            .select("*")
+            .eq("organization_id", org)
+            .eq("audit_id", audit.id),
+        ),
+      ]);
+      return {
+        tested_at: audit.completed_at ?? audit.started_at,
+        samples: metrics as PsiSample[],
+        findings: findings as Finding[],
+      };
+    };
+    const [store, organization, settings, before, after] = await Promise.all([
+      checked(
+        db()
+          .from("discovered_stores")
+          .select("domain,name,display_name")
+          .eq("organization_id", org)
+          .eq("id", lead.store_id)
+          .single(),
+      ),
+      checked(db().from("organizations").select("name").eq("id", org).single()),
+      checked(
+        db()
+          .from("app_settings")
+          .select("config")
+          .eq("organization_id", org)
+          .maybeSingle(),
+      ),
+      snapshotOf(first),
+      snapshotOf(last),
+    ]);
+    const pdf = await createBeforeAfterReport({
+      name: store.display_name || store.name,
+      domain: store.domain,
+      sender: readSender(settings?.config?.sender),
+      agency: reportAgency(organization.name),
+      before,
+      after,
+    });
+    const storagePath = `${org}/${last.id}/before-after-${first.id}.pdf`;
+    await checked(
+      db().storage.from("audit-artifacts").upload(storagePath, pdf, {
+        contentType: "application/pdf",
+        upsert: true,
+      }),
+    );
+    const filename = `${store.domain.replace(/[^a-z0-9.-]/gi, "_")}-before-and-after.pdf`;
     const data = await checked(
       db()
         .storage.from("audit-artifacts")
