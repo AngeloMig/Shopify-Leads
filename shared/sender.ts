@@ -6,6 +6,17 @@ export type Sender = {
   address: string;
   /** Where a lead can see work you've done, such as your portfolio site. */
   portfolio_url: string;
+  /** How a store owner reaches you from the report and the email. */
+  email: string;
+  phone: string;
+  /** A calendar link (Cal.com, Calendly) for booking the first call. */
+  booking_url: string;
+  /** The one first step you sell, e.g. "Mobile product-page review". */
+  offer_name: string;
+  /** What it covers and what they get, in a sentence. */
+  offer_scope: string;
+  /** Optional, e.g. "From $450" or "Free". Left out when blank. */
+  offer_price: string;
   /** Projects to point to, matched to each store by industry. */
   work: CaseStudy[];
 };
@@ -16,6 +27,12 @@ export const emptySender: Sender = {
   company: "",
   address: "",
   portfolio_url: "",
+  email: "",
+  phone: "",
+  booking_url: "",
+  offer_name: "",
+  offer_scope: "",
+  offer_price: "",
   work: [],
 };
 export const readSender = (value: unknown): Sender => {
@@ -30,6 +47,12 @@ export const readSender = (value: unknown): Sender => {
     company: text("company"),
     address: text("address"),
     portfolio_url: text("portfolio_url"),
+    email: text("email"),
+    phone: text("phone"),
+    booking_url: text("booking_url"),
+    offer_name: text("offer_name"),
+    offer_scope: text("offer_scope"),
+    offer_price: text("offer_price"),
     work: (Array.isArray(v.work) ? v.work : [])
       .map((w) => {
         const o = (w && typeof w === "object" ? w : {}) as Record<
@@ -53,3 +76,17 @@ export const portfolioLabel = (url: string) =>
     .replace(/^https?:\/\//i, "")
     .replace(/^www\./i, "")
     .replace(/\/$/, "");
+/** The offer as one line: "Mobile product-page review (from $450)". */
+export const offerLine = (sender: Sender) =>
+  sender.offer_name
+    ? `${sender.offer_name}${sender.offer_price ? ` (${sender.offer_price.charAt(0).toLowerCase()}${sender.offer_price.slice(1)})` : ""}`
+    : "";
+/** How to reach you, in the order people use them. */
+export const contactLines = (sender: Sender) =>
+  [
+    sender.email,
+    sender.phone,
+    sender.booking_url
+      ? `Book a call: ${portfolioLabel(sender.booking_url)}`
+      : "",
+  ].filter(Boolean);

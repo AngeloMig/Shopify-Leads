@@ -1,5 +1,6 @@
 import { it, expect } from "vitest";
 import { createReport } from "../server/modules/report";
+import { emptySender } from "../shared/sender";
 it("creates an actual PDF from evidence with no fabricated metrics", async () => {
   const pdf = await createReport({
     name: "Fixture",
@@ -85,6 +86,7 @@ it("builds the owner's report with your details and plain wording", async () => 
     technologies: [],
     history: "",
     sender: {
+      ...emptySender,
       name: "Grant",
       company: "Studio",
       address: "",

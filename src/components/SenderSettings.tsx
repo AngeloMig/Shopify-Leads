@@ -47,6 +47,7 @@ export function SenderSettings({
       await saveSender(demo, {
         ...draft,
         portfolio_url: https(draft.portfolio_url.trim()),
+        booking_url: https(draft.booking_url.trim()),
         work: draft.work
           .map((w) => ({
             ...w,
@@ -109,7 +110,49 @@ export function SenderSettings({
           placeholder: "Needed in marketing emails in most countries",
           autoComplete: "street-address",
         })}
+        {field("email", "Email", {
+          placeholder: "Where replies go",
+          type: "email",
+          autoComplete: "email",
+        })}
+        {field("phone", "Phone", {
+          placeholder: "Optional",
+          type: "tel",
+          autoComplete: "tel",
+        })}
+        {field("booking_url", "Booking link", {
+          placeholder: "https://cal.com/you/intro",
+          autoComplete: "url",
+        })}
       </div>
+      <p className="sender-preview">
+        Your email, phone and booking link go on the report&rsquo;s last page
+        and under every email, so whoever reads the report can reach you.
+      </p>
+      <fieldset className="sender-offer" disabled={!saved}>
+        <legend>Your starting offer</legend>
+        <p>
+          One small first step to say yes to, instead of a vague call. It ends
+          the email and the report.
+        </p>
+        <div className="sender-grid">
+          {field("offer_name", "Offer", {
+            placeholder: "Mobile product-page review",
+          })}
+          {field("offer_price", "Price", {
+            placeholder: "Optional, e.g. From $450",
+          })}
+        </div>
+        <label className="field-label">
+          What they get
+          <input
+            value={draft.offer_scope}
+            onChange={(e) => set("offer_scope")(e.target.value)}
+            disabled={!saved}
+            placeholder="We review your product page on mobile and send a fix plan with prices."
+          />
+        </label>
+      </fieldset>
       {draft.portfolio_url && (
         <p className="sender-preview">
           Emails will say: “You can see some of our recent work at{" "}

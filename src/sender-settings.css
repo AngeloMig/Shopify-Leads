@@ -44,7 +44,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.sender-work {
+.sender-work,
+.sender-offer {
   display: grid;
   gap: 8px;
   margin: 6px 0 10px;
@@ -52,12 +53,14 @@
   border: 0;
   border-top: 1px solid var(--border);
 }
-.sender-work legend {
+.sender-work legend,
+.sender-offer legend {
   padding: 0;
   font-size: 13px;
   font-weight: 600;
 }
-.sender-work > p {
+.sender-work > p,
+.sender-offer > p {
   max-width: 62ch;
   color: var(--muted);
   font-size: 12px;

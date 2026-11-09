@@ -322,6 +322,28 @@ export function registerWorkspaceRoutes(
               (u) => !u || /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(u),
               "Use the full address, starting with https://",
             ),
+          email: z
+            .string()
+            .trim()
+            .max(200)
+            .default("")
+            .refine(
+              (e) => !e || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e),
+              "Enter a valid email address",
+            ),
+          phone: text(40),
+          booking_url: z
+            .string()
+            .trim()
+            .max(300)
+            .default("")
+            .refine(
+              (u) => !u || /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(u),
+              "Use the full booking link, starting with https://",
+            ),
+          offer_name: text(80),
+          offer_scope: text(300),
+          offer_price: text(40),
           work: z
             .array(
               z
@@ -701,11 +723,9 @@ export function registerWorkspaceRoutes(
           .limit(1),
       );
       if (!q[0]?.config)
-        return res
-          .status(400)
-          .json({
-            error: "Save discovery settings before requesting an audit.",
-          });
+        return res.status(400).json({
+          error: "Save discovery settings before requesting an audit.",
+        });
       await checked(
         db()
           .from("discovered_stores")

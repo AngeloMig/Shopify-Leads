@@ -18,10 +18,11 @@ import { explainFinding } from "../../shared/finding-explanation.js";
 import { shortBusinessName } from "../../shared/lead-intelligence.js";
 import {
   matchingWork,
+  offerLine,
   portfolioLabel,
   type Sender,
 } from "../../shared/sender.js";
-export const reportVersion = "v3";
+export const reportVersion = "v4";
 export const reportAgency = (fallback: string) =>
   process.env.AGENCY_NAME?.trim() &&
   !/^your shopify agency$/i.test(process.env.AGENCY_NAME.trim())
@@ -690,11 +691,18 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
   ensure(300);
   if (doc.y > 200) doc.y += 6;
   title("What happens next", 20);
+  const offer = input.sender ? offerLine(input.sender) : "";
   const steps: [string, string][] = [
-    [
-      "We talk it through",
-      "A short call to go through this report and answer your questions. No obligation.",
-    ],
+    offer
+      ? [
+          `Start with: ${offer}`,
+          input.sender?.offer_scope ||
+            "A small first step, agreed before any work starts.",
+        ]
+      : [
+          "We talk it through",
+          "A short call to go through this report and answer your questions. No obligation.",
+        ],
     [
       "We fix it carefully",
       "Changes can be made on a copy of your theme first, so your live store isn't touched until you're happy.",
@@ -733,7 +741,33 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
         ? `Similar work: ${similar.title}, another ${similar.industry.toLowerCase()} store`
         : "",
     ].filter(Boolean);
-    const h = 30 + lines.length * 16 + (sender?.portfolio_url ? 16 : 0);
+    // How to reach you: each line is a link (mail, phone, calendar).
+    const reach: { text: string; link: string }[] = [
+      ...(sender?.email
+        ? [{ text: sender.email, link: `mailto:${sender.email}` }]
+        : []),
+      ...(sender?.phone
+        ? [
+            {
+              text: sender.phone,
+              link: `tel:${sender.phone.replace(/[^\d+]/g, "")}`,
+            },
+          ]
+        : []),
+      ...(sender?.booking_url
+        ? [
+            {
+              text: `Book a call: ${portfolioLabel(sender.booking_url)}`,
+              link: sender.booking_url,
+            },
+          ]
+        : []),
+    ];
+    const h =
+      30 +
+      lines.length * 16 +
+      (sender?.portfolio_url ? 16 : 0) +
+      reach.length * 16;
     doc.roundedRect(M, y, W, h, 8).fill(paper);
     doc
       .font("Helvetica-Bold")
@@ -763,6 +797,15 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
           ly,
           { width: W - 36, link: sender.portfolio_url },
         );
+    if (sender?.portfolio_url) ly += 16;
+    for (const r of reach) {
+      doc
+        .font("Helvetica")
+        .fontSize(10)
+        .fillColor(goldDark)
+        .text(readable(r.text), M + 18, ly, { width: W - 36, link: r.link });
+      ly += 16;
+    }
     doc.y = y + h + 12;
   }
 
