@@ -42,9 +42,33 @@ import { Dialog } from "./ui/dialog";
 import "../local-businesses.css";
 
 type View = "no_site" | "all";
-type Has = "any" | "phone" | "social" | "strong";
+type Has = "any" | "reachable" | "phone" | "social" | "strong";
+const hasFrom = (h: string | null): Has =>
+  h === "phone" || h === "social" || h === "strong" || h === "any"
+    ? h
+    : "reachable";
+type FocusOption = {
+  trade: string;
+  country: string;
+  total: number;
+  reachable: number;
+};
+const focusKey = "scout-local-focus";
+const readFocus = () => {
+  try {
+    return localStorage.getItem(focusKey) ?? "";
+  } catch {
+    return "";
+  }
+};
 type Sort = "newest" | "best";
-type Counts = { all: number; phone: number; social: number; strong: number };
+type Counts = {
+  all: number;
+  phone: number;
+  social: number;
+  strong: number;
+  reachable?: number;
+};
 type Row = LocalBusiness & { prospect?: Prospect };
 const scoreOf = (b: Row) => b.prospect ?? prospectScore(b);
 type Status = {
@@ -106,10 +130,11 @@ export function LocalBusinesses({
     [query, setQuery] = useState(""),
     [q, setQ] = useState(""),
     [stage, setStage] = useState<LocalStage | "any">("any"),
-    [has, setHas] = useState<Has>(() => {
-      const h = params.get("has");
-      return h === "phone" || h === "social" || h === "strong" ? h : "any";
-    }),
+    // Only businesses you can reach, unless you ask to see the rest.
+    [has, setHas] = useState<Has>(() => hasFrom(params.get("has"))),
+    // One trade in one country at a time: "Electrician|US", or "" for all.
+    [focus, setFocus] = useState(readFocus),
+    [focusOptions, setFocusOptions] = useState<FocusOption[]>([]),
     [fromSearch, setFromSearch] = useState(params.get("search") ?? ""),
     [sort, setSort] = useState<Sort>("best"),
     [page, setPage] = useState(0),
@@ -141,7 +166,7 @@ export function LocalBusinesses({
     if (s && s !== fromSearch) {
       setFromSearch(s);
       const h = params.get("has");
-      setHas(h === "strong" || h === "phone" || h === "social" ? h : "any");
+      setHas(hasFrom(h));
       setPage(0);
     }
   }, [params]);
@@ -188,8 +213,10 @@ export function LocalBusinesses({
   useEffect(() => {
     if (demo) {
       const needle = q.toLowerCase();
+      const [fTrade, fCountry] = focus.split("|");
       const base = demoLocalBusinesses.filter(
         (b) =>
+          (!focus || (b.trade === fTrade && b.country === fCountry)) &&
           (view === "all" || b.website_check !== "site_found") &&
           (stage === "any" || b.stage === stage) &&
           (!needle ||
@@ -199,14 +226,18 @@ export function LocalBusinesses({
       );
       const strong = (b: LocalBusiness) =>
         prospectScore(b).tier === "strong" && b.stage !== "lost";
+      const reachable = (b: LocalBusiness) =>
+        !!b.phone || !!b.email || hasSocial(b);
       const list = base.filter((b) =>
-        has === "phone"
-          ? !!b.phone
-          : has === "social"
-            ? hasSocial(b)
-            : has === "strong"
-              ? strong(b)
-              : true,
+        has === "reachable"
+          ? reachable(b)
+          : has === "phone"
+            ? !!b.phone
+            : has === "social"
+              ? hasSocial(b)
+              : has === "strong"
+                ? strong(b)
+                : true,
       );
       if (sort === "best")
         list.sort((a, b) => prospectScore(b).score - prospectScore(a).score);
@@ -217,6 +248,7 @@ export function LocalBusinesses({
         phone: base.filter((b) => b.phone).length,
         social: base.filter(hasSocial).length,
         strong: base.filter(strong).length,
+        reachable: base.filter(reachable).length,
       });
       return;
     }
@@ -230,6 +262,9 @@ export function LocalBusinesses({
       has,
       sort,
       ...(fromSearch ? { search: fromSearch } : {}),
+      ...(focus
+        ? { trade: focus.split("|")[0], country: focus.split("|")[1] }
+        : {}),
       page: String(page),
       size: String(pageSize),
     });
@@ -252,7 +287,44 @@ export function LocalBusinesses({
     return () => {
       current = false;
     };
-  }, [demo, view, q, stage, has, sort, fromSearch, page, revision]);
+  }, [demo, view, q, stage, has, sort, fromSearch, focus, page, revision]);
+
+  useEffect(() => {
+    try {
+      if (focus) localStorage.setItem(focusKey, focus);
+      else localStorage.removeItem(focusKey);
+    } catch {
+      /* Remembering the focus is a convenience; the filter still applies. */
+    }
+  }, [focus]);
+  useEffect(() => {
+    if (demo) {
+      const groups = new Map<string, FocusOption>();
+      for (const b of demoLocalBusinesses) {
+        const k = `${b.trade}|${b.country}`;
+        const g = groups.get(k) ?? {
+          trade: b.trade,
+          country: b.country,
+          total: 0,
+          reachable: 0,
+        };
+        g.total++;
+        if (b.phone || b.email || hasSocial(b)) g.reachable++;
+        groups.set(k, g);
+      }
+      setFocusOptions([...groups.values()]);
+      return;
+    }
+    let current = true;
+    api<FocusOption[]>("/local-businesses/focus")
+      .then((r) => current && setFocusOptions(r))
+      .catch(() => {
+        /* Without the list the sheet still shows every market. */
+      });
+    return () => {
+      current = false;
+    };
+  }, [demo, revision]);
 
   // With nothing found yet, the finder is the whole page.
   const empty = loaded && !error && counts.all === 0 && !filtered;
@@ -286,9 +358,13 @@ export function LocalBusinesses({
   const first = total ? page * pageSize + 1 : 0;
   const last = Math.min(total, (page + 1) * pageSize);
   const pick = (next: Has) => {
-    setHas((h) => (h === next ? "any" : next));
+    setHas((h) => (h === next ? "reachable" : next));
     setPage(0);
   };
+  const unreachable = Math.max(
+    0,
+    counts.all - (counts.reachable ?? counts.all),
+  );
   return (
     <>
       {finderOpen && (
@@ -349,6 +425,40 @@ export function LocalBusinesses({
               </button>
             </div>
           </header>
+          {(has === "reachable" || has === "any") && unreachable > 0 && (
+            <p className="local-reach" role="status">
+              {has === "reachable" ? (
+                <>
+                  Showing the {counts.reachable} you can contact. {unreachable}{" "}
+                  more have no phone, email or social page.{" "}
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => {
+                      setHas("any");
+                      setPage(0);
+                    }}
+                  >
+                    Show them too
+                  </button>
+                </>
+              ) : (
+                <>
+                  Including {unreachable} with no phone, email or social page.{" "}
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => {
+                      setHas("reachable");
+                      setPage(0);
+                    }}
+                  >
+                    Hide them
+                  </button>
+                </>
+              )}
+            </p>
+          )}
           {fromSearch && (
             <div className="local-from" role="status">
               <span>
@@ -364,6 +474,30 @@ export function LocalBusinesses({
             </div>
           )}
           <div className="local-toolbar">
+            {focusOptions.length > 1 && (
+              <label className="local-stage-filter local-focus">
+                <span>Focus</span>
+                <select
+                  value={focus}
+                  onChange={(e) => {
+                    setFocus(e.target.value);
+                    setPage(0);
+                  }}
+                >
+                  <option value="">Every trade and country</option>
+                  {focusOptions.map((o) => (
+                    <option
+                      key={`${o.trade}|${o.country}`}
+                      value={`${o.trade}|${o.country}`}
+                    >
+                      {tradeLabel(o.trade)} ·{" "}
+                      {countryShort[o.country as Country] ?? o.country} (
+                      {o.reachable} to contact)
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <div
               className="table-tabs"
               role="tablist"

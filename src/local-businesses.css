@@ -1020,3 +1020,11 @@
   justify-content: space-between;
   gap: 12px;
 }
+.local-reach {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.local-focus select {
+  max-width: min(320px, 70vw);
+}

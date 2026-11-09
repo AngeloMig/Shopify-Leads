@@ -27,12 +27,13 @@ const columns =
 // The columns a prospect score is made from, and how many rows to score at
 // once: Supabase hands back at most 1,000 rows per request.
 const scoring =
-  "id,trade,website_check,social_links,phone,email,opening_hours,stage,found_at";
+  "id,trade,country,website_check,social_links,phone,email,opening_hours,stage,found_at";
 const scoredLimit = 1000;
 type ScoringRow = Pick<
   LocalBusiness,
   | "id"
   | "trade"
+  | "country"
   | "website_check"
   | "social_links"
   | "phone"
@@ -60,7 +61,12 @@ export function registerLocalBusinessRoutes(
           stage: z
             .enum(["any", ...localStages] as [string, ...string[]])
             .default("any"),
-          has: z.enum(["any", "phone", "social", "strong"]).default("any"),
+          has: z
+            .enum(["any", "reachable", "phone", "social", "strong"])
+            .default("any"),
+          // One trade in one country, to work a market to the end.
+          trade: z.string().trim().max(80).default(""),
+          country: z.string().trim().max(2).default(""),
           sort: z.enum(["newest", "best"]).default("newest"),
           search: uuid.optional(),
           page: z.coerce.number().int().min(0).max(1000).default(0),
@@ -78,6 +84,8 @@ export function registerLocalBusinessRoutes(
         query = query.in("website_check", ["no_site_found", "not_checked"]);
       if (input.stage !== "any") query = query.eq("stage", input.stage);
       if (input.search) query = query.eq("search_id", input.search);
+      if (input.trade) query = query.eq("trade", input.trade);
+      if (input.country) query = query.eq("country", input.country);
       if (input.q) {
         const like = `%${input.q.replace(/[%_,()\\]/g, " ")}%`;
         query = query.or(
@@ -100,14 +108,19 @@ export function registerLocalBusinessRoutes(
       }));
       const strong = (r: (typeof scored)[number]) =>
         r.prospect.tier === "strong" && r.stage !== "lost";
+      // Someone you can actually get hold of: a phone, an email or a social page.
+      const reachable = (r: (typeof scored)[number]) =>
+        !!r.phone || !!r.email || r.social_links.length > 0;
       const picked = scored.filter((r) =>
-        input.has === "phone"
-          ? !!r.phone
-          : input.has === "social"
-            ? r.social_links.length > 0
-            : input.has === "strong"
-              ? strong(r)
-              : true,
+        input.has === "reachable"
+          ? reachable(r)
+          : input.has === "phone"
+            ? !!r.phone
+            : input.has === "social"
+              ? r.social_links.length > 0
+              : input.has === "strong"
+                ? strong(r)
+                : true,
       );
       // Best first: closed leads go last, then by score, newest on a tie.
       if (input.sort === "best")
@@ -143,6 +156,7 @@ export function registerLocalBusinessRoutes(
           phone: scored.filter((r) => r.phone).length,
           social: scored.filter((r) => r.social_links.length).length,
           strong: scored.filter(strong).length,
+          reachable: scored.filter(reachable).length,
         },
         ...status(),
       });
@@ -169,6 +183,49 @@ export function registerLocalBusinessRoutes(
           .single(),
       );
       res.json(row);
+    }),
+  );
+  // Each trade and country you've found businesses for, most reachable first:
+  // the choices for working one market at a time.
+  app.get(
+    "/api/local-businesses/focus",
+    route(async (_req, res) => {
+      const rows = (await checked(
+        db()
+          .from("local_businesses")
+          .select("trade,country,phone,email,social_links,website_check")
+          .eq("organization_id", res.locals.org)
+          .eq("suppressed", false)
+          .in("website_check", ["no_site_found", "not_checked"])
+          .limit(5000),
+      )) as {
+        trade: string;
+        country: string;
+        phone: string | null;
+        email: string | null;
+        social_links: string[];
+      }[];
+      const groups = new Map<
+        string,
+        { trade: string; country: string; total: number; reachable: number }
+      >();
+      for (const r of rows) {
+        const key = `${r.trade}|${r.country}`;
+        const g = groups.get(key) ?? {
+          trade: r.trade,
+          country: r.country,
+          total: 0,
+          reachable: 0,
+        };
+        g.total++;
+        if (r.phone || r.email || r.social_links?.length) g.reachable++;
+        groups.set(key, g);
+      }
+      res.json(
+        [...groups.values()].sort(
+          (a, b) => b.reachable - a.reachable || b.total - a.total,
+        ),
+      );
     }),
   );
   app.get(
