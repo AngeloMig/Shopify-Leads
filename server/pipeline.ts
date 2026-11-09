@@ -820,6 +820,7 @@ export async function executeJob(
     const mobile = await run("mobile", 1);
     await run("desktop", 1);
     await progress(30);
+    let screenshot: Buffer | null = null;
     if (config.modules.browser) {
       await ensureOwnership();
       await emit(
@@ -837,6 +838,7 @@ export async function executeJob(
           state: "completed",
         },
       });
+      screenshot = b.screenshot;
       const path = `${org}/${audit.id}/mobile.png`;
       await checked(
         db().storage.from("audit-artifacts").upload(path, b.screenshot, {
@@ -1337,6 +1339,8 @@ export async function executeJob(
       technologies,
       history,
       agency: reportAgency(organization.name),
+      screenshot,
+      screenshot_at: screenshot ? now() : null,
     });
     await emit("report", "note", "Audit PDF rendered", {
       task: { key: "render", name: "Render audit PDF", state: "completed" },

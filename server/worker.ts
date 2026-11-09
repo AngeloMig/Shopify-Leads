@@ -7,6 +7,7 @@ import { purgeExpiredResearch } from "./retention.js";
 import { recordJobFailure } from "./lib/job-activity.js";
 import { failureDecision } from "./lib/job-errors.js";
 import { deliverAlerts } from "./lib/alerts.js";
+import { queueMonthlyReaudits } from "./lib/reaudits.js";
 const worker = randomUUID();
 await writeFile(
   process.env.SCOUT_WORKER_ID_FILE || "/tmp/scout-worker-id",
@@ -73,6 +74,7 @@ await reportHeartbeat();
 const healthTimer = setInterval(() => void reportHeartbeat(), 20000);
 let lastRetentionCheck = 0;
 let lastAlertCheck = 0;
+let lastReauditCheck = 0;
 while (!stopping) {
   try {
     if (paused) {
@@ -98,6 +100,18 @@ while (!stopping) {
           e instanceof Error ? e.message : "unknown",
         ),
       );
+    }
+    // Hourly: re-test good leads you haven't contacted, once a month each.
+    if (Date.now() - lastReauditCheck > 3600000) {
+      lastReauditCheck = Date.now();
+      await queueMonthlyReaudits()
+        .then((n) => n && console.info(`Queued ${n} monthly re-audits.`))
+        .catch((e) =>
+          console.error(
+            "Monthly re-audits failed:",
+            e instanceof Error ? e.message : "unknown",
+          ),
+        );
     }
     await checked(db().rpc("enqueue_due_schedules"));
     const jobs = await checked(db().rpc("claim_job", { worker }));

@@ -119,9 +119,29 @@ export async function savedReportInput(
   ]);
   if (audit.status !== "completed")
     throw new Error("Only completed audits have publishable reports");
+  // The phone screenshot, when browser checks ran; a report still builds without.
+  const shot = (
+    await checked(
+      db()
+        .from("audit_screenshots")
+        .select("storage_path,captured_at")
+        .eq("organization_id", organization_id)
+        .eq("audit_id", audit.id)
+        .limit(1),
+    )
+  )[0];
+  let screenshot: Buffer | null = null;
+  if (shot) {
+    const file = await db()
+      .storage.from("audit-artifacts")
+      .download(shot.storage_path);
+    if (file.data) screenshot = Buffer.from(await file.data.arrayBuffer());
+  }
   const input: ReportInput = {
     name: store.display_name || store.name,
     industry: store.industry,
+    screenshot,
+    screenshot_at: shot?.captured_at ?? null,
     sender: readSender(settings?.config?.sender),
     domain: store.domain,
     audit_id: audit.id,

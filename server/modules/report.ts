@@ -52,6 +52,9 @@ export type ReportInput = {
   sender?: Sender | null;
   /** The store's industry, to point to similar work. */
   industry?: string | null;
+  /** The homepage as a phone showed it (PNG), when browser checks ran. */
+  screenshot?: Buffer | null;
+  screenshot_at?: string | null;
 };
 
 /**
@@ -502,6 +505,50 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
     doc.y = y + 32;
   }
 
+  if (input.screenshot) {
+    // What a shopper actually sees, before any numbers about it.
+    const shotW = 170,
+      shotH = Math.round((shotW * 844) / 390);
+    ensure(shotH + 60);
+    section("Your home page on a phone");
+    const top = doc.y;
+    try {
+      doc.image(input.screenshot, M, top, { width: shotW, height: shotH });
+      doc
+        .roundedRect(M, top, shotW, shotH, 6)
+        .strokeColor(line)
+        .lineWidth(1)
+        .stroke();
+      doc
+        .font("Helvetica")
+        .fontSize(10.5)
+        .fillColor(ink)
+        .text(
+          readable(
+            `This is what a shopper saw when we opened ${input.domain} on a phone-sized screen (390 pixels wide)${input.screenshot_at ? ` on ${longDate(input.screenshot_at)}` : ""}: the first screen, before scrolling.`,
+          ),
+          M + shotW + 24,
+          top,
+          { width: W - shotW - 24, lineGap: 3 },
+        );
+      doc.moveDown(0.6);
+      doc
+        .fillColor(muted)
+        .fontSize(9.5)
+        .text(
+          "Most of your visitors arrive on a phone, so this first screen is where they decide whether to stay.",
+          M + shotW + 24,
+          doc.y,
+          { width: W - shotW - 24, lineGap: 3 },
+        );
+      doc.x = M;
+      doc.y = top + shotH + 14;
+    } catch {
+      // A damaged image shouldn't stop the report; it simply goes without.
+      doc.x = M;
+      doc.y = top;
+    }
+  }
   section(verified.length ? "What to fix first" : "What we looked at");
   if (!verified.length)
     text(

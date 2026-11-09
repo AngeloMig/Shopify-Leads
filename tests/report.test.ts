@@ -103,3 +103,27 @@ it("builds the owner's report with your details and plain wording", async () => 
   expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
   expect(pdf.length).toBeGreaterThan(8000);
 });
+it("shows the phone screenshot when browser checks captured one", async () => {
+  // A 1x1 PNG is enough to prove the image is placed, not skipped.
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const base = {
+    name: "Fixture",
+    domain: "fixture.example",
+    date: "2026-10-27",
+    findings: [],
+    samples: [],
+    recommendations: [],
+    activity: null,
+    priority: 0,
+    modernization: null,
+    technologies: [],
+    history: "",
+  };
+  const without = await createReport(base);
+  const withShot = await createReport({ ...base, screenshot: png });
+  expect(withShot.toString("latin1")).toContain("/Subtype /Image");
+  expect(without.toString("latin1")).not.toContain("/Subtype /Image");
+});
