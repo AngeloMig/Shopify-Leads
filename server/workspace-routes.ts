@@ -8,6 +8,7 @@ import { enqueue } from "./pipeline.js";
 import { AuditRequestError, queueRequestedAudit } from "./lib/audit-request.js";
 import { workspaceAlerts } from "./lib/alerts.js";
 import type { LeadEvidence } from "./workspace-snapshot.js";
+import { requestedStoreIds } from "./workspace-snapshot.js";
 import type { Lead } from "../shared/types.js";
 import { industries } from "../shared/types.js";
 import { queryPerformance } from "../shared/discovery-search.js";
@@ -92,11 +93,15 @@ export function registerWorkspaceRoutes(
               )
               .map(([id]) => id)
           : [];
+      // Requested audits live on Free audits, not with the prospects.
+      const requested = await requestedStoreIds(res.locals.org);
       const search = (byScore: boolean) => {
         let query = db()
           .from("lead_search_index")
           .select("id", { count: "exact" })
           .eq("organization_id", res.locals.org);
+        if (requested.length)
+          query = query.not("store_id", "in", `(${requested.join(",")})`);
         if (input.q.trim())
           query = query.ilike(
             "search_text",

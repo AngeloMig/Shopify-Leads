@@ -32,6 +32,7 @@ import {
   Compass,
   Download,
   ExternalLink,
+  FileSearch,
   FileText,
   Globe2,
   LayoutDashboard,
@@ -65,6 +66,8 @@ import { demoAlerts, demoSnapshot } from "./demo";
 import { AutomationOrb } from "./components/AutomationOrb";
 import { AutomationPage } from "./components/AutomationPage";
 import { OutreachReview } from "./components/OutreachReview";
+import { FreeAuditsPage } from "./components/FreeAuditsPage";
+import { AuditRequest as AuditRequestDialog } from "./components/AuditRequest";
 import { leadScoreFor } from "../shared/lead-score";
 import type { AlertFeed } from "../shared/alerts";
 import { api, supabase, number, formatDate, downloadBlob } from "./lib";
@@ -108,6 +111,7 @@ const navigation = [
   { label: "Store discovery", path: "/discovery", icon: Compass },
   { label: "Leads", path: "/leads", icon: Store },
   { label: "Local businesses", path: "/local", icon: HardHat },
+  { label: "Free audits", path: "/free-audits", icon: FileSearch },
   { label: "Website audits", path: "/audits", icon: Activity },
   { label: "Website improvements", path: "/modernization", icon: Wrench },
   { label: "CRO opportunities", path: "/cro", icon: MousePointer2 },
@@ -167,6 +171,7 @@ export default function App() {
     } | null>(null),
     [toast, setToast] = useState(""),
     [showDiscovery, setShowDiscovery] = useState(false),
+    [auditOpen, setAuditOpen] = useState(false),
     [showGuide, setShowGuide] = useState(false),
     [showSearch, setShowSearch] = useState(false),
     [localFinder, setLocalFinder] = useState(false),
@@ -766,6 +771,10 @@ export default function App() {
               <n.icon size={18} />
               <span>{n.label}</span>
               {n.path === "/leads" && <b>{data.leads.length}</b>}
+              {n.path === "/free-audits" &&
+                (data.requests?.length ?? 0) > 0 && (
+                  <b>{data.requests!.length}</b>
+                )}
               {n.path === "/outreach" && pending.length > 0 && (
                 <b className="amber-count">{pending.length}</b>
               )}
@@ -944,6 +953,8 @@ export default function App() {
                       "Follow-ups due, approved stores to email, and local businesses to call.",
                     "/local":
                       "Businesses on the map with no website of their own, such as a builder with only a Facebook page.",
+                    "/free-audits":
+                      "Websites someone asked you to audit, from your free-audit form or added here. Kept apart from your prospects.",
                     "/outreach":
                       "Review contact eligibility and country-specific evidence before any outreach.",
                     "/settings":
@@ -981,6 +992,11 @@ export default function App() {
                 >
                   <ShieldCheck size={16} />
                   Start review · {pending.length} waiting
+                </Button>
+              ) : location.pathname === "/free-audits" ? (
+                <Button onClick={() => setAuditOpen(true)}>
+                  <FileSearch size={16} />
+                  Audit a website
                 </Button>
               ) : location.pathname === "/local" ? (
                 <Button
@@ -1490,6 +1506,31 @@ export default function App() {
               onOpenLead={setSelectedLead}
             />
           )}
+          {location.pathname === "/free-audits" && (
+            <FreeAuditsPage
+              requests={data.requests ?? []}
+              onOpenLead={setSelectedLead}
+              onDownload={report}
+              onAuditWebsite={() => setAuditOpen(true)}
+              onRetry={async (r) => {
+                try {
+                  await api(`/jobs/${r.job_id}/retry`, {});
+                  await refresh();
+                  notify(`Trying ${r.domain} again.`);
+                } catch (e) {
+                  notify(
+                    e instanceof Error ? e.message : "Couldn't try again.",
+                  );
+                }
+              }}
+            />
+          )}
+          <AuditRequestDialog
+            open={auditOpen}
+            onClose={() => setAuditOpen(false)}
+            live={!demo}
+            onDone={() => void refresh()}
+          />
           {location.pathname === "/today" && (
             <TodayPage
               leads={data.leads}

@@ -4,11 +4,11 @@ import {
   readContactPeople,
   type ContactRow,
 } from "../shared/contact-log.js";
-import { trackerInboxUrl } from "./lib/tracker-sync.js";
+import { trackerFreeAuditsUrl, trackerInboxUrl } from "./lib/tracker-sync.js";
 import { leadScore } from "../shared/lead-score.js";
 import { shortBusinessName } from "../shared/lead-intelligence.js";
 import { listWork } from "../shared/job-activity.js";
-import type { Finding, Lead } from "../shared/types.js";
+import type { AuditRequest, Finding, Lead } from "../shared/types.js";
 
 /** Lists read a lead's score and labels; only an opened lead needs its evidence. */
 export type LeadEvidence = "summary" | "full";
@@ -281,6 +281,7 @@ export async function loadLeads(
         tracker: inTracker.get(l.id)
           ? { inquiry_id: inTracker.get(l.id)!, url: trackerInboxUrl() }
           : null,
+        requested: s.source_provider === "audit-request",
         permission: approved
           ? "approved"
           : permission?.status === "rejected"
@@ -291,6 +292,69 @@ export async function loadLeads(
     })
     .filter((l): l is Lead => l !== null);
 }
+/** Store ids added by "Audit a website" or a free-audit request. */
+export async function requestedStoreIds(org: string): Promise<string[]> {
+  const rows = await checked(
+    db()
+      .from("discovered_stores")
+      .select("id")
+      .eq("organization_id", org)
+      .eq("source_provider", "audit-request")
+      .limit(2000),
+  );
+  return rows.map((r) => r.id as string);
+}
+
+/**
+ * Free audits: the latest requested audit of each website, newest first,
+ * with its finished audit when there is one.
+ */
+export async function loadRequests(
+  org: string,
+  leads: Lead[],
+): Promise<AuditRequest[]> {
+  const jobs = await checked(
+    db()
+      .from("automation_jobs")
+      .select(
+        "id,status,error,created_at,store_id:payload->>store_id,inquiry:payload->>tracker_inquiry_id",
+      )
+      .eq("organization_id", org)
+      .eq("type", "audit")
+      .eq("payload->>requested", "true")
+      .order("created_at", { ascending: false })
+      .limit(300),
+  );
+  const latest = new Map<string, Record<string, any>>();
+  for (const j of jobs) if (!latest.has(j.store_id)) latest.set(j.store_id, j);
+  if (!latest.size) return [];
+  const stores = await checked(
+    db()
+      .from("discovered_stores")
+      .select("id,domain")
+      .eq("organization_id", org)
+      .in("id", [...latest.keys()]),
+  );
+  return [...latest.values()].flatMap((j) => {
+    const store = stores.find((s) => s.id === j.store_id);
+    if (!store) return [];
+    return [
+      {
+        store_id: store.id,
+        domain: store.domain,
+        job_id: j.id,
+        requested_at: j.created_at,
+        status: j.status,
+        error: j.error ?? null,
+        tracker: j.inquiry
+          ? { inquiry_id: j.inquiry, url: trackerFreeAuditsUrl() }
+          : null,
+        lead: leads.find((l) => l.store_id === store.id) ?? null,
+      },
+    ];
+  });
+}
+
 /** Finished jobs skip their event logs here; a run's page loads its own in full. */
 async function loadJobs(org: string) {
   const [jobs, active] = await Promise.all([
@@ -392,8 +456,11 @@ export async function snapshot(org: string) {
   ])
     if (result.error) throw new Error(result.error.message);
   const budgets = workspaceSettings?.config ?? {};
+  const requests = await loadRequests(org, leads);
   return {
-    leads,
+    // Prospects only: requested audits have their own page.
+    leads: leads.filter((l) => !l.requested),
+    requests,
     jobs: jobs.map((j) => {
       const store = jobStores.find((s) => s.id === j.store_id);
       const query = queries.find((q) => q.id === j.query_id);

@@ -17,7 +17,6 @@ import {
   Check,
   Upload,
   X,
-  Gauge,
 } from "lucide-react";
 import type { Lead } from "../../shared/types";
 import { countryNames } from "../../shared/types";
@@ -30,7 +29,6 @@ import { csvCell } from "../../shared/scoring";
 import { api, downloadBlob, formatDate } from "../lib";
 import { Button } from "./ui/button";
 import { DomainImport } from "./DomainImport";
-import { AuditRequest } from "./AuditRequest";
 type Filters = {
   q: string;
   view: string;
@@ -110,7 +108,6 @@ export function ProspectPipeline({
     [selected, setSelected] = useState<string[]>([]),
     [search, setSearch] = useState(stored.filters.q),
     [importOpen, setImportOpen] = useState(false),
-    [auditOpen, setAuditOpen] = useState(false),
     [copiedEmail, setCopiedEmail] = useState(""),
     [reload, setReload] = useState(0);
   useEffect(() => {
@@ -333,14 +330,6 @@ export function ProspectPipeline({
             </span>
           </div>
           <div className="pipeline-utilities">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAuditOpen(true)}
-            >
-              <Gauge size={14} />
-              Audit a website
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -837,12 +826,6 @@ export function ProspectPipeline({
         open={importOpen}
         onClose={() => setImportOpen(false)}
         queries={queries}
-        live={live}
-        onDone={() => setReload((x) => x + 1)}
-      />
-      <AuditRequest
-        open={auditOpen}
-        onClose={() => setAuditOpen(false)}
         live={live}
         onDone={() => setReload((x) => x + 1)}
       />

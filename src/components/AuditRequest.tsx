@@ -33,7 +33,7 @@ export function AuditRequest({
       setResult(
         r.already_queued
           ? `${r.domain} is already being audited. Track it in Automation jobs.`
-          : `Audit queued for ${r.domain}. The lead and PDF appear when it finishes.`,
+          : `Audit queued for ${r.domain}. It shows on Free audits, with its PDF when it finishes.`,
       );
       setUrl("");
       onDone();

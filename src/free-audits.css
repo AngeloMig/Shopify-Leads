@@ -1,0 +1,137 @@
+/* Free audits: websites someone asked to have audited. */
+.free-audits {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.free-audits-note {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.free-audits ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.free-audit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.free-audit:last-child {
+  border-bottom: 0;
+}
+.free-audit-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.free-audit-main strong {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.free-audit-main small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.free-audit-main .free-audit-error {
+  color: var(--red);
+}
+.free-audit-scores {
+  display: flex;
+  gap: 6px;
+}
+.free-audit-scores span {
+  display: grid;
+  min-width: 58px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--surface-muted, color-mix(in srgb, var(--border) 35%, transparent));
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.free-audit-scores small {
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.free-audit-scores .bad {
+  color: var(--red);
+}
+.free-audit-scores .fair {
+  color: var(--amber);
+}
+.free-audit-scores .good {
+  color: var(--primary-dark);
+}
+.free-audit-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.free-audit-status.blocked,
+.free-audit-status.failed {
+  color: var(--red);
+}
+.free-audit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.free-audit-tracker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary-dark);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.free-audit-tracker:hover {
+  text-decoration: underline;
+}
+.free-audits-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 36px 20px;
+  text-align: center;
+}
+.free-audits-empty > svg {
+  color: var(--muted);
+}
+.free-audits-empty h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.free-audits-empty p {
+  max-width: 440px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+@media (max-width: 720px) {
+  .free-audit {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .free-audit-actions {
+    justify-content: flex-start;
+  }
+}

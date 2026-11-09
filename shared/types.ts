@@ -112,6 +112,8 @@ export type Lead = {
   contact_person?: ContactPerson | null;
   /** Moved to the KNB tracker's Inquiries after a reply; it carries on there. */
   tracker?: { inquiry_id: string; url: string | null } | null;
+  /** Added by "Audit a website" or a free-audit request, not found by discovery. */
+  requested?: boolean;
   outcome_reason?: string | null;
   outcome_at?: string | null;
 };
@@ -168,8 +170,23 @@ export type DiscoverySettings = {
   modules: { browser: boolean; history: boolean; ai: boolean };
   next_run_at?: string;
 };
+/** A website someone asked to have audited (Free audits), and where it is. */
+export type AuditRequest = {
+  store_id: string;
+  domain: string;
+  job_id: string;
+  requested_at: string;
+  status: "queued" | "running" | "blocked" | "completed" | "failed" | "cancelled";
+  error: string | null;
+  /** From the tracker's free-audit form; null when added here. */
+  tracker: { inquiry_id: string; url: string | null } | null;
+  /** The finished audit, once there is one. */
+  lead: Lead | null;
+};
 export type Snapshot = {
   leads: Lead[];
+  /** Free audits: kept apart from the prospects in leads. */
+  requests?: AuditRequest[];
   jobs: Job[];
   settings: DiscoverySettings[];
   candidates: number;

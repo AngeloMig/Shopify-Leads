@@ -19,6 +19,10 @@ import type { Finding, PsiSample } from "../../shared/types.js";
 
 export const trackerConfigured = () =>
   !!process.env.TRACKER_URL?.trim() && !!process.env.SCOUT_SYNC_SECRET?.trim();
+export const trackerFreeAuditsUrl = () =>
+  process.env.TRACKER_URL
+    ? `${process.env.TRACKER_URL.replace(/\/$/, "")}/?section=free-audits`
+    : null;
 export const trackerInboxUrl = () =>
   process.env.TRACKER_URL
     ? `${process.env.TRACKER_URL.replace(/\/$/, "")}/?section=inquiries`
