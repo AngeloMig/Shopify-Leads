@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createHmac } from "node:crypto";
 import {
+  outcomeKey,
   signTrackerBody,
   summarize,
   trackerConfigured,
@@ -84,5 +85,23 @@ describe("Tracker sync", () => {
       null,
       null,
     ]);
+  });
+  it("gives each settled attempt its own outcome, so a retry is posted again", () => {
+    const blocked = {
+      status: "blocked",
+      started_at: "2026-11-09T13:54:59Z",
+      completed_at: null,
+    };
+    expect(outcomeKey(blocked)).toBe("blocked@2026-11-09T13:54:59Z");
+    expect(
+      outcomeKey({ ...blocked, started_at: "2026-11-09T14:10:00Z" }),
+    ).not.toBe(outcomeKey(blocked));
+    expect(
+      outcomeKey({
+        status: "completed",
+        started_at: "2026-11-09T14:10:00Z",
+        completed_at: "2026-11-09T14:16:00Z",
+      }),
+    ).toBe("completed@2026-11-09T14:16:00Z");
   });
 });

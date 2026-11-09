@@ -89,20 +89,37 @@ export async function queueRequestedAudit(
     const active = await checked(
       db()
         .from("automation_jobs")
-        .select("id,payload")
+        .select("id,status,wait_reason,payload")
         .eq("organization_id", org)
         .eq("dedupe_key", key)
         .in("status", ["queued", "running", "blocked"])
         .limit(1),
     );
-    if (active[0])
+    const job = active[0];
+    // Stopped for your attention (e.g. the site answered 404): asking again
+    // means "try again", the same as Retry in Scout.
+    const retry = job?.status === "blocked" && job.wait_reason === "attention";
+    if (job)
       await checked(
         db()
           .from("automation_jobs")
           .update({
-            payload: { ...active[0].payload, requested: true, ...extra },
+            payload: { ...job.payload, requested: true, ...extra },
+            ...(retry
+              ? {
+                  status: "queued",
+                  attempts: 0,
+                  available_at: new Date().toISOString(),
+                  wait_reason: null,
+                  error: null,
+                  error_code: null,
+                  completed_at: null,
+                  worker_id: null,
+                  lease_until: null,
+                }
+              : {}),
           })
-          .eq("id", active[0].id),
+          .eq("id", job.id),
       );
   }
   return { domain, store_id: store.id as string, job };

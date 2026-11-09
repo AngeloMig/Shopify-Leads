@@ -60,11 +60,24 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     /* An HTML error page from a proxy: reported below by status. */
   }
   if (!res.ok)
-    throw new Error(
+    throw new TrackerError(
       `Tracker ${path} answered ${res.status}: ${(data as { error?: string })?.error ?? "no details"}`,
+      res.status,
     );
   return data as T;
 }
+
+class TrackerError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+/** The inquiry was trashed (or never existed): nothing is waiting for it. */
+const inquiryGone = (e: unknown) =>
+  e instanceof TrackerError && e.status === 404;
 
 /** The workspace the tracker belongs to: TRACKER_SYNC_ORG, or the only one. */
 async function syncOrg() {
@@ -166,6 +179,15 @@ export function summarize(
   };
 }
 
+/** Which settled outcome of a job this is: each attempt has its own. */
+export function outcomeKey(job: {
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+}) {
+  return `${job.status}@${job.completed_at ?? job.started_at ?? ""}`;
+}
+
 const lostReason: Record<string, string> = {
   budget: "No budget",
   timing: "Bad timing",
@@ -213,68 +235,87 @@ export async function syncTracker(
     }
   }
 
-  // 2. Requested audits that finished or gave up, not yet posted back.
-  const finished = !run("results")
+  // 2. Requested audits that finished or gave up, not yet posted back. A job
+  // stopped for your attention (e.g. the site answered 404) counts as failed.
+  // tracker_posted remembers which outcome was posted, so a job retried in
+  // Scout, or run again from the tracker, is posted again when it settles.
+  const candidates = !run("results")
     ? []
     : await checked(
         db()
           .from("automation_jobs")
-          .select("id,status,error,payload")
+          .select("id,status,error,wait_reason,started_at,completed_at,payload")
           .eq("organization_id", org)
           .eq("type", "audit")
           .not("payload->>tracker_inquiry_id", "is", null)
-          .is("payload->>tracker_posted", null)
-          .in("status", ["completed", "failed", "cancelled"])
-          .limit(10),
+          .or(
+            "status.in.(completed,failed,cancelled),and(status.eq.blocked,wait_reason.eq.attention)",
+          )
+          .gte("created_at", new Date(Date.now() - 90 * 86400000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(200),
       );
-  for (const job of finished) {
+  const finished = candidates
+    .map((job) => ({ job, key: outcomeKey(job) }))
+    .filter(({ job, key }) => {
+      const posted = job.payload.tracker_posted;
+      // Posted before outcome keys existed (a bare timestamp): leave it.
+      if (typeof posted === "string" && !posted.includes("@")) return false;
+      return posted !== key;
+    })
+    .slice(0, 10);
+  for (const { job, key } of finished) {
     const inquiry = job.payload.tracker_inquiry_id as string;
     const storeId = job.payload.store_id as string;
     const audit =
       job.status === "completed" ? await latestAudit(org, storeId) : null;
-    if (audit) {
-      const [store, lead] = await Promise.all([
-        checked(
-          db()
-            .from("discovered_stores")
-            .select("domain")
-            .eq("organization_id", org)
-            .eq("id", storeId)
-            .single(),
-        ),
-        checked(
-          db()
-            .from("leads")
-            .select("id")
-            .eq("organization_id", org)
-            .eq("store_id", storeId)
-            .maybeSingle(),
-        ),
-      ]);
-      await post("audit-result", {
-        inquiry_id: inquiry,
-        scout_lead_id: lead?.id ?? null,
-        domain: store.domain,
-        pdf_base64: audit.pdf.toString("base64"),
-        summary: audit.summary,
-      });
-      done.posted++;
-    } else {
-      await post("audit-status", {
-        inquiry_id: inquiry,
-        status: "failed",
-        error:
-          (job.error as string | null)?.slice(0, 280) ||
-          (job.status === "cancelled"
-            ? "The audit was cancelled in Scout."
-            : "Scout finished without a report."),
-      });
-      done.failed++;
+    try {
+      if (audit) {
+        const [store, lead] = await Promise.all([
+          checked(
+            db()
+              .from("discovered_stores")
+              .select("domain")
+              .eq("organization_id", org)
+              .eq("id", storeId)
+              .single(),
+          ),
+          checked(
+            db()
+              .from("leads")
+              .select("id")
+              .eq("organization_id", org)
+              .eq("store_id", storeId)
+              .maybeSingle(),
+          ),
+        ]);
+        await post("audit-result", {
+          inquiry_id: inquiry,
+          scout_lead_id: lead?.id ?? null,
+          domain: store.domain,
+          pdf_base64: audit.pdf.toString("base64"),
+          summary: audit.summary,
+        });
+        done.posted++;
+      } else {
+        await post("audit-status", {
+          inquiry_id: inquiry,
+          status: "failed",
+          error:
+            (job.error as string | null)?.slice(0, 280) ||
+            (job.status === "cancelled"
+              ? "The audit was cancelled in Scout."
+              : "Scout finished without a report."),
+        });
+        done.failed++;
+      }
+    } catch (e) {
+      if (!inquiryGone(e)) throw e;
     }
     await checked(
       db()
         .from("automation_jobs")
-        .update({ payload: { ...job.payload, tracker_posted: now() } })
+        .update({ payload: { ...job.payload, tracker_posted: key } })
         .eq("id", job.id),
     );
   }
