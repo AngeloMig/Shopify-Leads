@@ -71,7 +71,7 @@ export function shortBusinessName(name: string, domain: string) {
   const prefix = name.match(/^([^:]{2,40}):\s/);
   if (prefix) return prefix[1].trim();
   const parts = name
-    .split(/\s+[|–—]\s+|\s+-\s+/)
+    .split(/\s+[|–—·•]\s+|\s+-\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
   const root = domain

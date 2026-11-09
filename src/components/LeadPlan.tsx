@@ -14,6 +14,7 @@ import {
   planText,
 } from "../../shared/lead-playbook";
 import type { Lead } from "../../shared/types";
+import { leadIntelligence } from "../../shared/lead-intelligence";
 import { Link } from "react-router-dom";
 import { api, formatDate } from "../lib";
 import { emptySender } from "../../shared/sender";
@@ -99,6 +100,7 @@ export function LeadPlan({
         {
           ...(ready ? lead : { ...lead, findings: [] }),
           contact_name: lead.contact_person?.name ?? null,
+          focus_service: leadIntelligence(lead).service,
         },
         sender ?? emptySender,
       ),

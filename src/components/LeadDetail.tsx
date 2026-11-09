@@ -37,6 +37,7 @@ import { Button } from "./ui/button";
 import { Priority, flags } from "./LeadTable";
 import { PageSpeedAudit, type ScoreDevice } from "./PageSpeedAudit";
 import { LeadPlan } from "./LeadPlan";
+import { leadNextStep } from "../../shared/lead-next-step";
 function PublicContactRow({
   contact,
   mail,
@@ -229,6 +230,61 @@ export function LeadDetail({
       url: group.comparable ? group.runs[0]?.url : undefined,
     };
   };
+  const next = leadNextStep(lead, {
+    stale: intelligence.stale,
+    completedAudits,
+  });
+  async function downloadBeforeAfter() {
+    const { url } = await api<{ url: string }>(
+      `/leads/${lead!.id}/before-after`,
+      {},
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.rel = "noreferrer";
+    a.click();
+  }
+  /** The next-step button: the one thing to do now. */
+  function runNext() {
+    if (!lead) return;
+    switch (next.action) {
+      case "review":
+        return onOpenReview(lead);
+      case "retest":
+      case "reaudit":
+        return onAudit(lead);
+      case "email":
+        setTab("plan");
+        setTimeout(
+          () =>
+            document
+              .getElementById("lead-plan-script")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+          60,
+        );
+        return;
+      case "call_booked":
+        return void action(() =>
+          onUpdate(lead, {
+            contact: {
+              kind: "call_booked",
+              at: new Date().toISOString(),
+              follow_up_at: null,
+              touches: lead.contact?.touches ?? 0,
+            },
+          }),
+        );
+      case "lost_no_response":
+        return void action(() =>
+          onUpdate(lead, { outcome: "lost", outcome_reason: "No response" }),
+        );
+      case "before_after":
+        return void action(downloadBeforeAfter);
+      case "find_contact":
+        window.open(`https://${lead.domain}`, "_blank", "noreferrer");
+        return;
+    }
+  }
   return (
     <Dialog
       open={!!lead}
@@ -253,14 +309,16 @@ export function LeadDetail({
                     {flags[lead.country]} {countryNames[lead.country]}
                   </span>
                 )}
-                <span>{lead.industry}</span>
+                {lead.industry && lead.industry !== "Unknown" && (
+                  <span>{lead.industry}</span>
+                )}
               </span>
               <span className="verified-label">
                 <ShieldCheck size={14} />
                 {demo
                   ? "Sample Shopify verification"
                   : "Shopify evidence verified"}{" "}
-                · {formatDate(lead.audited_at)}
+                · audited {formatDate(lead.audited_at)}
               </span>
             </div>
           </div>
@@ -277,71 +335,194 @@ export function LeadDetail({
             business was audited.
           </div>
         )}
-        <section className="lead-brief" aria-label="Lead research summary">
-          <dl>
+        <section className="lead-next" aria-labelledby="lead-next-title">
+          <div className="lead-next-head">
             <div>
-              <dt>Why this store?</dt>
+              <p className="lead-next-eyebrow">Next step</p>
+              <h3 id="lead-next-title">{next.title}</h3>
+              <p className="lead-next-detail">{next.detail}</p>
+            </div>
+            {next.action && (
+              <Button onClick={runNext} disabled={busy}>
+                {next.label}
+              </Button>
+            )}
+          </div>
+          <dl className="lead-next-why">
+            <div>
+              <dt>Why this store</dt>
               <dd>
-                <strong>{intelligence.main}</strong>
-                <p>{intelligence.reason}</p>
+                <strong>{intelligence.main}.</strong> {intelligence.reason}
               </dd>
             </div>
             <div>
-              <dt>What could we offer?</dt>
+              <dt>What to offer</dt>
               <dd>{intelligence.service}</dd>
             </div>
-            <div>
-              <dt>What happens next?</dt>
-              <dd>
-                <span className="review-state">{intelligence.review}</span>
+          </dl>
+        </section>
+        <section className="lead-reach" aria-label="Contact">
+          <div className="lead-reach-email">
+            <div className="detail-contact-heading">
+              <h3>
+                <Mail size={16} /> Contact
+              </h3>
+              {lead.preferred_email && (
                 <Button
                   size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    if (intelligence.stale) onAudit(lead);
-                    else if (intelligence.next === "Review findings")
-                      setTab("findings");
-                    else onOpenReview(lead);
-                  }}
-                  disabled={lead.suppressed || busy}
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() =>
+                    void action(() => onUpdate(lead, { preferred_email: null }))
+                  }
                 >
-                  {intelligence.next}
+                  Use automatic contact ranking
                 </Button>
-              </dd>
+              )}
             </div>
-          </dl>
-          <details className="brief-scope">
-            <summary>How this lead is assessed</summary>
-            <p className="muted">
-              Opportunity strength reflects the saved technical evidence.
-              Outreach approval is reviewed separately; a public email is not
-              approval.
-            </p>
-          </details>
-        </section>
-        <section className="lead-score" aria-label="Why this score">
-          <div className="lead-score-head">
-            <p className="lead-score-total">
-              <strong>{score.researchScore}</strong>
-              <span>/100</span>
-            </p>
-            <div>
-              <h3>Why this score</h3>
-              <p
-                className={
-                  score.eligible
-                    ? "lead-score-status ready"
-                    : "lead-score-status"
+            {lead.emails?.length ? (
+              <>
+                <PublicContactRow
+                  contact={intelligence.emails[0]}
+                  mail={lead.mail_checks}
+                  preferred={
+                    lead.preferred_email === intelligence.emails[0].email
+                  }
+                  busy={busy}
+                  onPrefer={(email) =>
+                    void action(() =>
+                      onUpdate(lead, { preferred_email: email }),
+                    )
+                  }
+                />
+                {intelligence.emails.length > 1 && (
+                  <details className="more-public-contacts">
+                    <summary>
+                      {intelligence.emails.length - 1} more public{" "}
+                      {intelligence.emails.length === 2
+                        ? "contact"
+                        : "contacts"}
+                    </summary>
+                    {intelligence.emails.slice(1).map((contact) => (
+                      <PublicContactRow
+                        key={contact.email}
+                        contact={contact}
+                        mail={lead.mail_checks}
+                        preferred={lead.preferred_email === contact.email}
+                        busy={busy}
+                        onPrefer={(email) =>
+                          void action(() =>
+                            onUpdate(lead, { preferred_email: email }),
+                          )
+                        }
+                      />
+                    ))}
+                  </details>
+                )}
+              </>
+            ) : (
+              <p>
+                No public email found in the pages checked. Review the contact
+                page in Outreach review.
+              </p>
+            )}
+          </div>
+          <ContactLog
+            contact={lead.contact ?? null}
+            closed={!!lead.outcome}
+            busy={busy}
+            onLog={(contact) =>
+              void action(() =>
+                onUpdate(lead, {
+                  contact: { ...contact, touches: lead.contact?.touches ?? 0 },
+                }),
+              )
+            }
+          />
+          <div className="lead-outcome">
+            <span className="lead-outcome-label">
+              {lead.outcome === "won"
+                ? "Won"
+                : lead.outcome === "lost"
+                  ? `Lost${lead.outcome_reason ? ` · ${lead.outcome_reason}` : ""}`
+                  : "Outcome"}
+            </span>
+            <div className="lead-outcome-actions">
+              <Button
+                type="button"
+                variant={lead.outcome === "won" ? "default" : "outline"}
+                disabled={busy || lead.outcome === "won"}
+                onClick={() =>
+                  void action(() =>
+                    onUpdate(lead, { outcome: "won", outcome_reason: null }),
+                  )
                 }
               >
-                {score.eligible
-                  ? `Priority ${score.grade}`
-                  : score.grade === "Hold"
-                    ? `Hold · needs ${score.blockers.join(" and ")}`
-                    : `Priority ${score.grade} after ${score.blockers.join(" and ")}`}
-              </p>
+                Mark won
+              </Button>
+              <select
+                aria-label="Reason this lead was lost"
+                value={lostReason}
+                disabled={busy}
+                onChange={(e) =>
+                  setLostReason(e.target.value as typeof lostReason)
+                }
+              >
+                {lostReasons.map((reason) => (
+                  <option key={reason}>{reason}</option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  void action(() =>
+                    onUpdate(lead, {
+                      outcome: "lost",
+                      outcome_reason: lostReason,
+                    }),
+                  )
+                }
+              >
+                Mark lost
+              </Button>
+              {lead.outcome && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() =>
+                    void action(() =>
+                      onUpdate(lead, { outcome: null, outcome_reason: null }),
+                    )
+                  }
+                >
+                  Clear
+                </Button>
+              )}
             </div>
           </div>
+        </section>
+        <details className="lead-score">
+          <summary>
+            <span className="lead-score-total">
+              <strong>{score.researchScore}</strong>
+              <span>/100</span>
+            </span>
+            <span
+              className={
+                score.eligible ? "lead-score-status ready" : "lead-score-status"
+              }
+            >
+              {score.eligible
+                ? `Priority ${score.grade}`
+                : score.grade === "Hold"
+                  ? `Hold · needs ${score.blockers.join(" and ")}`
+                  : `Priority ${score.grade} after ${score.blockers.join(" and ")}`}
+            </span>
+            <span className="lead-score-more">How it's scored</span>
+          </summary>
           <dl className="lead-score-parts">
             {score.parts.map((part) => (
               <div key={part.key}>
@@ -388,200 +569,37 @@ export function LeadDetail({
               </a>
             </p>
           )}
-        </section>
-        <ContactLog
-          contact={lead.contact ?? null}
-          closed={!!lead.outcome}
-          busy={busy}
-          onLog={(contact) =>
-            void action(() =>
-              onUpdate(lead, {
-                contact: { ...contact, touches: lead.contact?.touches ?? 0 },
-              }),
-            )
-          }
-        />
-        <section className="lead-outcome" aria-label="Sales outcome">
-          <h3>Outcome</h3>
-          <p className="muted">
-            {lead.outcome === "won"
-              ? "Marked as won. Search learning favors the query that found this store."
-              : lead.outcome === "lost"
-                ? `Marked as lost${lead.outcome_reason ? `: ${lead.outcome_reason}` : ""}.`
-                : "Record what happened so search learning can favor stores that become clients."}
+          <p className="muted lead-score-note">
+            The score is for research fit, not buying intent. Outreach approval
+            is reviewed separately; a public email is not approval.
           </p>
-          <div className="lead-outcome-actions">
-            <Button
-              type="button"
-              variant={lead.outcome === "won" ? "default" : "outline"}
-              disabled={busy || lead.outcome === "won"}
-              onClick={() =>
-                void action(() =>
-                  onUpdate(lead, { outcome: "won", outcome_reason: null }),
-                )
-              }
-            >
-              Mark won
-            </Button>
-            <select
-              aria-label="Reason this lead was lost"
-              value={lostReason}
-              disabled={busy}
-              onChange={(e) =>
-                setLostReason(e.target.value as typeof lostReason)
-              }
-            >
-              {lostReasons.map((reason) => (
-                <option key={reason}>{reason}</option>
-              ))}
-            </select>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={() =>
-                void action(() =>
-                  onUpdate(lead, {
-                    outcome: "lost",
-                    outcome_reason: lostReason,
-                  }),
-                )
-              }
-            >
-              Mark lost
-            </Button>
-            {lead.outcome && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={busy}
-                onClick={() =>
-                  void action(() =>
-                    onUpdate(lead, { outcome: null, outcome_reason: null }),
-                  )
-                }
-              >
-                Clear
-              </Button>
-            )}
-          </div>
-        </section>
-        <section
-          className="detail-contacts"
-          aria-label="Public email addresses"
-        >
-          <div className="detail-contact-heading">
-            <h3>
-              <Mail size={16} /> Public email
-            </h3>
-            {lead.preferred_email && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() =>
-                  void action(() => onUpdate(lead, { preferred_email: null }))
-                }
-              >
-                Use automatic contact ranking
-              </Button>
-            )}
-          </div>
-          {lead.emails?.length ? (
-            <>
-              <PublicContactRow
-                contact={intelligence.emails[0]}
-                mail={lead.mail_checks}
-                preferred={
-                  lead.preferred_email === intelligence.emails[0].email
-                }
-                busy={busy}
-                onPrefer={(email) =>
-                  void action(() => onUpdate(lead, { preferred_email: email }))
-                }
-              />
-              {intelligence.emails.length > 1 && (
-                <details className="more-public-contacts">
-                  <summary>
-                    {intelligence.emails.length - 1} more public{" "}
-                    {intelligence.emails.length === 2 ? "contact" : "contacts"}
-                  </summary>
-                  {intelligence.emails.slice(1).map((contact) => (
-                    <PublicContactRow
-                      key={contact.email}
-                      contact={contact}
-                      mail={lead.mail_checks}
-                      preferred={lead.preferred_email === contact.email}
-                      busy={busy}
-                      onPrefer={(email) =>
-                        void action(() =>
-                          onUpdate(lead, { preferred_email: email }),
-                        )
-                      }
-                    />
-                  ))}
-                </details>
-              )}
-            </>
-          ) : (
-            <p>
-              No public email found in the pages checked. Review the contact
-              page in Outreach review.
-            </p>
-          )}
-          {!!lead.emails?.length && (
-            <p>
-              Published on the store’s website. Domains are checked for a mail
-              server, but individual mailboxes aren’t confirmed.
-            </p>
-          )}
-        </section>
-        {lead.outcome === "won" && completedAudits < 2 && !demo && (
-          <p className="muted detail-hint">
-            Re-audit the store when your work is live to get a before-and-after
-            report for {lead.name}, and a case study for you.
-          </p>
-        )}
+        </details>
         <div className="detail-actions">
           <Button
             size="sm"
+            variant="outline"
             onClick={() => onReport(lead)}
             disabled={!lead.report_id}
           >
             <FileText size={16} />
             Download report
           </Button>
-          <Button size="sm" variant="outline" onClick={() => onAudit(lead)}>
-            <RefreshCw size={14} />
-            Re-audit store
-          </Button>
-          {!demo && completedAudits >= 2 && (
+          {!demo && completedAudits >= 2 && next.action !== "before_after" && (
             <Button
               size="sm"
               variant="outline"
               disabled={busy}
-              onClick={() =>
-                void action(async () => {
-                  const { url } = await api<{ url: string }>(
-                    `/leads/${lead.id}/before-after`,
-                    {},
-                  );
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.rel = "noreferrer";
-                  a.click();
-                })
-              }
+              onClick={() => void action(downloadBeforeAfter)}
             >
               <FileText size={14} />
               Before and after
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onOpenReview(lead)}
-          >
+          <Button size="sm" variant="ghost" onClick={() => onAudit(lead)}>
+            <RefreshCw size={14} />
+            Re-audit
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => onOpenReview(lead)}>
             <ShieldCheck size={14} />
             Outreach review
           </Button>
@@ -596,7 +614,7 @@ export function LeadDetail({
         </div>
         <div className="detail-tabs" role="tablist">
           {[
-            ["plan", "Plan & script"],
+            ["plan", "Email & plan"],
             ["findings", "Audit evidence"],
             ["history", "History & assets"],
             ["notes", "Profile & notes"],

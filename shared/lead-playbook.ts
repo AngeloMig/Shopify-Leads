@@ -1,6 +1,10 @@
 import { reportIssues } from "./audit-presentation.js";
 import { explainFinding } from "./finding-explanation.js";
-import { mailStatus, rankedEmails } from "./lead-intelligence.js";
+import {
+  mailStatus,
+  rankedEmails,
+  shortBusinessName,
+} from "./lead-intelligence.js";
 import type { Finding, Lead } from "./types.js";
 import {
   emptySender,
@@ -42,9 +46,20 @@ type PlaybookLead = Pick<
   | "preferred_email"
   | "mail_checks"
   | "contact_url"
-> & { industry?: string; contact_name?: string | null };
-const lowerFirst = (s: string) =>
-  /^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s;
+> & {
+  industry?: string;
+  contact_name?: string | null;
+  /** The service the lead panel leads with, so the email says the same. */
+  focus_service?: string;
+};
+const withArticle = (s: string) => `${/^[aeiou]/i.test(s) ? "an" : "a"} ${s}`;
+/** "Some text" → "some text", but JavaScript, Shopify and Google stay as they are. */
+const lowerFirst = (s: string) => {
+  const word = s.split(/\s/)[0];
+  return /^[A-Z][a-z]+$/.test(word) && !/^(Shopify|Google)$/.test(word)
+    ? s.charAt(0).toLowerCase() + s.slice(1)
+    : s;
+};
 const sentence = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
 const weight = { high: 0, medium: 1, low: 2 };
 const testedOn = (at: string | null) =>
@@ -128,7 +143,7 @@ export function leadPlaybook(
       call: null,
     };
   // One verified finding, one service, one next step: the most serious first.
-  const top = needs[0];
+  const top = needs.find((n) => n.service === lead.focus_service) ?? needs[0];
   const problem = top.problems[0];
   const speed = /performance|image|asset|javascript/i.test(top.service);
   const scored =
@@ -139,13 +154,17 @@ export function leadPlaybook(
     ...(scored ? [scored] : []),
     ...needs.flatMap((n) => n.problems).slice(0, 3),
   ];
-  const suggested = needs.slice(0, 3).map((n) => n.service);
+  const suggested = [
+    top.service,
+    ...needs.filter((n) => n !== top).map((n) => n.service),
+  ].slice(0, 3);
   const firstName = lead.contact_name?.trim().split(/\s+/)[0];
-  const hello = `Hi ${firstName || `${lead.name} team`},`;
+  // "Tero · A studio for the bath" is a page title; people say "Tero".
+  const hello = `Hi ${firstName || `${shortBusinessName(lead.name, lead.domain)} team`},`;
   const offer = offerLine(sender);
   const firstStep = offer
     ? `our ${lowerFirst(offer)}`
-    : `a ${lowerFirst(top.service)}`;
+    : withArticle(lowerFirst(top.service));
   const signature = [
     me,
     company,

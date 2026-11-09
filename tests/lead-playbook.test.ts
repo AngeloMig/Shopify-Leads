@@ -193,6 +193,28 @@ describe("The three-email sequence", () => {
     expect(body).toContain("grant@riverastudio.example\n+61 400 000 000");
     expect(body).not.toContain("Where we could help");
   });
+  it("leads with the same need the lead panel shows", () => {
+    const plan = leadPlaybook(
+      {
+        ...lead({
+          findings: [
+            finding({
+              id: "a",
+              category: "Accessibility",
+              title: "Links do not have a discernible name",
+              severity: "high",
+            }),
+            finding({ id: "b" }),
+          ],
+        }),
+        focus_service: "JavaScript and third-party app performance review",
+      },
+      { ...me, offer_name: "" },
+    );
+    expect(plan.emails!.first.body).toContain(
+      "would be a JavaScript and third-party app performance review.",
+    );
+  });
   it("greets the contact person by first name", () => {
     const plan = leadPlaybook({ ...lead(), contact_name: "Jamie Oak" }, me);
     expect(plan.emails!.first.body).toMatch(/^Hi Jamie,/);

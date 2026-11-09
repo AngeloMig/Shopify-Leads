@@ -107,6 +107,9 @@ describe("Lead decisions and contacts", () => {
         "eniandko.com.au",
       ),
     ).toBe("ENI&KO Australia");
+    expect(shortBusinessName("Tero · A studio for the bath", "tero.au")).toBe(
+      "Tero",
+    );
     expect(
       shortBusinessName(
         "Vestique | Womens Online Boutique | Fashion Dress Clothing Store",
