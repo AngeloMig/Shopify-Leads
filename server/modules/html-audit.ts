@@ -356,6 +356,12 @@ export function inspectHtml(
     ["Google Tag Manager", /googletagmanager\.com\/gtm\.js/],
     ["Google Analytics", /googletagmanager\.com\/gtag\/js/],
     ["Meta Pixel", /connect\.facebook\.net\/.*fbevents/],
+    [
+      "Google Ads",
+      /googleadservices\.com\/pagead\/conversion|gtag\(\s*['"]config['"]\s*,\s*['"]AW-\d+/,
+    ],
+    ["TikTok Pixel", /analytics\.tiktok\.com\/i18n\/pixel/],
+    ["Pinterest Tag", /s\.pinimg\.com\/ct\/core\.js/],
   ].flatMap(([vendor, pattern]) => {
     const match = html.match(pattern as RegExp);
     return match ? [{ vendor: String(vendor), evidence: match[0] }] : [];

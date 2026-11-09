@@ -9,7 +9,13 @@ import { brandSize, type BrandEvidence, type BrandSize } from "./brand-size.js";
 import type { Finding, Lead, PublicEmail } from "./types.js";
 
 export type TimingSignal = {
-  kind: "new_products" | "catalog_growth" | "score_drop" | "new_tool";
+  kind:
+    | "new_products"
+    | "catalog_growth"
+    | "score_drop"
+    | "new_tool"
+    | "paid_ads"
+    | "new_store";
   label: string;
   evidence: string;
   source_url?: string;
@@ -20,11 +26,23 @@ export type PriorAudit = {
   catalog?: CatalogEvidence | null;
   technologies?: string[] | null;
 };
+/** Ad tags: the store pays for visitors, so a slow phone page wastes that spend. */
+export const adTools = [
+  "Meta Pixel",
+  "Google Ads",
+  "TikTok Pixel",
+  "Pinterest Tag",
+];
+const newStoreDays = 120,
+  newStoreProducts = 3;
 const newProductDays = 30,
   scoreDropPoints = 10,
   growthProducts = 3,
   growthRatio = 1.1;
-/** Observed reasons to contact a store now. None of these imply buying intent. */
+/**
+ * Observed reasons to contact a store now. None of these prove buying
+ * intent: they're timing, such as a new store or one paying for traffic.
+ */
 export function detectTiming(
   current: {
     performance: number | null;
@@ -42,6 +60,29 @@ export function detectTiming(
       kind: "new_products",
       label: "New products",
       evidence: `Newest product published ${age === 0 ? "today" : `${age} ${age === 1 ? "day" : "days"} ago`}.`,
+      source_url: catalog.source_url,
+    });
+  const ads = (current.technologies ?? []).filter((t) => adTools.includes(t));
+  if (ads.length)
+    signals.push({
+      kind: "paid_ads",
+      label: "Pays for ads",
+      evidence: `Has the ${ads.join(" and ")} ${ads.length === 1 ? "tag" : "tags"}, so it pays for visitors. A slow phone page wastes that spend.`,
+    });
+  // Only when the whole catalog fits in one page: otherwise older products
+  // may be on pages we didn't read.
+  const storeAge = daysSince(catalog?.oldest_published_at, at);
+  if (
+    catalog &&
+    !catalog.count_capped &&
+    catalog.product_count >= newStoreProducts &&
+    storeAge !== null &&
+    storeAge <= newStoreDays
+  )
+    signals.push({
+      kind: "new_store",
+      label: "New or relaunched store",
+      evidence: `Every product in its catalog went live in the last ${storeAge} days, so the store looks new or relaunched.`,
       source_url: catalog.source_url,
     });
   if (!prior) return signals;
@@ -70,8 +111,9 @@ export function detectTiming(
     });
   // Without a recorded baseline, every tool would look new.
   if (prior.technologies && current.technologies) {
+    // Ad tags have their own signal, and older audits didn't look for all.
     const added = current.technologies.filter(
-      (tool) => !prior.technologies!.includes(tool),
+      (tool) => !prior.technologies!.includes(tool) && !adTools.includes(tool),
     );
     if (added.length)
       signals.push({
@@ -84,6 +126,8 @@ export function detectTiming(
 }
 const timingStrength: Record<TimingSignal["kind"], number> = {
   score_drop: 1,
+  paid_ads: 0.8,
+  new_store: 0.7,
   new_tool: 0.75,
   catalog_growth: 0.6,
   new_products: 0.5,

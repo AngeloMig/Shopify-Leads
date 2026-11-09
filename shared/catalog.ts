@@ -7,6 +7,8 @@ export type CatalogEvidence = {
   /** True when the count is one full page, so the real catalog may be larger. */
   count_capped: boolean;
   newest_published_at: string | null;
+  /** The oldest product's publish date: the store's age, when not capped. */
+  oldest_published_at?: string | null;
   last_updated_at: string | null;
   /** In the store's own currency, which the public feed does not state. */
   median_price: number | null;
@@ -30,6 +32,12 @@ const latest = (values: unknown[]) => {
     .map((value) => (typeof value === "string" ? Date.parse(value) : NaN))
     .filter(Number.isFinite);
   return times.length ? new Date(Math.max(...times)).toISOString() : null;
+};
+const earliest = (values: unknown[]) => {
+  const times = values
+    .map((value) => (typeof value === "string" ? Date.parse(value) : NaN))
+    .filter(Number.isFinite);
+  return times.length ? new Date(Math.min(...times)).toISOString() : null;
 };
 /** Returns null unless the response really has the shape of a Shopify product feed. */
 export function summarizeCatalog(
@@ -57,6 +65,7 @@ export function summarizeCatalog(
     product_count: rows.length,
     count_capped: rows.length >= catalogPageSize,
     newest_published_at: latest(rows.map((p) => p.published_at)),
+    oldest_published_at: earliest(rows.map((p) => p.published_at)),
     last_updated_at: latest(rows.map((p) => p.updated_at)),
     median_price: prices.length ? prices[Math.floor(prices.length / 2)] : null,
     min_price: prices[0] ?? null,
