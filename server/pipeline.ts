@@ -700,7 +700,15 @@ export async function executeJob(
         },
       },
     );
-    if (reason) {
+    // A requested audit is for someone who asked for one: report on any site.
+    const requested = job.payload.requested === true;
+    if (reason && requested)
+      await emit(
+        "verify",
+        "note",
+        "Requested audit: continuing without the prospecting checks",
+      );
+    if (reason && !requested) {
       for (const stage of ["measure", "inspect", "report"] as const)
         await emit(
           stage,
@@ -886,7 +894,7 @@ export async function executeJob(
       },
       config,
     );
-    if (!screening) {
+    if (!screening && !requested) {
       await emit(
         "measure",
         "completed",

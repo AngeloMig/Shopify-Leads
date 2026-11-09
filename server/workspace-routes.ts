@@ -664,6 +664,78 @@ export function registerWorkspaceRoutes(
       res.json({ ok: true });
     }),
   );
+  // A free-audit request: one website someone asked us to review. It runs the
+  // same audit and PDF as discovered leads, without the prospecting checks.
+  app.post(
+    "/api/audits/request",
+    route(async (req, res) => {
+      const input = z
+        .object({ url: z.string().trim().min(1).max(2000) })
+        .parse(req.body);
+      let domain: string;
+      try {
+        domain = normalizeDomain(input.url);
+        await validateTarget(`https://${domain}`);
+      } catch {
+        return res
+          .status(400)
+          .json({ error: "Enter a public website address, like store.com." });
+      }
+      const suppressed = await checked(
+        db()
+          .from("suppression_list")
+          .select("id")
+          .eq("organization_id", res.locals.org)
+          .eq("domain", domain),
+      );
+      if (suppressed.length)
+        return res
+          .status(409)
+          .json({ error: "This website opted out. It can't be audited." });
+      const q = await checked(
+        db()
+          .from("discovery_queries")
+          .select("config")
+          .eq("organization_id", res.locals.org)
+          .order("created_at")
+          .limit(1),
+      );
+      if (!q[0]?.config)
+        return res
+          .status(400)
+          .json({
+            error: "Save discovery settings before requesting an audit.",
+          });
+      await checked(
+        db()
+          .from("discovered_stores")
+          .upsert(
+            {
+              organization_id: res.locals.org,
+              domain,
+              name: domain,
+              source_url: `https://${domain}`,
+              source_provider: "audit-request",
+            },
+            { onConflict: "organization_id,domain", ignoreDuplicates: true },
+          ),
+      );
+      const store = await checked(
+        db()
+          .from("discovered_stores")
+          .select("id")
+          .eq("organization_id", res.locals.org)
+          .eq("domain", domain)
+          .single(),
+      );
+      const job = await enqueue(res.locals.org, "audit", `audit:${store.id}`, {
+        store_id: store.id,
+        config: q[0].config,
+        requested: true,
+      });
+      res.status(job ? 202 : 200).json({ domain, job, already_queued: !job });
+    }),
+  );
   const importSchema = z.object({
     domains: z.array(z.string().max(2000)).min(1).max(50),
     query_id: uuid,
