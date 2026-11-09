@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarClock, HardHat, Mail, Phone, ShieldCheck } from "lucide-react";
-import { contactLabel, followUpLabel, isDue } from "../../shared/contact-log";
+import {
+  contactLabel,
+  emailStepLabel,
+  followUpLabel,
+  isDue,
+  nextEmailStep,
+} from "../../shared/contact-log";
 import { leadScoreFor } from "../../shared/lead-score";
 import type { LocalBusiness } from "../../shared/local-business";
 import { prospectScore, type Prospect } from "../../shared/local-prospect";
@@ -63,7 +69,12 @@ export function TodayPage({
       (a, b) => leadScoreFor(b).researchScore - leadScoreFor(a).researchScore,
     )
     .slice(0, 8);
-  const waiting = open.filter((l) => l.permission === "unknown").length;
+  const waitingLeads = open.filter((l) => l.permission === "unknown");
+  const waiting = waitingLeads.length;
+  // Priority A on research alone: the ones worth reviewing first.
+  const strong = waitingLeads.filter(
+    (l) => leadScoreFor(l).researchScore >= 70,
+  ).length;
   const nothing = !due.length && !ready.length && !waiting && !local?.length;
 
   return (
@@ -75,10 +86,11 @@ export function TodayPage({
             <strong>
               {waiting} {waiting === 1 ? "store is" : "stores are"} waiting for
               outreach review
+              {strong > 0 && `, ${strong} of them Priority A`}
             </strong>
             <p>
-              Approved stores show up here, ready to email. Keys A, N and S make
-              it quick.
+              The strongest come first. Approved stores show up here, ready to
+              email. Keys A, N and S make it quick.
             </p>
           </div>
           <Button onClick={onStartReview}>Start review</Button>
@@ -106,6 +118,15 @@ export function TodayPage({
                 </button>
                 <span className="today-when">
                   {followUpLabel(l.contact!.follow_up_at!)}
+                  {l.contact!.kind === "emailed" &&
+                    nextEmailStep(l.contact!.emails) && (
+                      <small>
+                        Send the{" "}
+                        {emailStepLabel[
+                          nextEmailStep(l.contact!.emails)!
+                        ].toLowerCase()}
+                      </small>
+                    )}
                 </span>
               </li>
             ))}

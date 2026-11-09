@@ -110,9 +110,16 @@ button.today-name:hover strong {
 }
 .today-when {
   flex: none;
+  display: grid;
+  justify-items: end;
+  gap: 2px;
   color: var(--primary-dark);
   font-size: 12px;
   font-weight: 600;
+}
+.today-when small {
+  color: var(--muted);
+  font-weight: 400;
 }
 .today-score {
   flex: none;
