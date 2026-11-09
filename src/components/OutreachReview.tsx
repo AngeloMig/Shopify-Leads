@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,6 +14,9 @@ import { leadIntelligence } from "../../shared/lead-intelligence";
 import { leadScoreFor } from "../../shared/lead-score";
 import {
   approvalNeeds,
+  countryFromDomain,
+  countryNoteFromDomain,
+  minCountryNote,
   minRationale,
   minSuppressReason,
   nextInQueue,
@@ -22,7 +25,7 @@ import {
   suggestedApproval,
   type ReviewCheck,
 } from "../../shared/outreach-review";
-import { countryNames, type Lead } from "../../shared/types";
+import { countryNames, type Country, type Lead } from "../../shared/types";
 import { Button } from "./ui/button";
 import { Dialog } from "./ui/dialog";
 
@@ -37,7 +40,13 @@ const decisionLabels = {
   rejected: "Marked not eligible",
   unknown: "Waiting for your decision",
 };
-function CheckRow({ check }: { check: ReviewCheck }) {
+function CheckRow({
+  check,
+  children,
+}: {
+  check: ReviewCheck;
+  children?: ReactNode;
+}) {
   const Icon = checkIcons[check.status];
   return (
     <li className={`review-check ${check.status}`}>
@@ -52,8 +61,100 @@ function CheckRow({ check }: { check: ReviewCheck }) {
         ) : (
           <span>{check.detail}</span>
         )}
+        {children}
       </div>
     </li>
+  );
+}
+/** The override for a missing country: you say which, and where you saw it. */
+function CountryConfirm({
+  lead,
+  onConfirm,
+}: {
+  lead: Lead;
+  onConfirm: (lead: Lead, country: Country, note: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false),
+    [country, setCountry] = useState<Country | "">(
+      countryFromDomain(lead.domain) ?? "",
+    ),
+    [note, setNote] = useState(countryNoteFromDomain(lead.domain)),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  if (!open)
+    return (
+      <button
+        type="button"
+        className="text-button review-country-open"
+        onClick={() => setOpen(true)}
+      >
+        Confirm the country
+      </button>
+    );
+  const ready = !!country && note.trim().length >= minCountryNote && !busy;
+  return (
+    <form
+      className="review-country"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!ready) return;
+        setBusy(true);
+        setError("");
+        try {
+          await onConfirm(lead, country as Country, note.trim());
+        } catch (err) {
+          setError(
+            err instanceof Error ? err.message : "The country wasn't saved.",
+          );
+          setBusy(false);
+        }
+      }}
+    >
+      <label className="field-label">
+        Country
+        <select
+          value={country}
+          onChange={(e) => setCountry(e.target.value as Country)}
+        >
+          <option value="" disabled>
+            Choose…
+          </option>
+          {(Object.keys(countryNames) as Country[]).map((c) => (
+            <option key={c} value={c}>
+              {countryNames[c]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field-label">
+        Where you saw it
+        <input
+          value={note}
+          maxLength={500}
+          placeholder="Example: Sydney address on the contact page"
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </label>
+      {error && (
+        <p className="error-message" role="alert">
+          {error}
+        </p>
+      )}
+      <div>
+        <Button size="sm" type="submit" disabled={!ready}>
+          {busy && <LoaderCircle size={14} className="spin" />}
+          Save country
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          type="button"
+          onClick={() => setOpen(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
 /** Records one human decision at a time. Nothing here sends a message. */
@@ -64,6 +165,7 @@ export function OutreachReview({
   demo,
   onReview,
   onSuppress,
+  onConfirmCountry,
   onOpenFull,
   onClose,
 }: {
@@ -77,6 +179,11 @@ export function OutreachReview({
     rationale: string,
   ) => Promise<void>;
   onSuppress: (lead: Lead, reason: string) => Promise<void>;
+  onConfirmCountry: (
+    lead: Lead,
+    country: Country,
+    note: string,
+  ) => Promise<void>;
   onOpenFull: (lead: Lead) => void;
   onClose: () => void;
 }) {
@@ -242,7 +349,15 @@ export function OutreachReview({
             <h3 id="review-checks-title">Checks</h3>
             <ul>
               {checks.map((check) => (
-                <CheckRow check={check} key={check.id} />
+                <CheckRow check={check} key={check.id}>
+                  {check.id === "country" && check.status === "blocked" && (
+                    <CountryConfirm
+                      key={lead.id}
+                      lead={lead}
+                      onConfirm={onConfirmCountry}
+                    />
+                  )}
+                </CheckRow>
               ))}
             </ul>
             <details className="review-why">

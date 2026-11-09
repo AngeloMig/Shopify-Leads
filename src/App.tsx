@@ -69,7 +69,9 @@ import { leadScoreFor } from "../shared/lead-score";
 import type { AlertFeed } from "../shared/alerts";
 import { api, supabase, number, formatDate, downloadBlob } from "./lib";
 import {
+  countryNames,
   defaultSettings,
+  type Country,
   type Snapshot,
   type Lead,
   type DiscoverySettings,
@@ -465,6 +467,20 @@ export default function App() {
     notify(
       `${demo ? "Sample " : ""}eligibility review saved. No outreach was sent.`,
     );
+  }
+  async function confirmCountry(lead: Lead, country: Country, note: string) {
+    const country_evidence = `Confirmed by the reviewer: ${note}`;
+    if (demo)
+      updateDemo(
+        data.leads.map((l) =>
+          l.id === lead.id ? { ...l, country, country_evidence } : l,
+        ),
+      );
+    else {
+      await api(`/leads/${lead.id}/country`, { country, note });
+      await refresh();
+    }
+    notify(`Country saved as ${countryNames[country]}.`);
   }
   async function suppress(lead: Lead, reason: string) {
     if (demo)
@@ -1549,6 +1565,7 @@ export default function App() {
           demo={demo}
           onReview={review}
           onSuppress={suppress}
+          onConfirmCountry={confirmCountry}
           onOpenFull={(lead) => {
             setReviewQueue(null);
             setSelectedLead(lead);

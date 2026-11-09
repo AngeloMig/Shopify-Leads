@@ -20,6 +20,7 @@ import { registerJobActivityRoutes } from "./job-activity-routes.js";
 import { createReport, reportAgency, reportVersion } from "./modules/report.js";
 import { createBeforeAfterReport } from "./modules/before-after-report.js";
 import { readSender } from "../shared/sender.js";
+import { minCountryNote } from "../shared/outreach-review.js";
 import type { Finding, PsiSample } from "../shared/types.js";
 import { publishSavedReport } from "./lib/stored-report.js";
 import { lostReasons } from "../shared/types.js";
@@ -420,7 +421,27 @@ app.post("/api/leads/:id/permission", async (req, res, next) => {
         .eq("organization_id", res.locals.org)
         .single(),
     );
-    if (!store.country || !store.country_evidence || !store.contact_url)
+    // Only an approval needs these; saying no never does. A public email
+    // is a way to reach them too, when there's no contact page.
+    const emailed =
+      !!store.preferred_email ||
+      (
+        await checked(
+          db()
+            .from("contacts")
+            .select("id")
+            .eq("organization_id", res.locals.org)
+            .eq("store_id", store.id)
+            .like("route", "mailto:%")
+            .limit(1),
+        )
+      ).length > 0;
+    if (
+      data.status === "approved" &&
+      (!store.country ||
+        !store.country_evidence ||
+        (!store.contact_url && !emailed))
+    )
       return res.status(400).json({
         error:
           "Verified country evidence and a public professional contact route are required.",
@@ -438,7 +459,7 @@ app.post("/api/leads/:id/permission", async (req, res, next) => {
       ...data,
       organization_id: res.locals.org,
       store_id: store.id,
-      country: store.country,
+      country: store.country ?? "unknown",
       reviewed_by: res.locals.user.id,
       expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
     });
@@ -450,6 +471,44 @@ app.post("/api/leads/:id/permission", async (req, res, next) => {
       details: { rationale: data.rationale },
     });
     res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+// The reviewer confirms the country Scout couldn't find, and says where.
+app.post("/api/leads/:id/country", async (req, res, next) => {
+  try {
+    admin(res);
+    const data = z
+      .object({
+        country: z.enum(["US", "GB", "CA", "AU"]),
+        note: z.string().trim().min(minCountryNote).max(500),
+      })
+      .parse(req.body);
+    const lead = await checked(
+      db()
+        .from("leads")
+        .select("store_id")
+        .eq("id", uuid.parse(req.params.id))
+        .eq("organization_id", res.locals.org)
+        .single(),
+    );
+    const country_evidence = `Confirmed by the reviewer: ${data.note}`;
+    await checked(
+      db()
+        .from("discovered_stores")
+        .update({ country: data.country, country_evidence })
+        .eq("id", lead.store_id)
+        .eq("organization_id", res.locals.org),
+    );
+    await insert("lead_activities", {
+      organization_id: res.locals.org,
+      lead_id: req.params.id,
+      actor: res.locals.user.id,
+      action: "country_confirmed",
+      details: { country: data.country, note: data.note },
+    });
+    res.json({ country: data.country, country_evidence });
   } catch (e) {
     next(e);
   }

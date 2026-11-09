@@ -1104,6 +1104,38 @@
 .review-check.blocked span {
   color: var(--red);
 }
+.review-check .review-country-open {
+  margin-top: 4px;
+  font-size: 12.5px;
+}
+.review-country {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.review-country .field-label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+.review-country select,
+.review-country input {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface, transparent);
+  color: var(--ink);
+  font: inherit;
+}
+.review-country > div {
+  display: flex;
+  gap: 6px;
+}
 .review-why {
   margin-top: 14px;
   padding-top: 11px;
