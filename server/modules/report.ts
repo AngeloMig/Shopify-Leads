@@ -22,7 +22,7 @@ import {
   portfolioLabel,
   type Sender,
 } from "../../shared/sender.js";
-export const reportVersion = "v4";
+export const reportVersion = "v5";
 export const reportAgency = (fallback: string) =>
   process.env.AGENCY_NAME?.trim() &&
   !/^your shopify agency$/i.test(process.env.AGENCY_NAME.trim())
@@ -132,6 +132,38 @@ const pageName = (url: string) => {
     return url;
   }
 };
+
+/**
+ * The store's own number on the "Why speed on a phone matters" page. It
+ * agrees with page 1: when Google's phone test is slow but real visitors
+ * are fast, the test leads and real visitors are named beside it, so the
+ * card never argues against the report.
+ */
+export function phoneSpeedCard(lab: number | null, real: number | null) {
+  const short = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+  const long = (ms: number) => `${(ms / 1000).toFixed(1)} seconds`;
+  const target = 2500;
+  if (lab === null && real === null)
+    return {
+      big: "Your store",
+      text: "This check didn't record a reliable phone speed, so we can't compare it yet.",
+      source: "Google PageSpeed Insights, this check",
+    };
+  if (real !== null && (real > target || lab === null || lab <= target))
+    return {
+      big: short(real),
+      text: `How long 3 in 4 of your real phone visitors waited for the main content. ${real > target ? "Google's target is 2.5 seconds." : "That's within Google's 2.5-second target."}`,
+      source: "Chrome UX Report for your site",
+    };
+  return {
+    big: short(lab!),
+    text: `How long the main content took to appear in Google's phone test, which acts like a mid-range phone on a slower connection. Google's target is 2.5 seconds.${real !== null ? ` Your real phone visitors see it sooner (3 in 4 within ${long(real)}), but shoppers on slower phones and networks wait closer to this.` : ""}`,
+    source:
+      real !== null
+        ? "Google PageSpeed Insights, this check · Chrome UX Report"
+        : "Google PageSpeed Insights, this check",
+  };
+}
 
 export async function createReport(input: ReportInput): Promise<Buffer> {
   const M = 48,
@@ -619,17 +651,8 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
   };
   // The store's own number takes the last slot, in black, so it reads as
   // the answer to the facts before it.
-  const shown = realLcp ?? lcp;
   const yours = {
-    big: shown === null ? "Your store" : secs(shown).replace(" seconds", "s"),
-    text:
-      shown === null
-        ? "This check didn't record a reliable phone speed, so we can't compare it yet."
-        : `${realLcp !== null ? "How long 3 in 4 of your real phone visitors waited" : "How long your home page took on a phone in Google's test"} for the main content. Google's target is 2.5 seconds.`,
-    source:
-      realLcp !== null
-        ? "Chrome UX Report for your site"
-        : "Google PageSpeed Insights, this check",
+    ...phoneSpeedCard(lcp, realLcp),
     dark: true,
   };
   const cards = [...phoneFacts.map((f) => ({ ...f, dark: false })), yours];
