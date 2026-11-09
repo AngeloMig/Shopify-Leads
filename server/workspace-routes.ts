@@ -243,6 +243,38 @@ export function registerWorkspaceRoutes(
       );
     }),
   );
+  // Who to write to at this lead, e.g. the founder named on their About page.
+  app.post(
+    "/api/leads/:id/contact-person",
+    route(async (req, res) => {
+      const id = uuid.parse(req.params.id);
+      const input = z
+        .object({
+          name: z.string().trim().max(120),
+          role: z.string().trim().max(120).default(""),
+        })
+        .strict()
+        .parse(req.body);
+      const lead = await checked(
+        db()
+          .from("leads")
+          .update({ updated_at: now() })
+          .eq("organization_id", res.locals.org)
+          .eq("id", id)
+          .select("id")
+          .maybeSingle(),
+      );
+      if (!lead) return res.status(404).json({ error: "Lead not found" });
+      await insert("lead_activities", {
+        organization_id: res.locals.org,
+        lead_id: id,
+        actor: res.locals.user.id,
+        action: "contact_person",
+        details: input,
+      });
+      res.json(input.name ? input : null);
+    }),
+  );
   app.post(
     "/api/leads/:id/contact",
     route(async (req, res) => {

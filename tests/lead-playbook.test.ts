@@ -6,6 +6,7 @@ import {
   callText,
 } from "../shared/lead-playbook";
 import type { Finding } from "../shared/types";
+import { emptySender } from "../shared/sender";
 
 const finding = (over: Partial<Finding> = {}): Finding => ({
   id: "f1",
@@ -137,6 +138,7 @@ describe("leadPlaybook", () => {
 
 describe("leadPlaybook with your details", () => {
   const me = {
+    ...emptySender,
     name: "Grant Rivera",
     company: "Rivera Studio",
     address: "1 Example St, Brisbane QLD",
@@ -168,9 +170,50 @@ describe("leadPlaybook with your details", () => {
   });
 });
 
+describe("The three-email sequence", () => {
+  const me = {
+    ...emptySender,
+    name: "Grant Rivera",
+    company: "Rivera Studio",
+    email: "grant@riverastudio.example",
+    phone: "+61 400 000 000",
+    booking_url: "https://cal.example/grant",
+    offer_name: "Mobile product-page review",
+    offer_price: "From $450",
+    offer_scope: "We review your product page on mobile and send a fix plan",
+  };
+  it("leads with one finding, the offer and how to reach you", () => {
+    const { subject, body } = leadPlaybook(lead(), me).emails!.first;
+    expect(subject).toMatch(/^Noticed on oakash\.example: /);
+    expect(body).toContain("One thing stood out:");
+    expect(body).toContain(
+      "our mobile product-page review (from $450): we review your product page on mobile and send a fix plan.",
+    );
+    expect(body).toContain("pick a time here: https://cal.example/grant");
+    expect(body).toContain("grant@riverastudio.example\n+61 400 000 000");
+    expect(body).not.toContain("Where we could help");
+  });
+  it("greets the contact person by first name", () => {
+    const plan = leadPlaybook({ ...lead(), contact_name: "Jamie Oak" }, me);
+    expect(plan.emails!.first.body).toMatch(/^Hi Jamie,/);
+    expect(plan.emails!.final.body).toMatch(/^Hi Jamie,/);
+  });
+  it("writes a follow-up and a final email that each allow opting out", () => {
+    const { follow_up, final, first } = leadPlaybook(lead(), me).emails!;
+    expect(follow_up.subject).toBe(first.subject);
+    expect(follow_up.body).toContain("Following up on my note");
+    expect(final.body).toContain("close the loop");
+    for (const e of [follow_up, final])
+      expect(e.body).toMatch(/won't contact you again/);
+    expect(`${follow_up.body} ${final.body}`).not.toMatch(
+      /revenue|sales|conversion|guarantee|increase/i,
+    );
+  });
+});
 describe("leadPlaybook with matching work", () => {
   it("points to a project in the store's industry instead of the portfolio", () => {
     const sender = {
+      ...emptySender,
       name: "Grant",
       company: "Studio",
       address: "",

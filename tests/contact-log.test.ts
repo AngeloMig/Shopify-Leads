@@ -1,11 +1,27 @@
 import { describe, it, expect } from "vitest";
 import {
   addDays,
+  followUpDays,
   followUpLabel,
+  nextEmailStep,
   isDue,
   readContactLog,
 } from "../shared/contact-log";
 
+describe("The email sequence", () => {
+  it("follows up on day 6, closes the loop a week later, then stops", () => {
+    expect(followUpDays("emailed", 0)).toBe(6);
+    expect(followUpDays("emailed", 1)).toBe(7);
+    expect(followUpDays("emailed", 2)).toBeNull();
+    expect(followUpDays("called", 2)).toBe(3);
+  });
+  it("picks the next email from how many were sent", () => {
+    expect(nextEmailStep(0)).toBe("first");
+    expect(nextEmailStep(1)).toBe("follow_up");
+    expect(nextEmailStep(2)).toBe("final");
+    expect(nextEmailStep(3)).toBeNull();
+  });
+});
 describe("The contact log", () => {
   it("keeps each lead's latest contact and counts the touches", () => {
     const log = readContactLog([
@@ -30,6 +46,7 @@ describe("The contact log", () => {
       at: "2026-11-07T10:00:00Z",
       follow_up_at: "2026-11-08",
       touches: 2,
+      emails: 1,
     });
     expect(log.has("b")).toBe(false);
   });

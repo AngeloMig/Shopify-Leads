@@ -1,5 +1,9 @@
 import { db, checked } from "./lib/db.js";
-import { readContactLog, type ContactRow } from "../shared/contact-log.js";
+import {
+  readContactLog,
+  readContactPeople,
+  type ContactRow,
+} from "../shared/contact-log.js";
 import { leadScore } from "../shared/lead-score.js";
 import { shortBusinessName } from "../shared/lead-intelligence.js";
 import { listWork } from "../shared/job-activity.js";
@@ -140,14 +144,19 @@ export async function loadLeads(
     checked(
       db()
         .from("lead_activities")
-        .select("lead_id,details,created_at")
+        .select("lead_id,action,details,created_at")
         .eq("organization_id", org)
-        .eq("action", "contact_logged")
+        .in("action", ["contact_logged", "contact_person"])
         .in("lead_id", leadIds)
         .limit(5000),
-    ) as Promise<ContactRow[]>,
+    ) as Promise<(ContactRow & { action: string })[]>,
   ]);
-  const contactLog = readContactLog(touches);
+  const contactLog = readContactLog(
+    touches.filter((t) => t.action === "contact_logged"),
+  );
+  const people = readContactPeople(
+    touches.filter((t) => t.action === "contact_person") as never,
+  );
   return leadRows
     .map((l): Lead | null => {
       const s = l.store;
@@ -257,6 +266,7 @@ export async function loadLeads(
         outcome_reason: l.outcome_reason ?? null,
         outcome_at: l.outcome_at ?? null,
         contact: contactLog.get(l.id) ?? null,
+        contact_person: people.get(l.id) ?? null,
         permission: approved
           ? "approved"
           : permission?.status === "rejected"

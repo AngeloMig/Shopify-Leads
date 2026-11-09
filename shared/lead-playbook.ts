@@ -5,9 +5,11 @@ import type { Finding, Lead } from "./types.js";
 import {
   emptySender,
   matchingWork,
+  offerLine,
   portfolioLabel,
   type Sender,
 } from "./sender.js";
+import type { EmailStep } from "./contact-log.js";
 
 export type PlanNeed = {
   service: string;
@@ -24,7 +26,9 @@ export type LeadPlaybook = {
   toConfirm: string[];
   questions: string[];
   contact: string | null;
+  /** The first email; `emails` has the whole three-email sequence. */
   email: { subject: string; body: string } | null;
+  emails: Record<EmailStep, { subject: string; body: string }> | null;
   call: { label: string; text: string }[] | null;
 };
 type PlaybookLead = Pick<
@@ -38,7 +42,10 @@ type PlaybookLead = Pick<
   | "preferred_email"
   | "mail_checks"
   | "contact_url"
-> & { industry?: string };
+> & { industry?: string; contact_name?: string | null };
+const lowerFirst = (s: string) =>
+  /^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s;
+const sentence = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
 const weight = { high: 0, medium: 1, low: 2 };
 const testedOn = (at: string | null) =>
   at
@@ -117,8 +124,13 @@ export function leadPlaybook(
       questions,
       contact,
       email: null,
+      emails: null,
       call: null,
     };
+  // One verified finding, one service, one next step: the most serious first.
+  const top = needs[0];
+  const problem = top.problems[0];
+  const speed = /performance|image|asset|javascript/i.test(top.service);
   const scored =
     lead.performance === null
       ? null
@@ -128,31 +140,81 @@ export function leadPlaybook(
     ...needs.flatMap((n) => n.problems).slice(0, 3),
   ];
   const suggested = needs.slice(0, 3).map((n) => n.service);
+  const firstName = lead.contact_name?.trim().split(/\s+/)[0];
+  const hello = `Hi ${firstName || `${lead.name} team`},`;
+  const offer = offerLine(sender);
+  const firstStep = offer
+    ? `our ${lowerFirst(offer)}`
+    : `a ${lowerFirst(top.service)}`;
+  const signature = [
+    me,
+    company,
+    sender.email,
+    sender.phone,
+    sender.address || "[Your business address]",
+    work,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const booking = sender.booking_url
+    ? `If it's easier to talk, you can pick a time here: ${sender.booking_url}`
+    : "";
+  const proof = similar
+    ? `We recently worked on ${similar.title}, another ${similar.industry.toLowerCase()} store: ${similar.url}`
+    : work
+      ? `You can see some of our recent work at ${work}`
+      : "";
+  const subject = `Noticed on ${lead.domain}: ${lowerFirst(problem).replace(/\.$/, "")}`;
+  const first = [
+    hello,
+    `I'm ${me} from ${company}. We work on Shopify stores, and we ran some public tests on ${lead.domain}.`,
+    [
+      `One thing stood out: ${sentence(lowerFirst(problem))}`,
+      top.why,
+      speed && scored ? scored : "",
+    ]
+      .filter(Boolean)
+      .join(" "),
+    `It's usually fixable without a redesign. A good first step would be ${firstStep}${offer && sender.offer_scope ? `: ${lowerFirst(sentence(sender.offer_scope))}` : "."}`,
+    proof,
+    "Would it be useful if I sent over the short report? If this isn't for you, just say so and I won't contact you again.",
+    booking,
+    signature,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  const followUp = [
+    hello,
+    `Following up on my note about ${lead.domain}. ${sentence(`The main thing we found: ${lowerFirst(problem)}`)}`,
+    `A useful first step would be ${firstStep}, rather than assuming a full redesign is needed.`,
+    "Is this relevant to what you're working on at the moment? If not, just say so and I won't contact you again.",
+    booking,
+    signature,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  const final = [
+    hello,
+    `I'll close the loop on this for now. My note was about ${lowerFirst(problem).replace(/\.$/, "")} on ${lead.domain}, and ${lowerFirst(top.service)} is work we do for Shopify stores.`,
+    "No reply needed if it isn't a priority. If it becomes one, I'm happy to send the short report.",
+    booking,
+    "This is my last note, so I won't contact you again about it.",
+    signature,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  const emails = {
+    first: { subject, body: first },
+    follow_up: { subject, body: followUp },
+    final: { subject, body: final },
+  };
   return {
     needs,
     toConfirm,
     questions,
     contact,
-    email: {
-      subject: `A few things we noticed on ${lead.domain}`,
-      body: [
-        `Hi ${lead.name} team,`,
-        `I'm ${me} from ${company}. We work on Shopify stores, and we ran some public tests on ${lead.domain}.`,
-        `Here's what we found:\n${found.map((f) => `- ${f}`).join("\n")}`,
-        `Where we could help:\n${suggested.map((s) => `- ${s}`).join("\n")}`,
-        ...(similar
-          ? [
-              `We recently worked on ${similar.title}, another ${similar.industry.toLowerCase()} store: ${similar.url}`,
-            ]
-          : work
-            ? [`You can see some of our recent work at ${work}`]
-            : []),
-        "Would it be useful if I sent over the short report? If this isn't for you, just say so and I won't contact you again.",
-        [me, company, sender.address || "[Your business address]", work]
-          .filter(Boolean)
-          .join("\n"),
-      ].join("\n\n"),
-    },
+    email: emails.first,
+    emails,
     call: [
       {
         label: "Open",
@@ -172,7 +234,7 @@ export function leadPlaybook(
       { label: "Ask", text: questions[0] },
       {
         label: "Next step",
-        text: `We could look at ${suggested[0].charAt(0).toLowerCase()}${suggested[0].slice(1)}. Can I send you the short report?${similar ? ` We did similar work for ${similar.title}, another ${similar.industry.toLowerCase()} store.` : work ? ` You can also see sites we've built at ${portfolioLabel(work)}.` : ""}`,
+        text: `${offer ? `A good first step is ${firstStep}.` : `We could look at ${suggested[0].charAt(0).toLowerCase()}${suggested[0].slice(1)}.`} Can I send you the short report?${similar ? ` We did similar work for ${similar.title}, another ${similar.industry.toLowerCase()} store.` : work ? ` You can also see sites we've built at ${portfolioLabel(work)}.` : ""}`,
       },
       {
         label: "If they say no",

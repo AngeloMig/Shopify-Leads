@@ -18,7 +18,7 @@ export const contactLabel: Record<ContactKind, string> = {
 };
 /** Most replies come on the second or third touch, so each sets a next step. */
 export const defaultFollowUpDays: Record<ContactKind, number | null> = {
-  emailed: 3,
+  emailed: 6,
   called: 3,
   no_answer: 2,
   replied: 1,
@@ -30,7 +30,27 @@ export type ContactState = {
   /** The day to get in touch again, as YYYY-MM-DD; null for no follow-up. */
   follow_up_at: string | null;
   touches: number;
+  /** How many of those touches were emails, for the three-email sequence. */
+  emails?: number;
 };
+/**
+ * The email sequence: a first email, one follow-up on day 5-7, a final
+ * close-the-loop on day 12-14, then stop. `emailsBefore` is the count before
+ * this one, so the first email waits 6 days, the follow-up 7, the final none.
+ */
+export const emailSequence = ["first", "follow_up", "final"] as const;
+export type EmailStep = (typeof emailSequence)[number];
+export const emailStepLabel: Record<EmailStep, string> = {
+  first: "First email",
+  follow_up: "Follow-up",
+  final: "Final email",
+};
+export const nextEmailStep = (emailsSent = 0): EmailStep | null =>
+  emailSequence[emailsSent] ?? null;
+export function followUpDays(kind: ContactKind, emailsBefore = 0) {
+  if (kind !== "emailed") return defaultFollowUpDays[kind];
+  return emailsBefore === 0 ? 6 : emailsBefore === 1 ? 7 : null;
+}
 export type ContactRow = {
   lead_id: string;
   details: { kind?: unknown; follow_up_at?: unknown } | null;
@@ -54,6 +74,8 @@ export function readContactLog(rows: ContactRow[]) {
           ? follow
           : null,
       touches: (byLead.get(row.lead_id)?.touches ?? 0) + 1,
+      emails:
+        (byLead.get(row.lead_id)?.emails ?? 0) + (kind === "emailed" ? 1 : 0),
     });
   }
   return byLead;
@@ -84,4 +106,27 @@ export function followUpLabel(day: string, today = localDay()) {
     return `Follow-up ${-diff} ${diff === -1 ? "day" : "days"} overdue`;
   if (diff === 1) return "Follow up tomorrow";
   return `Follow up in ${diff} days`;
+}
+
+/** The person to write to at a lead, set by hand from their About or Team page. */
+export type ContactPerson = { name: string; role: string };
+/** Each lead's latest "contact_person" activity; a blank name clears it. */
+export function readContactPeople(
+  rows: {
+    lead_id: string;
+    details: { name?: unknown; role?: unknown } | null;
+    created_at: string;
+  }[],
+) {
+  const byLead = new Map<string, ContactPerson | null>();
+  for (const row of [...rows].sort((a, b) =>
+    a.created_at.localeCompare(b.created_at),
+  )) {
+    const name =
+      typeof row.details?.name === "string" ? row.details.name.trim() : "";
+    const role =
+      typeof row.details?.role === "string" ? row.details.role.trim() : "";
+    byLead.set(row.lead_id, name ? { name, role } : null);
+  }
+  return byLead;
 }

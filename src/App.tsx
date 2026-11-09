@@ -377,6 +377,9 @@ export default function App() {
                       contact: {
                         ...patch.contact,
                         touches: (l.contact?.touches ?? 0) + 1,
+                        emails:
+                          (l.contact?.emails ?? 0) +
+                          (patch.contact.kind === "emailed" ? 1 : 0),
                       },
                     }
                   : {}),
@@ -385,8 +388,19 @@ export default function App() {
         ),
       );
     else {
-      const { display_name, preferred_email, industry, contact, ...leadPatch } =
-        patch;
+      const {
+        display_name,
+        preferred_email,
+        industry,
+        contact,
+        contact_person,
+        ...leadPatch
+      } = patch;
+      if (contact_person !== undefined)
+        await api(`/leads/${lead.id}/contact-person`, {
+          name: contact_person?.name ?? "",
+          role: contact_person?.role ?? "",
+        });
       if (contact)
         await api(`/leads/${lead.id}/contact`, {
           kind: contact.kind,

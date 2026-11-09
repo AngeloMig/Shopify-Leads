@@ -1393,6 +1393,26 @@
 .lead-plan .field-label {
   margin-bottom: 10px;
 }
+.plan-person {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+.plan-steps-pick {
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+@media (max-width: 520px) {
+  .plan-person {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .plan-person button {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-bottom: 10px;
+  }
+}
 .lead-plan textarea {
   width: 100%;
   font-size: 12.5px;

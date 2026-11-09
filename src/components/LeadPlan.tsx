@@ -4,6 +4,7 @@ import {
   ClipboardList,
   Copy,
   LoaderCircle,
+  Mail,
   ShieldCheck,
 } from "lucide-react";
 import {
@@ -16,6 +17,13 @@ import type { Lead } from "../../shared/types";
 import { Link } from "react-router-dom";
 import { api, formatDate } from "../lib";
 import { emptySender } from "../../shared/sender";
+import {
+  emailSequence,
+  emailStepLabel,
+  nextEmailStep,
+  type ContactPerson,
+  type EmailStep,
+} from "../../shared/contact-log";
 import { useSender } from "../sender-store";
 import { Button } from "./ui/button";
 
@@ -63,6 +71,9 @@ export function LeadPlan({
   onLeave,
   onRetest,
   onOpenReview,
+  onEmailed,
+  onSavePerson,
+  busy = false,
   evidenceError,
   onRetryEvidence,
 }: {
@@ -73,6 +84,10 @@ export function LeadPlan({
   /** Run the audit again, so the numbers quoted are current. */
   onRetest?: () => void;
   onOpenReview: (lead: Lead) => void;
+  /** Log "Emailed" with the next reminder, after opening the email app. */
+  onEmailed?: () => void;
+  onSavePerson?: (person: ContactPerson | null) => Promise<void>;
+  busy?: boolean;
   evidenceError?: string;
   onRetryEvidence?: () => void;
 }) {
@@ -81,7 +96,10 @@ export function LeadPlan({
   const plan = useMemo(
     () =>
       leadPlaybook(
-        ready ? lead : { ...lead, findings: [] },
+        {
+          ...(ready ? lead : { ...lead, findings: [] }),
+          contact_name: lead.contact_person?.name ?? null,
+        },
         sender ?? emptySender,
       ),
     [lead, ready, sender],
@@ -91,11 +109,29 @@ export function LeadPlan({
         !sender.name && "your name",
         !sender.company && "company",
         !sender.portfolio_url && "portfolio link",
+        !sender.email && "email",
       ].filter((m): m is string => !!m)
     : [];
   const [channel, setChannel] = useState<"email" | "call">("email");
-  const [subject, setSubject] = useState(plan.email?.subject ?? "");
-  const [body, setBody] = useState(plan.email?.body ?? "");
+  // Which email in the sequence, from how many you've already sent.
+  const sent = lead.contact?.emails ?? 0;
+  const suggested = nextEmailStep(sent);
+  const [step, setStep] = useState<EmailStep>(suggested ?? "final");
+  const draft = plan.emails?.[step] ?? plan.email;
+  const [subject, setSubject] = useState(draft?.subject ?? "");
+  const [body, setBody] = useState(draft?.body ?? "");
+  const [person, setPerson] = useState<ContactPerson>(
+    lead.contact_person ?? { name: "", role: "" },
+  );
+  useEffect(
+    () => setPerson(lead.contact_person ?? { name: "", role: "" }),
+    [lead.id, lead.contact_person?.name, lead.contact_person?.role],
+  );
+  useEffect(() => setStep(nextEmailStep(sent) ?? "final"), [lead.id, sent]);
+  const email = plan.contact?.includes("@") ? plan.contact : null;
+  const mailto = email
+    ? `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    : null;
   const [call, setCall] = useState(callText(plan));
   const [linking, setLinking] = useState<"idle" | "busy" | "failed">("idle");
   const age = lead.audited_at
@@ -126,10 +162,10 @@ export function LeadPlan({
     }
   }
   useEffect(() => {
-    setSubject(plan.email?.subject ?? "");
-    setBody(plan.email?.body ?? "");
+    setSubject(draft?.subject ?? "");
+    setBody(draft?.body ?? "");
     setCall(callText(plan));
-  }, [lead.id, plan.email?.body]);
+  }, [lead.id, draft?.body]);
   const approved = lead.permission === "approved" && !lead.suppressed;
   if (!ready)
     return (
@@ -285,6 +321,78 @@ export function LeadPlan({
             <p className="plan-to">
               {plan.contact ? `Contact: ${plan.contact}` : "No contact found."}
             </p>
+            {onSavePerson && (
+              <form
+                className="plan-person"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void onSavePerson(
+                    person.name.trim()
+                      ? { name: person.name.trim(), role: person.role.trim() }
+                      : null,
+                  );
+                }}
+              >
+                <label className="field-label">
+                  Contact person
+                  <input
+                    value={person.name}
+                    placeholder="From their About or Team page"
+                    onChange={(e) =>
+                      setPerson((p) => ({ ...p, name: e.target.value }))
+                    }
+                  />
+                </label>
+                <label className="field-label">
+                  Role
+                  <input
+                    value={person.role}
+                    placeholder="Founder, owner…"
+                    onChange={(e) =>
+                      setPerson((p) => ({ ...p, role: e.target.value }))
+                    }
+                  />
+                </label>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="submit"
+                  disabled={
+                    busy ||
+                    (person.name.trim() === (lead.contact_person?.name ?? "") &&
+                      person.role.trim() === (lead.contact_person?.role ?? ""))
+                  }
+                >
+                  Save
+                </Button>
+              </form>
+            )}
+            {channel === "email" && (
+              <div
+                className="plan-channel plan-steps-pick"
+                role="group"
+                aria-label="Which email"
+              >
+                {emailSequence.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={step === id}
+                    onClick={() => setStep(id)}
+                  >
+                    {emailStepLabel[id]}
+                    {id === suggested && sent > 0 ? " · next" : ""}
+                  </button>
+                ))}
+              </div>
+            )}
+            {channel === "email" && sent > 0 && (
+              <p className="plan-to" role="status">
+                {suggested
+                  ? `${sent} ${sent === 1 ? "email" : "emails"} sent. Send the ${emailStepLabel[suggested].toLowerCase()} as a reply to your first email, so it stays in one thread.`
+                  : "All three emails sent. If there's no reply, mark this lead lost with “No response” and stop here."}
+              </p>
+            )}
             {channel === "email" && (
               <label className="field-label">
                 Subject
@@ -320,6 +428,9 @@ export function LeadPlan({
                   "Edit it to sound like you. "
                 )}
                 Scout doesn't send this.
+                {mailto && channel === "email"
+                  ? " Open in email app logs it as emailed and sets the next reminder."
+                  : ""}
               </small>
               {channel === "email" && lead.report_id && !demo && (
                 <Button
@@ -338,6 +449,20 @@ export function LeadPlan({
                     : linking === "failed"
                       ? "Couldn't make a link. Try again"
                       : "Add report link"}
+                </Button>
+              )}
+              {channel === "email" && mailto && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!approved || busy}
+                  onClick={() => {
+                    window.location.href = mailto;
+                    onEmailed?.();
+                  }}
+                >
+                  <Mail size={14} />
+                  Open in email app
                 </Button>
               )}
               <CopyButton

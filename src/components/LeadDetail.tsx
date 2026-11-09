@@ -25,6 +25,12 @@ import {
 import { countryNames, industries, lostReasons } from "../../shared/types";
 import { leadScoreFor } from "../../shared/lead-score";
 import { ContactLog } from "./ContactLog";
+import {
+  addDays,
+  followUpDays,
+  localDay,
+  type ContactPerson,
+} from "../../shared/contact-log";
 import { api, formatDate } from "../lib";
 import { Dialog } from "./ui/dialog";
 import { Button } from "./ui/button";
@@ -608,6 +614,24 @@ export function LeadDetail({
             onLeave={onClose}
             onRetest={() => onAudit(lead)}
             onOpenReview={onOpenReview}
+            busy={busy}
+            onEmailed={() => {
+              const wait = followUpDays("emailed", lead.contact?.emails ?? 0);
+              void action(() =>
+                onUpdate(lead, {
+                  contact: {
+                    kind: "emailed",
+                    at: new Date().toISOString(),
+                    follow_up_at:
+                      wait === null ? null : addDays(localDay(), wait),
+                    touches: lead.contact?.touches ?? 0,
+                  },
+                }),
+              );
+            }}
+            onSavePerson={(person: ContactPerson | null) =>
+              action(() => onUpdate(lead, { contact_person: person }))
+            }
             evidenceError={evidenceError}
             onRetryEvidence={() => setEvidenceAttempt((n) => n + 1)}
           />

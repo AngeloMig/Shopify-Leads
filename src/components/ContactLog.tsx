@@ -4,7 +4,7 @@ import {
   addDays,
   contactKinds,
   contactLabel,
-  defaultFollowUpDays,
+  followUpDays,
   followUpLabel,
   localDay,
   type ContactKind,
@@ -34,7 +34,7 @@ export function ContactLog({
 }) {
   const [days, setDays] = useState<number | "none" | "auto">("auto");
   const log = (kind: ContactKind) => {
-    const wait = days === "auto" ? defaultFollowUpDays[kind] : days;
+    const wait = days === "auto" ? followUpDays(kind, contact?.emails) : days;
     onLog({
       kind,
       at: new Date().toISOString(),
