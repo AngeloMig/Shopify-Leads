@@ -67,6 +67,7 @@ import { AutomationOrb } from "./components/AutomationOrb";
 import { AutomationPage } from "./components/AutomationPage";
 import { OutreachReview } from "./components/OutreachReview";
 import { FreeAuditsPage } from "./components/FreeAuditsPage";
+import { ResultsPage } from "./components/ResultsPage";
 import { AuditRequest as AuditRequestDialog } from "./components/AuditRequest";
 import { leadScoreFor } from "../shared/lead-score";
 import type { AlertFeed } from "../shared/alerts";
@@ -118,6 +119,7 @@ const navigation = [
   { label: "Reports", path: "/reports", icon: FileText },
   { label: "Automation jobs", path: "/jobs", icon: Workflow },
   { label: "Outreach review", path: "/outreach", icon: ShieldCheck },
+  { label: "Results", path: "/results", icon: TrendingUp },
 ];
 // Lets the leads list load, with this workspace's saved filters, alongside the first snapshot.
 const workspaceKey = (user: string) => `scout-last-workspace:${user}`;
@@ -953,6 +955,8 @@ export default function App() {
                       "Follow-ups due, approved stores to email, and local businesses to call.",
                     "/local":
                       "Businesses on the map with no website of their own, such as a builder with only a Facebook page.",
+                    "/results":
+                      "What your outreach led to: emails, replies, calls booked and wins.",
                     "/free-audits":
                       "Websites someone asked you to audit, from your free-audit form or added here. Kept apart from your prospects.",
                     "/outreach":
@@ -1506,6 +1510,7 @@ export default function App() {
               onOpenLead={setSelectedLead}
             />
           )}
+          {location.pathname === "/results" && <ResultsPage demo={demo} />}
           {location.pathname === "/free-audits" && (
             <FreeAuditsPage
               requests={data.requests ?? []}

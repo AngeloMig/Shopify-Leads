@@ -13,6 +13,7 @@ import type { Lead } from "../shared/types.js";
 import { industries } from "../shared/types.js";
 import { queryPerformance } from "../shared/discovery-search.js";
 import { readSender } from "../shared/sender.js";
+import { outreachResults } from "../shared/outreach-results.js";
 import {
   contactKinds,
   readContactLog,
@@ -29,6 +30,65 @@ export function registerWorkspaceRoutes(
   load: (org: string, ids: string[], evidence: LeadEvidence) => Promise<Lead[]>,
   admin: (res: Response) => void,
 ) {
+  // Results: what your outreach led to, for a period (prospects only).
+  app.get(
+    "/api/results",
+    route(async (req, res) => {
+      const days = z
+        .enum(["30", "90", "365", "all"])
+        .default("90")
+        .parse(req.query.days);
+      const since =
+        days === "all"
+          ? null
+          : new Date(Date.now() - Number(days) * 86400000).toISOString();
+      const org = res.locals.org;
+      const [activities, leads, requested] = await Promise.all([
+        checked(
+          db()
+            .from("lead_activities")
+            .select("lead_id,action,details,created_at")
+            .eq("organization_id", org)
+            .in("action", ["contact_logged", "permission_approved"])
+            .order("created_at", { ascending: false })
+            .limit(10000),
+        ),
+        checked(
+          db()
+            .from("leads")
+            .select(
+              "id,store_id,outcome,outcome_reason,outcome_at,store:discovered_stores(industry,country)",
+            )
+            .eq("organization_id", org)
+            .limit(5000),
+        ),
+        requestedStoreIds(org),
+      ]);
+      const skip = new Set(requested);
+      const prospects = leads.filter((l) => !skip.has(l.store_id));
+      const ids = new Set(prospects.map((l) => l.id));
+      res.json(
+        outreachResults(
+          activities.filter((a) => ids.has(a.lead_id)),
+          prospects.map((l) => {
+            const store = l.store as unknown as {
+              industry: string | null;
+              country: string | null;
+            } | null;
+            return {
+              id: l.id,
+              industry: store?.industry ?? null,
+              country: store?.country ?? null,
+              outcome: l.outcome ?? null,
+              outcome_reason: l.outcome_reason ?? null,
+              outcome_at: l.outcome_at ?? null,
+            };
+          }),
+          since,
+        ),
+      );
+    }),
+  );
   app.get(
     "/api/leads",
     route(async (req, res) => {
