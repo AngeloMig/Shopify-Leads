@@ -18,6 +18,7 @@ export type NextAction =
   | "before_after"
   | "reaudit"
   | "find_contact"
+  | "open_tracker"
   | null;
 export type NextStep = {
   title: string;
@@ -36,6 +37,7 @@ export function leadNextStep(
     | "contact"
     | "emails"
     | "contact_url"
+    | "tracker"
   >,
   o: { stale: boolean; completedAudits: number; today?: string },
 ): NextStep {
@@ -49,6 +51,14 @@ export function leadNextStep(
       detail: "It's on the do-not-contact list.",
       action: null,
       label: "",
+    };
+  if (lead.tracker && !lead.outcome)
+    return {
+      title: "Continue in the tracker",
+      detail:
+        "They replied, so the conversation, quote and outcome live in the tracker's Inquiries now, with this audit attached. Won or lost comes back here.",
+      action: lead.tracker.url ? "open_tracker" : null,
+      label: "Open the tracker",
     };
   if (lead.outcome === "won")
     return o.completedAudits >= 2

@@ -110,6 +110,8 @@ export type Lead = {
   contact?: ContactState | null;
   /** Who to write to, as you set it: "Hi Jamie," instead of "Hi team,". */
   contact_person?: ContactPerson | null;
+  /** Moved to the KNB tracker's Inquiries after a reply; it carries on there. */
+  tracker?: { inquiry_id: string; url: string | null } | null;
   outcome_reason?: string | null;
   outcome_at?: string | null;
 };

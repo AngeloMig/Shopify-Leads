@@ -4,6 +4,7 @@ import {
   readContactPeople,
   type ContactRow,
 } from "../shared/contact-log.js";
+import { trackerInboxUrl } from "./lib/tracker-sync.js";
 import { leadScore } from "../shared/lead-score.js";
 import { shortBusinessName } from "../shared/lead-intelligence.js";
 import { listWork } from "../shared/job-activity.js";
@@ -146,13 +147,23 @@ export async function loadLeads(
         .from("lead_activities")
         .select("lead_id,action,details,created_at")
         .eq("organization_id", org)
-        .in("action", ["contact_logged", "contact_person"])
+        .in("action", ["contact_logged", "contact_person", "sent_to_tracker"])
         .in("lead_id", leadIds)
         .limit(5000),
     ) as Promise<(ContactRow & { action: string })[]>,
   ]);
   const contactLog = readContactLog(
     touches.filter((t) => t.action === "contact_logged"),
+  );
+  const inTracker = new Map(
+    touches
+      .filter((t) => t.action === "sent_to_tracker")
+      .map((t) => [
+        t.lead_id,
+        String(
+          (t.details as { inquiry_id?: unknown } | null)?.inquiry_id ?? "",
+        ),
+      ]),
   );
   const people = readContactPeople(
     touches.filter((t) => t.action === "contact_person") as never,
@@ -267,6 +278,9 @@ export async function loadLeads(
         outcome_at: l.outcome_at ?? null,
         contact: contactLog.get(l.id) ?? null,
         contact_person: people.get(l.id) ?? null,
+        tracker: inTracker.get(l.id)
+          ? { inquiry_id: inTracker.get(l.id)!, url: trackerInboxUrl() }
+          : null,
         permission: approved
           ? "approved"
           : permission?.status === "rejected"

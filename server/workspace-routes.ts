@@ -5,6 +5,7 @@ import { uuid } from "./lib/validation.js";
 import { normalizeDomain, validateTarget } from "./lib/network.js";
 import { discoveryHistory } from "./lib/discovery-history.js";
 import { enqueue } from "./pipeline.js";
+import { AuditRequestError, queueRequestedAudit } from "./lib/audit-request.js";
 import { workspaceAlerts } from "./lib/alerts.js";
 import type { LeadEvidence } from "./workspace-snapshot.js";
 import type { Lead } from "../shared/types.js";
@@ -726,65 +727,15 @@ export function registerWorkspaceRoutes(
       const input = z
         .object({ url: z.string().trim().min(1).max(2000) })
         .parse(req.body);
-      let domain: string;
+      let queued;
       try {
-        domain = normalizeDomain(input.url);
-        await validateTarget(`https://${domain}`);
-      } catch {
-        return res
-          .status(400)
-          .json({ error: "Enter a public website address, like store.com." });
+        queued = await queueRequestedAudit(res.locals.org, input.url);
+      } catch (e) {
+        if (e instanceof AuditRequestError)
+          return res.status(e.status).json({ error: e.message });
+        throw e;
       }
-      const suppressed = await checked(
-        db()
-          .from("suppression_list")
-          .select("id")
-          .eq("organization_id", res.locals.org)
-          .eq("domain", domain),
-      );
-      if (suppressed.length)
-        return res
-          .status(409)
-          .json({ error: "This website opted out. It can't be audited." });
-      const q = await checked(
-        db()
-          .from("discovery_queries")
-          .select("config")
-          .eq("organization_id", res.locals.org)
-          .order("created_at")
-          .limit(1),
-      );
-      if (!q[0]?.config)
-        return res.status(400).json({
-          error: "Save discovery settings before requesting an audit.",
-        });
-      await checked(
-        db()
-          .from("discovered_stores")
-          .upsert(
-            {
-              organization_id: res.locals.org,
-              domain,
-              name: domain,
-              source_url: `https://${domain}`,
-              source_provider: "audit-request",
-            },
-            { onConflict: "organization_id,domain", ignoreDuplicates: true },
-          ),
-      );
-      const store = await checked(
-        db()
-          .from("discovered_stores")
-          .select("id")
-          .eq("organization_id", res.locals.org)
-          .eq("domain", domain)
-          .single(),
-      );
-      const job = await enqueue(res.locals.org, "audit", `audit:${store.id}`, {
-        store_id: store.id,
-        config: q[0].config,
-        requested: true,
-      });
+      const { domain, job } = queued;
       res.status(job ? 202 : 200).json({ domain, job, already_queued: !job });
     }),
   );

@@ -8,6 +8,7 @@ import { recordJobFailure } from "./lib/job-activity.js";
 import { failureDecision } from "./lib/job-errors.js";
 import { deliverAlerts } from "./lib/alerts.js";
 import { queueMonthlyReaudits } from "./lib/reaudits.js";
+import { syncTracker, trackerConfigured } from "./lib/tracker-sync.js";
 const worker = randomUUID();
 await writeFile(
   process.env.SCOUT_WORKER_ID_FILE || "/tmp/scout-worker-id",
@@ -75,6 +76,7 @@ const healthTimer = setInterval(() => void reportHeartbeat(), 20000);
 let lastRetentionCheck = 0;
 let lastAlertCheck = 0;
 let lastReauditCheck = 0;
+let lastTrackerSync = 0;
 while (!stopping) {
   try {
     if (paused) {
@@ -109,6 +111,21 @@ while (!stopping) {
         .catch((e) =>
           console.error(
             "Monthly re-audits failed:",
+            e instanceof Error ? e.message : "unknown",
+          ),
+        );
+    }
+    // Every 2 minutes: free-audit requests and replies with the KNB tracker.
+    if (trackerConfigured() && Date.now() - lastTrackerSync > 120000) {
+      lastTrackerSync = Date.now();
+      await syncTracker()
+        .then((d) => {
+          if (d && Object.values(d).some(Boolean))
+            console.info("Tracker sync:", JSON.stringify(d));
+        })
+        .catch((e) =>
+          console.error(
+            "Tracker sync failed:",
             e instanceof Error ? e.message : "unknown",
           ),
         );

@@ -60,6 +60,20 @@ describe("The next step on a lead", () => {
       "before_after",
     );
   });
+  it("sends you to the tracker once the lead has moved there", () => {
+    const moved = {
+      ...base,
+      contact: { ...emailed(1, null), kind: "replied" as const },
+      tracker: {
+        inquiry_id: "i1",
+        url: "https://tracker.example/?section=inquiries",
+      },
+    };
+    expect(leadNextStep(moved, o).action).toBe("open_tracker");
+    expect(leadNextStep({ ...moved, outcome: "won" }, o).action).toBe(
+      "reaudit",
+    );
+  });
   it("never suggests contact for suppressed stores", () => {
     expect(leadNextStep({ ...base, suppressed: true }, o).action).toBeNull();
   });

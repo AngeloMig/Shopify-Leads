@@ -280,6 +280,10 @@ export function LeadDetail({
         );
       case "before_after":
         return void action(downloadBeforeAfter);
+      case "open_tracker":
+        if (lead.tracker?.url)
+          window.open(lead.tracker.url, "_blank", "noreferrer");
+        return;
       case "find_contact":
         window.open(`https://${lead.domain}`, "_blank", "noreferrer");
         return;
