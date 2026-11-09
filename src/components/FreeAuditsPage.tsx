@@ -49,8 +49,8 @@ export function FreeAuditsPage({
         <h2>No free audits yet</h2>
         <p>
           Requests from your website&apos;s free-audit form arrive here from the
-          tracker and are audited automatically. You can also audit any
-          website yourself.
+          tracker and are audited automatically. You can also audit any website
+          yourself.
         </p>
         <Button onClick={onAuditWebsite}>Audit a website</Button>
       </section>
@@ -76,9 +76,16 @@ export function FreeAuditsPage({
                     : r.domain}
                 </strong>
                 <small>
-                  {r.tracker ? "Free-audit request from the tracker" : "Added here"}{" "}
+                  {r.tracker
+                    ? "Free-audit request from the tracker"
+                    : "Added here"}{" "}
                   · {formatDate(r.requested_at, true)}
                 </small>
+                {r.sent_at && (
+                  <small className="free-audit-sent">
+                    Sent to the client {formatDate(r.sent_at, true)}
+                  </small>
+                )}
                 {stuck && r.error && (
                   <small className="free-audit-error">{r.error}</small>
                 )}
@@ -147,7 +154,9 @@ export function FreeAuditsPage({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    {r.status === "completed" ? "Review and send" : "Tracker"}{" "}
+                    {r.status === "completed" && !r.sent_at
+                      ? "Review and send"
+                      : "Tracker"}{" "}
                     <ExternalLink size={12} />
                   </a>
                 )}

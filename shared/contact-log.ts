@@ -87,12 +87,20 @@ export const addDays = (day: string, days: number) => {
   const [y, m, d] = day.split("-").map(Number);
   return localDay(new Date(y, m - 1, d + days));
 };
-/** A follow-up that's today or overdue, on a lead that's still open. */
+/**
+ * A follow-up that's today or overdue, on a lead that's still open here. A
+ * lead that moved to the tracker carries on there, so it's never due here.
+ */
 export const isDue = (
-  lead: { contact?: ContactState | null; outcome?: string | null },
+  lead: {
+    contact?: ContactState | null;
+    outcome?: string | null;
+    tracker?: unknown;
+  },
   today = localDay(),
 ) =>
   !lead.outcome &&
+  !lead.tracker &&
   !!lead.contact?.follow_up_at &&
   lead.contact.follow_up_at <= today;
 /** "Follow up today", "Follow up in 3 days", "2 days overdue". */

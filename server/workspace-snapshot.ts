@@ -317,7 +317,7 @@ export async function loadRequests(
     db()
       .from("automation_jobs")
       .select(
-        "id,status,error,created_at,store_id:payload->>store_id,inquiry:payload->>tracker_inquiry_id",
+        "id,status,error,created_at,store_id:payload->>store_id,inquiry:payload->>tracker_inquiry_id,sent_at:payload->>tracker_sent_at",
       )
       .eq("organization_id", org)
       .eq("type", "audit")
@@ -349,6 +349,7 @@ export async function loadRequests(
         tracker: j.inquiry
           ? { inquiry_id: j.inquiry, url: trackerFreeAuditsUrl() }
           : null,
+        sent_at: j.sent_at ?? null,
         lead: leads.find((l) => l.store_id === store.id) ?? null,
       },
     ];

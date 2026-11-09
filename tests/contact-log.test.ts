@@ -59,6 +59,10 @@ describe("The contact log", () => {
     };
     expect(isDue({ contact }, "2026-11-07")).toBe(true);
     expect(isDue({ contact }, "2026-11-06")).toBe(false);
+    // Moved to the tracker after a reply: it's followed up there, not here.
+    expect(
+      isDue({ contact, tracker: { inquiry_id: "x", url: null } }, "2026-11-07"),
+    ).toBe(false);
     expect(isDue({ contact, outcome: "won" }, "2026-11-09")).toBe(false);
   });
   it("says when, in words", () => {

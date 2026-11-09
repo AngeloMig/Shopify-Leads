@@ -176,10 +176,18 @@ export type AuditRequest = {
   domain: string;
   job_id: string;
   requested_at: string;
-  status: "queued" | "running" | "blocked" | "completed" | "failed" | "cancelled";
+  status:
+    | "queued"
+    | "running"
+    | "blocked"
+    | "completed"
+    | "failed"
+    | "cancelled";
   error: string | null;
   /** From the tracker's free-audit form; null when added here. */
   tracker: { inquiry_id: string; url: string | null } | null;
+  /** When you sent it to the client from the tracker. */
+  sent_at: string | null;
   /** The finished audit, once there is one. */
   lead: Lead | null;
 };

@@ -3,7 +3,8 @@
 //   1. free-audit requests waiting in the tracker become requested audits here;
 //   2. finished (or failed) ones are posted back with the PDF and a summary;
 //   3. leads you logged as Replied move to the tracker with their audit;
-//   4. won/lost from the tracker comes back for search learning.
+//   4. won/lost from the tracker comes back for search learning;
+//   5. free audits you sent from the tracker are marked sent here.
 // A post that fails is simply tried again on the next pass.
 import { createHmac } from "node:crypto";
 import { db, checked, insert, now } from "./db.js";
@@ -201,15 +202,22 @@ const lostReason: Record<string, string> = {
   other: "Other",
 };
 
-type Step = "audits" | "results" | "leads" | "outcomes";
+type Step = "audits" | "results" | "leads" | "outcomes" | "sent";
 /** One pass (or some steps of one). Returns what it did, for the worker log. */
 export async function syncTracker(
-  only: Step[] = ["audits", "results", "leads", "outcomes"],
+  only: Step[] = ["audits", "results", "leads", "outcomes", "sent"],
 ) {
   if (!trackerConfigured()) return null;
   const org = await syncOrg();
   const run = (step: Step) => only.includes(step);
-  const done = { queued: 0, posted: 0, failed: 0, leads: 0, outcomes: 0 };
+  const done = {
+    queued: 0,
+    posted: 0,
+    failed: 0,
+    leads: 0,
+    outcomes: 0,
+    sent: 0,
+  };
 
   // 1. Free-audit requests waiting in the tracker.
   const { audits } = run("audits")
@@ -438,6 +446,47 @@ export async function syncTracker(
         .eq("id", lead.id),
     );
     done.outcomes++;
+  }
+
+  // 5. Free audits whose PDF went to the client from the tracker.
+  const waiting = !run("sent")
+    ? []
+    : await checked(
+        db()
+          .from("automation_jobs")
+          .select("id,payload")
+          .eq("organization_id", org)
+          .eq("type", "audit")
+          .eq("status", "completed")
+          .not("payload->>tracker_inquiry_id", "is", null)
+          .not("payload->>tracker_posted", "is", null)
+          .is("payload->>tracker_sent_at", null)
+          .gte("created_at", new Date(Date.now() - 90 * 86400000).toISOString())
+          .limit(200),
+      );
+  if (waiting.length) {
+    let sent: { inquiry_id: string; sent_at: string }[] = [];
+    try {
+      ({ sent } = await post<{ sent: typeof sent }>("audits-sent", {
+        inquiry_ids: waiting.map((j) => j.payload.tracker_inquiry_id),
+      }));
+    } catch (e) {
+      // A tracker deployed before this step: nothing to learn yet.
+      if (!inquiryGone(e)) throw e;
+    }
+    for (const s of sent) {
+      const job = waiting.find(
+        (j) => j.payload.tracker_inquiry_id === s.inquiry_id,
+      );
+      if (!job) continue;
+      await checked(
+        db()
+          .from("automation_jobs")
+          .update({ payload: { ...job.payload, tracker_sent_at: s.sent_at } })
+          .eq("id", job.id),
+      );
+      done.sent++;
+    }
   }
   return done;
 }

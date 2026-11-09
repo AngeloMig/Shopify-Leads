@@ -70,7 +70,23 @@ export function registerWorkspaceRoutes(
           size: z.coerce.number().int().min(5).max(50).default(10),
         })
         .parse(req.query);
-      // Follow-ups due by today, read from the contact log.
+      // Follow-ups due by today, read from the contact log. Leads that moved
+      // to the tracker are followed up there instead.
+      const moved =
+        input.view === "due"
+          ? new Set(
+              (
+                await checked(
+                  db()
+                    .from("lead_activities")
+                    .select("lead_id")
+                    .eq("organization_id", res.locals.org)
+                    .eq("action", "sent_to_tracker")
+                    .limit(5000),
+                )
+              ).map((r) => r.lead_id as string),
+            )
+          : new Set<string>();
       const due =
         input.view === "due"
           ? [
@@ -87,7 +103,8 @@ export function registerWorkspaceRoutes(
               ),
             ]
               .filter(
-                ([, c]) =>
+                ([id, c]) =>
+                  !moved.has(id) &&
                   !!c.follow_up_at &&
                   c.follow_up_at <= (input.today ?? now().slice(0, 10)),
               )
