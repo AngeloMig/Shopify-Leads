@@ -4,6 +4,7 @@
 import PDFDocument from "pdfkit";
 import type {
   Finding,
+  ProductSpeed,
   Recommendation,
   PublicEmail,
 } from "../../shared/types.js";
@@ -48,6 +49,8 @@ export type ReportInput = {
   contacts?: PublicEmail[];
   pages?: { url: string; kind: string; status_code?: number | null }[];
   page_limitations?: { url: string; kind: string; reason: string }[];
+  /** One phone test of a product page, when one was reachable. */
+  product_speed?: ProductSpeed | null;
   /** Who the report is from, for "What happens next". */
   sender?: Sender | null;
   /** The store's industry, to point to similar work. */
@@ -224,6 +227,7 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
     return typeof value === "number" ? value : null;
   })();
   const secs = (value: number) => `${(value / 1000).toFixed(1)} seconds`;
+  const product = input.product_speed ?? null;
 
   const header = () => {
     doc
@@ -435,6 +439,9 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
       : "",
     realLcp !== null
       ? `Real visitors see it sooner: 3 in 4 within ${secs(realLcp)}${realLcp > 2500 ? ", still over the target" : ""}.`
+      : "",
+    product?.lcp_ms != null
+      ? `A product page, where shoppers decide to buy, took about ${secs(product.lcp_ms)} in the same test${product.lcp_ms > 2500 ? "" : ", within the target"}.`
       : "",
     verified.length
       ? `We found ${verified.length} ${verified.length === 1 ? "thing" : "things"} worth fixing${toCheck.length ? `, and ${toCheck.length} more to check by hand` : ""}. The ones that matter most are below.`
@@ -1006,6 +1013,25 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
     "A median needs three runs of the same URL in the same Lighthouse setup. Lab values are not real-user Core Web Vitals; Total Blocking Time is not Interaction to Next Paint.",
     subtle,
   );
+  if (product) {
+    devSection("A product page on a phone (lab, one run)");
+    table(
+      ["Measurement", "Product page"],
+      [
+        ["Performance", score(product.performance)],
+        [
+          "Main content appears (Largest Contentful Paint)",
+          seconds(product.lcp_ms),
+        ],
+        ["Time the page is blocked (Total Blocking Time)", ms(product.tbt_ms)],
+      ],
+      [W - 140, 140],
+    );
+    small(
+      `${readable(product.url)}, tested ${stamp(product.tested_at)}. One run, so it shows the size of the problem rather than a median to compare against later.`,
+      subtle,
+    );
+  }
   const fieldRun = (strategy: "mobile" | "desktop") =>
     input.samples.find(
       (sample) =>

@@ -180,6 +180,7 @@ export async function savedReportInput(
       .filter((page) => page.kind !== "browser-diagnostics")
       .map(({ url, kind, status_code }) => ({ url, kind, status_code })),
     page_limitations: audit.summary?.page_limitations ?? [],
+    product_speed: audit.summary?.product_speed ?? null,
   };
   return { report, input };
 }

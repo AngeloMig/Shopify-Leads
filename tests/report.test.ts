@@ -127,3 +127,59 @@ it("shows the phone screenshot when browser checks captured one", async () => {
   expect(withShot.toString("latin1")).toContain("/Subtype /Image");
   expect(without.toString("latin1")).not.toContain("/Subtype /Image");
 });
+
+// The report's text, decoded from its compressed content streams.
+function pdfText(pdf: Buffer) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const zlib = require("node:zlib") as typeof import("node:zlib");
+  let out = "",
+    i = 0;
+  while ((i = pdf.indexOf("stream", i)) !== -1) {
+    if (pdf.subarray(i - 3, i).toString() === "end") {
+      i += 6;
+      continue;
+    }
+    let s = i + 6;
+    if (pdf[s] === 13) s++;
+    if (pdf[s] === 10) s++;
+    const e = pdf.indexOf("endstream", s);
+    try {
+      const t = zlib.inflateSync(pdf.subarray(s, e)).toString("latin1");
+      for (const m of t.matchAll(/<([0-9a-fA-F]+)>/g))
+        out += Buffer.from(m[1], "hex").toString("latin1");
+    } catch {
+      /* not a content stream */
+    }
+    i = e + 9;
+  }
+  return out;
+}
+
+it("reports a product page's phone test apart from the home page", async () => {
+  const pdf = await createReport({
+    name: "Fixture",
+    domain: "fixture.example",
+    date: "2026-10-27",
+    findings: [],
+    samples: [],
+    recommendations: [],
+    activity: null,
+    priority: 0,
+    modernization: null,
+    technologies: [],
+    history: "",
+    product_speed: {
+      url: "https://fixture.example/products/mug",
+      tested_at: "2026-10-27T01:00:00Z",
+      performance: 34,
+      lcp_ms: 9200,
+      tbt_ms: 640,
+    },
+  });
+  const text = pdfText(pdf);
+  expect(text).toContain(
+    "A product page, where shoppers decide to buy, took about 9.2 seconds",
+  );
+  expect(text).toContain("A product page on a phone (lab, one run)");
+  expect(text).toContain("34/100");
+});

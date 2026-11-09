@@ -31,3 +31,28 @@ describe("Why speed on a phone matters: the store's own card", () => {
     expect(phoneSpeedCard(null, null).big).toBe("Your store");
   });
 });
+
+import { productSpeedOf } from "../shared/types";
+describe("A product page's phone test", () => {
+  it("reads the score and timings, and drops values that aren't real", () => {
+    const speed = productSpeedOf({
+      url: "https://shop.example/products/a",
+      strategy: "mobile",
+      sample: 1,
+      tested_at: "2026-11-10T00:00:00Z",
+      scores: { performance: 41 },
+      diagnostics: {
+        "largest-contentful-paint": { numericValue: 8123 },
+        "total-blocking-time": { numericValue: -1 },
+      },
+      field_data: { available: false, scope: "unavailable", metrics: {} },
+    });
+    expect(speed).toEqual({
+      url: "https://shop.example/products/a",
+      tested_at: "2026-11-10T00:00:00Z",
+      performance: 41,
+      lcp_ms: 8123,
+      tbt_ms: null,
+    });
+  });
+});

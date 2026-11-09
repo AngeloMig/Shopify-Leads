@@ -36,6 +36,8 @@ import { median, qualifies } from "../shared/scoring.js";
 import { detectTiming, leadScore } from "../shared/lead-score.js";
 import {
   defaultSettings,
+  productSpeedOf,
+  type ProductSpeed,
   type DiscoverySettings,
   type DiscoveryFunnel,
   type Finding,
@@ -990,6 +992,62 @@ export async function executeJob(
     });
     const pageLimitations = representative.skipped;
     pages.push(...representative.pages);
+    // Product pages are where shoppers buy: one phone test of one, beside the
+    // home page's three. Optional: a failure here never stops the audit.
+    let productSpeed: ProductSpeed | null = null;
+    const productPage = representative.pages.find(
+      (p) => p.kind === "product" && p.http_status === 200,
+    );
+    if (productPage && !representative.rateLimited) {
+      try {
+        await emit(
+          "measure",
+          "started",
+          "Measuring a product page on a phone",
+          {
+            url: productPage.url,
+            task: {
+              key: "product:mobile",
+              name: "Product page · phone",
+              state: "waiting",
+            },
+          },
+        );
+        const s = await checkpointedPageSpeed(
+          job,
+          productPage.url,
+          "mobile",
+          1,
+          () => pageSpeed(productPage.url, "mobile", 1, charge),
+          ensureOwnership,
+          async () => {},
+        );
+        productSpeed = productSpeedOf(s);
+        await emit("measure", "note", "Product page measured", {
+          url: s.url,
+          facts: { performance: productSpeed.performance },
+          task: {
+            key: "product:mobile",
+            name: "Product page · phone",
+            state: "completed",
+          },
+        });
+      } catch (e) {
+        await emit(
+          "measure",
+          "note",
+          `Product page test skipped: ${e instanceof Error ? e.message : "unavailable"}`,
+          {
+            url: productPage.url,
+            task: {
+              key: "product:mobile",
+              name: "Product page · phone",
+              state: "skipped",
+            },
+          },
+        );
+      }
+    }
     for (const page of representative.pages)
       await savePublicEmails(org, store.id, page.emails, ensureOwnership);
     // A site that is already rate limiting us is not crawled further for contacts.
@@ -1330,6 +1388,7 @@ export async function executeJob(
         status_code: page.http_status,
       })),
       page_limitations: pageLimitations,
+      product_speed: productSpeed,
       findings,
       samples,
       recommendations,
@@ -1397,6 +1456,7 @@ export async function executeJob(
           history,
           scope: "Public representative pages only",
           page_limitations: pageLimitations,
+          product_speed: productSpeed,
         },
       }),
     );

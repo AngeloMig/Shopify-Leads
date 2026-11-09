@@ -45,6 +45,35 @@ export type PsiSample = {
     metrics: Record<string, unknown>;
   };
 };
+/**
+ * One phone test of a product page, beside the home page's three. Kept
+ * apart from the home page samples so their medians stay comparable.
+ */
+export type ProductSpeed = {
+  url: string;
+  tested_at: string;
+  performance: number | null;
+  lcp_ms: number | null;
+  tbt_ms: number | null;
+};
+/** Reads a product page's phone test from a PageSpeed run. */
+export function productSpeedOf(sample: PsiSample): ProductSpeed {
+  const value = (key: string) => {
+    const n = (
+      sample.diagnostics[key] as { numericValue?: unknown } | undefined
+    )?.numericValue;
+    return typeof n === "number" && Number.isFinite(n) && n >= 0 ? n : null;
+  };
+  const score = sample.scores.performance;
+  return {
+    url: sample.url,
+    tested_at: sample.tested_at,
+    performance:
+      typeof score === "number" && score >= 0 && score <= 100 ? score : null,
+    lcp_ms: value("largest-contentful-paint"),
+    tbt_ms: value("total-blocking-time"),
+  };
+}
 export type Recommendation = {
   finding_ids: string[];
   category: string;
