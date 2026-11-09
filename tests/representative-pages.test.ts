@@ -13,6 +13,32 @@ const response = (url: string, status = 200) => ({
   headers: { "content-type": "text/html" },
 });
 describe("Optional representative page failures", () => {
+  it("skips and discloses a page too large to review, and carries on", async () => {
+    // modernshelving.com: a collection page over 3 MB of HTML stopped the audit.
+    const shop = inspectHtml(
+      `<a href="/collections/everything">All</a><a href="/products/shelf">Shelf</a>`,
+      "https://store.example/",
+    );
+    const fetch = vi.fn(async (url: string) => {
+      if (url.includes("/collections/"))
+        throw new JobError(
+          "Page is too large to review (over 3 MB of HTML)",
+          "too_large",
+        );
+      return response(url);
+    });
+    const result = await scanRepresentativePages({ fetch }, shop, {
+      checkpoint: async () => {},
+    });
+    expect(result.pages.map((p) => p.kind)).toEqual(["product"]);
+    expect(result.skipped).toEqual([
+      {
+        url: "https://store.example/collections/everything",
+        kind: "collection",
+        reason: "Page is too large to review (over 3 MB of HTML)",
+      },
+    ]);
+  });
   it("recovers from a stale product link and a robots-blocked contact page without blocking the audit", async () => {
     const fetch = vi.fn(async (url: string) => {
       if (url.endsWith("/contact"))

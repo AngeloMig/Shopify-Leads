@@ -73,7 +73,9 @@ export async function scanRepresentativePages(
           rateLimited = true;
         const optional =
           error instanceof JobError
-            ? error.code === "optional_page" || error.code === "rate_limit"
+            ? error.code === "optional_page" ||
+              error.code === "rate_limit" ||
+              error.code === "too_large"
             : /Crawling disallowed by robots\.txt|Robots rules unavailable \((401|403)\)|Requested crawl delay exceeds worker limit/i.test(
                 reason,
               );

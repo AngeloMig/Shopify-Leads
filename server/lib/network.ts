@@ -105,16 +105,22 @@ export async function safeFetch(
       const chunks: Buffer[] = [];
       let bytes = 0;
       const max = options.maxBytes ?? 3_000_000;
+      // An optional page this big is skipped and disclosed, not fatal.
+      const tooLarge = () =>
+        new JobError(
+          `Page is too large to review (over ${Math.round(max / 1_000_000) || 1} MB of HTML)`,
+          "too_large",
+        );
       if (Number(response.headers.get("content-length")) > max) {
         await response.body?.cancel();
-        throw new Error("Response exceeds size limit");
+        throw tooLarge();
       }
       if (response.body)
         for await (const chunk of response.body) {
           bytes += chunk.length;
           if (bytes > max) {
             await response.body.cancel().catch(() => {});
-            throw new Error("Response exceeds size limit");
+            throw tooLarge();
           }
           chunks.push(Buffer.from(chunk));
         }
