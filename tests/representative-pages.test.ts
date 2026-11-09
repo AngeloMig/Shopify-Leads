@@ -40,24 +40,26 @@ describe("Optional representative page failures", () => {
     );
     expect(fetch).toHaveBeenCalledTimes(4);
   });
-  it("propagates rate limits, server outages and lease loss", async () => {
-    const rate = new JobError(
-      "Public page rate limited (429)",
-      "rate_limit",
-      undefined,
-      60000,
-    );
-    await expect(
-      scanRepresentativePages(
-        {
-          fetch: async () => {
-            throw rate;
-          },
-        },
-        home,
-        { checkpoint: async () => {} },
-      ),
-    ).rejects.toBe(rate);
+  it("skips the remaining pages once the site keeps rate limiting", async () => {
+    const fetch = vi.fn(async () => {
+      throw new JobError("Public page rate limited (429)", "rate_limit");
+    });
+    const result = await scanRepresentativePages({ fetch }, home, {
+      checkpoint: async () => {},
+    });
+    expect(result.rateLimited).toBe(true);
+    expect(result.pages).toEqual([]);
+    expect(result.skipped.map((p) => p.kind)).toEqual([
+      "product",
+      "contact",
+      "about",
+    ]);
+    expect(result.skipped[0].reason).toMatch(/429/);
+    expect(result.skipped[1].reason).toMatch(/rate limiting/);
+    // Only the first page is requested; the rest are not attempted.
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("propagates server outages and lease loss", async () => {
     await expect(
       scanRepresentativePages(
         { fetch: async (url) => response(url, 503) },

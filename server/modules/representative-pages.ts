@@ -3,7 +3,12 @@ import { JobError } from "../lib/job-errors.js";
 import { inspectHtml, type PageEvidence } from "./html-audit.js";
 
 export type PageLimitation = { url: string; kind: string; reason: string };
-/** Secondary pages may be unavailable; the homepage and rate limits remain strict. */
+/**
+ * Secondary pages may be unavailable. A site that keeps rate limiting after the
+ * crawl's own backoff gets its remaining pages skipped and disclosed, since the
+ * homepage evidence and measurements are already saved. The homepage, server
+ * outages and lease loss remain strict.
+ */
 export async function scanRepresentativePages(
   crawl: Pick<CrawlSession, "fetch">,
   homepage: PageEvidence,
@@ -19,6 +24,7 @@ export async function scanRepresentativePages(
   const pages: (PageEvidence & { http_status: number })[] = [];
   const skipped: PageLimitation[] = [];
   const seen = new Set([homepage.url]);
+  let rateLimited = false;
   for (const [kind, pattern] of [
     ["collection", /\/collections\/[^/?]+/],
     ["product", /\/products\/[^/?]+/],
@@ -34,6 +40,16 @@ export async function scanRepresentativePages(
       if (seen.has(url)) continue;
       seen.add(url);
       await options.checkpoint();
+      if (rateLimited) {
+        const limitation = {
+          url,
+          kind,
+          reason: "Not requested: the site was rate limiting this review",
+        };
+        skipped.push(limitation);
+        await options.onSkipped?.(limitation);
+        break;
+      }
       await options.onAttempt?.(url, kind);
       let response;
       try {
@@ -53,9 +69,11 @@ export async function scanRepresentativePages(
       } catch (error) {
         const reason =
           error instanceof Error ? error.message : "Page unavailable";
+        if (error instanceof JobError && error.code === "rate_limit")
+          rateLimited = true;
         const optional =
           error instanceof JobError
-            ? error.code === "optional_page"
+            ? error.code === "optional_page" || error.code === "rate_limit"
             : /Crawling disallowed by robots\.txt|Robots rules unavailable \((401|403)\)|Requested crawl delay exceeds worker limit/i.test(
                 reason,
               );
@@ -64,6 +82,7 @@ export async function scanRepresentativePages(
         skipped.push(limitation);
         await options.checkpoint();
         await options.onSkipped?.(limitation);
+        if (rateLimited) break;
         continue;
       }
       await options.checkpoint();
@@ -85,5 +104,5 @@ export async function scanRepresentativePages(
       break;
     }
   }
-  return { pages, skipped };
+  return { pages, skipped, rateLimited };
 }

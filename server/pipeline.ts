@@ -990,7 +990,11 @@ export async function executeJob(
     pages.push(...representative.pages);
     for (const page of representative.pages)
       await savePublicEmails(org, store.id, page.emails, ensureOwnership);
-    if (!pages.some((page) => page.emails.length)) {
+    // A site that is already rate limiting us is not crawled further for contacts.
+    if (
+      !representative.rateLimited &&
+      !pages.some((page) => page.emails.length)
+    ) {
       const contactScan = await scanContactPages(crawl, home, {
         onActivity: async (url, state, message, facts) => {
           await emit(

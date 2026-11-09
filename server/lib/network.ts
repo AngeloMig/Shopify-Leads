@@ -130,13 +130,24 @@ export async function safeFetch(
   }
   throw new Error("Too many redirects");
 }
+/** Longest Retry-After a crawl waits out in place; longer ones requeue the job. */
+export const maxInlineRateLimitWait = 60_000;
+const rateLimitRetries = 3;
 export class CrawlSession {
   private robots = new Map<string, ReturnType<typeof robotsParser>>();
   private lastRequest = 0;
+  /** Extra spacing for origins that have answered 429 during this crawl. */
+  private slowed = new Map<string, number>();
+  constructor(
+    private sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
+    private request = safeFetch,
+  ) {}
   async allowed(url: string) {
     const origin = new URL(url).origin;
     if (!this.robots.has(origin)) {
-      const r = await safeFetch(`${origin}/robots.txt`, { maxBytes: 500000 });
+      const r = await this.request(`${origin}/robots.txt`, {
+        maxBytes: 500000,
+      });
       if (
         r.status !== 404 &&
         r.status !== 410 &&
@@ -155,8 +166,34 @@ export class CrawlSession {
     }
     return this.robots.get(origin)!.isAllowed(url, userAgent) !== false;
   }
+  /** Fetch politely: a 429 slows this origin down and retries before failing. */
   async fetch(url: string, options: Parameters<typeof safeFetch>[1] = {}) {
-    return safeFetch(url, {
+    for (let retry = 0; ; retry++) {
+      try {
+        return await this.fetchOnce(url, options);
+      } catch (error) {
+        if (
+          !(error instanceof JobError) ||
+          error.code !== "rate_limit" ||
+          retry >= rateLimitRetries
+        )
+          throw error;
+        const wait = error.retryAfterMs ?? 10_000 * 2 ** retry;
+        if (wait > maxInlineRateLimitWait) throw error;
+        const origin = new URL(url).origin;
+        this.slowed.set(
+          origin,
+          Math.min(10_000, Math.max(3_000, (this.slowed.get(origin) ?? 0) * 2)),
+        );
+        await this.sleep(wait);
+      }
+    }
+  }
+  private async fetchOnce(
+    url: string,
+    options: Parameters<typeof safeFetch>[1] = {},
+  ) {
+    return this.request(url, {
       ...options,
       beforeRequest: async (target) => {
         if (!(await this.allowed(target)))
@@ -166,12 +203,13 @@ export class CrawlSession {
         const rules = this.robots.get(new URL(target).origin)!;
         const delay = Math.max(
           500,
+          this.slowed.get(new URL(target).origin) ?? 0,
           (rules.getCrawlDelay(userAgent) ?? 0) * 1000,
         );
         if (delay > 30000)
           throw new Error("Requested crawl delay exceeds worker limit");
         const wait = delay - (Date.now() - this.lastRequest);
-        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+        if (wait > 0) await this.sleep(wait);
         this.lastRequest = Date.now();
       },
     });
