@@ -5,6 +5,7 @@ import {
   AtSign,
   ChevronLeft,
   ChevronRight,
+  Download,
   LoaderCircle,
   Mail,
   MapPin,
@@ -36,7 +37,8 @@ import {
 } from "../../shared/local-prospect";
 import { countryNames, type Country } from "../../shared/types";
 import { demoLocalBusinesses, demoLocalSearches } from "../demo";
-import { api, formatDate } from "../lib";
+import { api, downloadBlob, formatDate } from "../lib";
+import { localBusinessCsv } from "../../shared/local-business-csv";
 import { Button } from "./ui/button";
 import { Dialog } from "./ui/dialog";
 import "../local-businesses.css";
@@ -155,6 +157,7 @@ export function LocalBusinesses({
     }),
     [open, setOpen] = useState<Row | null>(null),
     [saving, setSaving] = useState<string | null>(null),
+    [exporting, setExporting] = useState(false),
     [revision, setRevision] = useState(0),
     [recent, setRecent] = useState<LocalSearch[]>(
       demo ? demoLocalSearches : [],
@@ -210,37 +213,55 @@ export function LocalBusinesses({
     };
   }, [demo, revision]);
 
+  // The filters the list and the export both send.
+  const listParams = () =>
+    new URLSearchParams({
+      view,
+      q,
+      stage,
+      has,
+      sort,
+      ...(fromSearch ? { search: fromSearch } : {}),
+      ...(focus
+        ? { trade: focus.split("|")[0], country: focus.split("|")[1] }
+        : {}),
+    });
+  // The demo filters the sample list here, as the server does for real data.
+  function demoMatches() {
+    const needle = q.toLowerCase();
+    const [fTrade, fCountry] = focus.split("|");
+    const base = demoLocalBusinesses.filter(
+      (b) =>
+        (!focus || (b.trade === fTrade && b.country === fCountry)) &&
+        (view === "all" || b.website_check !== "site_found") &&
+        (stage === "any" || b.stage === stage) &&
+        (!needle ||
+          [b.name, b.city, b.trade].some((v) =>
+            v.toLowerCase().includes(needle),
+          )),
+    );
+    const strong = (b: LocalBusiness) =>
+      prospectScore(b).tier === "strong" && b.stage !== "lost";
+    const reachable = (b: LocalBusiness) =>
+      !!b.phone || !!b.email || hasSocial(b);
+    const list = base.filter((b) =>
+      has === "reachable"
+        ? reachable(b)
+        : has === "phone"
+          ? !!b.phone
+          : has === "social"
+            ? hasSocial(b)
+            : has === "strong"
+              ? strong(b)
+              : true,
+    );
+    if (sort === "best")
+      list.sort((a, b) => prospectScore(b).score - prospectScore(a).score);
+    return { base, list, strong, reachable };
+  }
   useEffect(() => {
     if (demo) {
-      const needle = q.toLowerCase();
-      const [fTrade, fCountry] = focus.split("|");
-      const base = demoLocalBusinesses.filter(
-        (b) =>
-          (!focus || (b.trade === fTrade && b.country === fCountry)) &&
-          (view === "all" || b.website_check !== "site_found") &&
-          (stage === "any" || b.stage === stage) &&
-          (!needle ||
-            [b.name, b.city, b.trade].some((v) =>
-              v.toLowerCase().includes(needle),
-            )),
-      );
-      const strong = (b: LocalBusiness) =>
-        prospectScore(b).tier === "strong" && b.stage !== "lost";
-      const reachable = (b: LocalBusiness) =>
-        !!b.phone || !!b.email || hasSocial(b);
-      const list = base.filter((b) =>
-        has === "reachable"
-          ? reachable(b)
-          : has === "phone"
-            ? !!b.phone
-            : has === "social"
-              ? hasSocial(b)
-              : has === "strong"
-                ? strong(b)
-                : true,
-      );
-      if (sort === "best")
-        list.sort((a, b) => prospectScore(b).score - prospectScore(a).score);
+      const { base, list, strong, reachable } = demoMatches();
       setRows(list.slice(page * pageSize, page * pageSize + pageSize));
       setTotal(list.length);
       setCounts({
@@ -255,19 +276,9 @@ export function LocalBusinesses({
     let current = true;
     setLoading(true);
     setError("");
-    const params = new URLSearchParams({
-      view,
-      q,
-      stage,
-      has,
-      sort,
-      ...(fromSearch ? { search: fromSearch } : {}),
-      ...(focus
-        ? { trade: focus.split("|")[0], country: focus.split("|")[1] }
-        : {}),
-      page: String(page),
-      size: String(pageSize),
-    });
+    const params = listParams();
+    params.set("page", String(page));
+    params.set("size", String(pageSize));
     api<{ rows: Row[]; total: number; counts?: Counts } & Status>(
       `/local-businesses?${params}`,
     )
@@ -332,6 +343,37 @@ export function LocalBusinesses({
     if (empty) onFinder(true);
   }, [empty, onFinder]);
 
+  // Everything the filters match, not just this page.
+  async function exportCsv() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      let list: Row[],
+        capped = false;
+      if (demo) list = demoMatches().list;
+      else {
+        const r = await api<{ rows: Row[]; capped: boolean }>(
+          `/local-businesses/export?${listParams()}`,
+        );
+        list = r.rows;
+        capped = r.capped;
+      }
+      if (!list.length) return notify("No businesses match these filters.");
+      downloadBlob(
+        new Blob([localBusinessCsv(list)], { type: "text/csv;charset=utf-8" }),
+        `scout-local-businesses-${new Date().toISOString().slice(0, 10)}.csv`,
+      );
+      notify(
+        capped
+          ? `Exported ${list.length} businesses. Over 1,000 match, so narrow the filters to export the rest.`
+          : `Exported ${list.length} ${list.length === 1 ? "business" : "businesses"}.`,
+      );
+    } catch (e) {
+      notify(`Couldn't export: ${(e as Error).message}`);
+    } finally {
+      setExporting(false);
+    }
+  }
   async function moveStage(b: Row, next: LocalStage) {
     const before = rows;
     setRows((r) => r.map((x) => (x.id === b.id ? { ...x, stage: next } : x)));
@@ -693,24 +735,41 @@ export function LocalBusinesses({
           )}
           <footer className="local-sheet-foot">
             <Attribution />
-            <div className="pagination">
-              <span>{total ? `${first}–${last} of ${total}` : "None"}</span>
-              <button
-                className="icon-button"
-                aria-label="Previous page"
-                disabled={page === 0}
-                onClick={() => setPage((p) => p - 1)}
+            <div className="local-foot-actions">
+              <Button
+                variant="outline"
+                size="sm"
+                className="local-export"
+                onClick={() => void exportCsv()}
+                disabled={exporting || total === 0}
+                title="Download every business these filters show, as a spreadsheet"
               >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                className="icon-button"
-                aria-label="Next page"
-                disabled={page + 1 >= pages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                <ChevronRight size={16} />
-              </button>
+                {exporting ? (
+                  <LoaderCircle size={15} className="spin" />
+                ) : (
+                  <Download size={15} />
+                )}
+                {total > 0 ? `Export ${total} as CSV` : "Export CSV"}
+              </Button>
+              <div className="pagination">
+                <span>{total ? `${first}–${last} of ${total}` : "None"}</span>
+                <button
+                  className="icon-button"
+                  aria-label="Previous page"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  className="icon-button"
+                  aria-label="Next page"
+                  disabled={page + 1 >= pages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             </div>
           </footer>
         </section>

@@ -47,6 +47,102 @@ const status = () => ({
   website_check: websiteSearchProvider(),
 });
 
+const listInput = z.object({
+  view: z.enum(["no_site", "all"]).default("no_site"),
+  q: z.string().trim().max(100).default(""),
+  stage: z
+    .enum(["any", ...localStages] as [string, ...string[]])
+    .default("any"),
+  has: z.enum(["any", "reachable", "phone", "social", "strong"]).default("any"),
+  // One trade in one country, to work a market to the end.
+  trade: z.string().trim().max(80).default(""),
+  country: z.string().trim().max(2).default(""),
+  sort: z.enum(["newest", "best"]).default("newest"),
+  search: uuid.optional(),
+  page: z.coerce.number().int().min(0).max(1000).default(0),
+  size: z.coerce.number().int().min(5).max(50).default(20),
+});
+type ListInput = z.infer<typeof listInput>;
+
+/** The businesses a list view shows, scored and in order (at most 1,000). */
+async function matching(input: ListInput, org: string) {
+  // The view, search and stage narrow everything on the page; "has" picks
+  // within that, so its counts stay visible while it's on.
+  let query = db()
+    .from("local_businesses")
+    .select(scoring, { count: "exact" })
+    .eq("organization_id", org)
+    .eq("suppressed", false);
+  if (input.view === "no_site")
+    query = query.in("website_check", ["no_site_found", "not_checked"]);
+  if (input.stage !== "any") query = query.eq("stage", input.stage);
+  if (input.search) query = query.eq("search_id", input.search);
+  if (input.trade) query = query.eq("trade", input.trade);
+  if (input.country) query = query.eq("country", input.country);
+  if (input.q) {
+    const like = `%${input.q.replace(/[%_,()\\]/g, " ")}%`;
+    query = query.or(
+      `name.ilike.${like},city.ilike.${like},trade.ilike.${like}`,
+    );
+  }
+  // Scores come from a few columns, so the matching rows are scored
+  // here and only the page asked for is read in full.
+  const {
+    data: light,
+    count,
+    error,
+  } = await query.order("found_at", { ascending: false }).limit(scoredLimit);
+  if (error) throw new Error(error.message);
+  const scored = ((light ?? []) as unknown as ScoringRow[]).map((r) => ({
+    ...r,
+    prospect: prospectScore(r),
+  }));
+  const strong = (r: (typeof scored)[number]) =>
+    r.prospect.tier === "strong" && r.stage !== "lost";
+  // Someone you can actually get hold of: a phone, an email or a social page.
+  const reachable = (r: (typeof scored)[number]) =>
+    !!r.phone || !!r.email || r.social_links.length > 0;
+  const picked = scored.filter((r) =>
+    input.has === "reachable"
+      ? reachable(r)
+      : input.has === "phone"
+        ? !!r.phone
+        : input.has === "social"
+          ? r.social_links.length > 0
+          : input.has === "strong"
+            ? strong(r)
+            : true,
+  );
+  // Best first: closed leads go last, then by score, newest on a tie.
+  if (input.sort === "best")
+    picked.sort(
+      (a, b) =>
+        Number(a.stage === "lost" || a.stage === "won") -
+          Number(b.stage === "lost" || b.stage === "won") ||
+        b.prospect.score - a.prospect.score,
+    );
+  return { picked, scored, count, strong, reachable };
+}
+
+/** Full rows for these ids, in the same order; read in batches to keep URLs short. */
+async function fullRows(ids: string[], org: string) {
+  const byId = new Map<string, LocalBusiness>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const batch = (await checked(
+      db()
+        .from("local_businesses")
+        .select(columns)
+        .eq("organization_id", org)
+        .in("id", ids.slice(i, i + 200)),
+    )) as unknown as LocalBusiness[];
+    for (const r of batch) byId.set(r.id, r);
+  }
+  return ids
+    .map((id) => byId.get(id))
+    .filter((r): r is LocalBusiness => !!r)
+    .map((r) => ({ ...r, prospect: prospectScore(r) }));
+}
+
 export function registerLocalBusinessRoutes(
   app: Express,
   admin: (res: Response) => void,
@@ -54,102 +150,16 @@ export function registerLocalBusinessRoutes(
   app.get(
     "/api/local-businesses",
     route(async (req, res) => {
-      const input = z
-        .object({
-          view: z.enum(["no_site", "all"]).default("no_site"),
-          q: z.string().trim().max(100).default(""),
-          stage: z
-            .enum(["any", ...localStages] as [string, ...string[]])
-            .default("any"),
-          has: z
-            .enum(["any", "reachable", "phone", "social", "strong"])
-            .default("any"),
-          // One trade in one country, to work a market to the end.
-          trade: z.string().trim().max(80).default(""),
-          country: z.string().trim().max(2).default(""),
-          sort: z.enum(["newest", "best"]).default("newest"),
-          search: uuid.optional(),
-          page: z.coerce.number().int().min(0).max(1000).default(0),
-          size: z.coerce.number().int().min(5).max(50).default(20),
-        })
-        .parse(req.query);
-      // The view, search and stage narrow everything on the page; "has" picks
-      // within that, so its counts stay visible while it's on.
-      let query = db()
-        .from("local_businesses")
-        .select(scoring, { count: "exact" })
-        .eq("organization_id", res.locals.org)
-        .eq("suppressed", false);
-      if (input.view === "no_site")
-        query = query.in("website_check", ["no_site_found", "not_checked"]);
-      if (input.stage !== "any") query = query.eq("stage", input.stage);
-      if (input.search) query = query.eq("search_id", input.search);
-      if (input.trade) query = query.eq("trade", input.trade);
-      if (input.country) query = query.eq("country", input.country);
-      if (input.q) {
-        const like = `%${input.q.replace(/[%_,()\\]/g, " ")}%`;
-        query = query.or(
-          `name.ilike.${like},city.ilike.${like},trade.ilike.${like}`,
-        );
-      }
-      // Scores come from a few columns, so the matching rows are scored
-      // here and only the page asked for is read in full.
-      const {
-        data: light,
-        count,
-        error,
-      } = await query
-        .order("found_at", { ascending: false })
-        .limit(scoredLimit);
-      if (error) throw new Error(error.message);
-      const scored = ((light ?? []) as unknown as ScoringRow[]).map((r) => ({
-        ...r,
-        prospect: prospectScore(r),
-      }));
-      const strong = (r: (typeof scored)[number]) =>
-        r.prospect.tier === "strong" && r.stage !== "lost";
-      // Someone you can actually get hold of: a phone, an email or a social page.
-      const reachable = (r: (typeof scored)[number]) =>
-        !!r.phone || !!r.email || r.social_links.length > 0;
-      const picked = scored.filter((r) =>
-        input.has === "reachable"
-          ? reachable(r)
-          : input.has === "phone"
-            ? !!r.phone
-            : input.has === "social"
-              ? r.social_links.length > 0
-              : input.has === "strong"
-                ? strong(r)
-                : true,
+      const input = listInput.parse(req.query);
+      const { picked, scored, count, strong, reachable } = await matching(
+        input,
+        res.locals.org,
       );
-      // Best first: closed leads go last, then by score, newest on a tie.
-      if (input.sort === "best")
-        picked.sort(
-          (a, b) =>
-            Number(a.stage === "lost" || a.stage === "won") -
-              Number(b.stage === "lost" || b.stage === "won") ||
-            b.prospect.score - a.prospect.score,
-        );
       const ids = picked
         .slice(input.page * input.size, input.page * input.size + input.size)
         .map((r) => r.id);
-      const full = ids.length
-        ? await checked(
-            db()
-              .from("local_businesses")
-              .select(columns)
-              .eq("organization_id", res.locals.org)
-              .in("id", ids),
-          )
-        : [];
-      const byId = new Map(
-        (full as unknown as LocalBusiness[]).map((r) => [r.id, r]),
-      );
       res.json({
-        rows: ids
-          .map((id) => byId.get(id))
-          .filter((r): r is LocalBusiness => !!r)
-          .map((r) => ({ ...r, prospect: prospectScore(r) })),
+        rows: await fullRows(ids, res.locals.org),
         total: picked.length,
         counts: {
           all: count ?? scored.length,
@@ -159,6 +169,24 @@ export function registerLocalBusinessRoutes(
           reachable: scored.filter(reachable).length,
         },
         ...status(),
+      });
+    }),
+  );
+  // Everything the list's filters match, not just one page: the CSV export.
+  app.get(
+    "/api/local-businesses/export",
+    route(async (req, res) => {
+      const { picked, count } = await matching(
+        listInput.parse(req.query),
+        res.locals.org,
+      );
+      res.json({
+        rows: await fullRows(
+          picked.map((r) => r.id),
+          res.locals.org,
+        ),
+        // More matched than one export reads.
+        capped: (count ?? 0) > scoredLimit,
       });
     }),
   );

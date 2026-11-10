@@ -677,6 +677,12 @@
   gap: 10px 16px;
   padding: 12px 22px;
 }
+.local-foot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
 .local-sheet-foot .pagination span {
   font-family: "Geist Mono Variable", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
