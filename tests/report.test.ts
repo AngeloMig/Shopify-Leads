@@ -183,3 +183,127 @@ it("reports a product page's phone test apart from the home page", async () => {
   expect(text).toContain("A product page on a phone (lab, one run)");
   expect(text).toContain("34/100");
 });
+
+it("leads page 1 with the fixes that cost the most, in the store's own numbers", async () => {
+  const run = (strategy: "mobile" | "desktop", n: number) => ({
+    strategy,
+    sample: n,
+    url: "https://fixture.example/",
+    tested_at: `2026-11-03T00:0${n}:00Z`,
+    scores: {
+      performance: 40,
+      seo: 92,
+      accessibility: 90,
+      "best-practices": 96,
+    },
+    diagnostics: {
+      "largest-contentful-paint": { numericValue: 6200 },
+      "network-requests": {
+        details: { items: Array.from({ length: 212 }, () => ({})) },
+      },
+      "total-byte-weight": { numericValue: 4_300_000 },
+      "unused-javascript": {
+        title: "Reduce unused JavaScript",
+        details: {
+          overallSavingsMs: 3000,
+          overallSavingsBytes: 862_500,
+          items: [
+            { url: "https://cdn.example/app.js", wastedBytes: 600_000 },
+            { url: "https://cdn.example/reviews.js", wastedBytes: 262_500 },
+          ],
+        },
+      },
+      "image-delivery-insight": {
+        title: "Improve image delivery",
+        displayValue: "Est savings of 750 KiB",
+        metricSavings: { FCP: 0, LCP: 700 },
+        details: { items: [] },
+      },
+    },
+    field_data: { available: false, scope: "origin", metrics: {} },
+    environment: {
+      lighthouse_version: "13.0.0",
+      form_factor: strategy,
+      throttling_method: "simulate",
+    },
+  });
+  const finding = (
+    id: string,
+    title: string,
+    category: string,
+    evidence: string,
+  ) => ({
+    id,
+    url: "https://fixture.example/",
+    category,
+    title,
+    severity: "medium",
+    kind: "verified",
+    confidence: "high",
+    evidence,
+    recommendation: "Fix it.",
+  });
+  const pdf = await createReport({
+    name: "Fixture",
+    domain: "fixture.example",
+    date: "2026-11-03",
+    findings: [
+      // Listed first, but nothing measured it: it shouldn't lead.
+      finding(
+        "d",
+        "Duplicate script references",
+        "Frontend",
+        "Repeated src attributes: https://cdn.example/a.js",
+      ),
+      finding(
+        "j",
+        "Reduce unused JavaScript",
+        "Frontend",
+        "Lighthouse mobile unused-javascript",
+      ),
+      finding(
+        "i",
+        "Improve image delivery",
+        "Images",
+        "Lighthouse mobile image-delivery-insight",
+      ),
+    ] as never,
+    samples: [1, 2, 3].flatMap((n) => [
+      run("mobile", n),
+      run("desktop", n),
+    ]) as never,
+    recommendations: [],
+    activity: null,
+    priority: 0,
+    modernization: null,
+    technologies: [],
+    history: "",
+  });
+  const flat = (s: string) => s.replace(/\s+/g, "");
+  const text = flat(pdfText(pdf));
+  const has = (s: string) => expect(text).toContain(flat(s));
+  has("and the phone downloaded 212 files (4.3 MB)");
+  has(
+    "On your home page, phones download 860 KB of code that isn't used, spread over 2 files, which Google estimates adds about 3.0 seconds on a phone.",
+  );
+  has(
+    "The images on your home page are about 770 KB heavier than they need to be, which Google estimates adds about 0.7 seconds on a phone.",
+  );
+  has("After the fix:");
+  // Measured fixes first; the unmeasured one after them.
+  const order = [
+    "The page downloads code it doesn't use",
+    "Some images are bigger than they need to be",
+    "The same code is loaded more than once",
+  ].map((title) => text.indexOf(flat(title)));
+  expect(order[0]).toBeGreaterThan(-1);
+  expect(order[0]).toBeLessThan(order[1]);
+  expect(order[1]).toBeLessThan(order[2]);
+  // Page 2 ends with what it could mean, framed as Google's estimate and research.
+  has("What fixing these could mean for you");
+  has("That 6.2s above is about 3.7 seconds over Google's 2.5-second target.");
+  has(
+    "In Google's phone test, fix 1 alone could cut about 3.0 seconds from your home page",
+  );
+  has("The sales figure is published research, not a forecast for your store.");
+});

@@ -16,6 +16,14 @@ import {
   bytes,
 } from "./report-data.js";
 import { explainFinding } from "../../shared/finding-explanation.js";
+import {
+  biggestSaving,
+  ownerNow,
+  ownerOrder,
+  pageName as ownerPage,
+  seconds as aboutSeconds,
+  size,
+} from "../../shared/owner-fix.js";
 import { shortBusinessName } from "../../shared/lead-intelligence.js";
 import {
   matchingWork,
@@ -23,7 +31,9 @@ import {
   portfolioLabel,
   type Sender,
 } from "../../shared/sender.js";
-export const reportVersion = "v5";
+// v6: page 1 speaks to the owner (measured cost and gain per fix, ranked by
+// impact) and page 2 ends with what fixing it could mean.
+export const reportVersion = "v6";
 export const reportAgency = (fallback: string) =>
   process.env.AGENCY_NAME?.trim() &&
   !/^your shopify agency$/i.test(process.env.AGENCY_NAME.trim())
@@ -149,17 +159,20 @@ export function phoneSpeedCard(lab: number | null, real: number | null) {
   if (lab === null && real === null)
     return {
       big: "Your store",
+      ms: null,
       text: "This check didn't record a reliable phone speed, so we can't compare it yet.",
       source: "Google PageSpeed Insights, this check",
     };
   if (real !== null && (real > target || lab === null || lab <= target))
     return {
       big: short(real),
+      ms: real,
       text: `How long 3 in 4 of your real phone visitors waited for the main content. ${real > target ? "Google's target is 2.5 seconds." : "That's within Google's 2.5-second target."}`,
       source: "Chrome UX Report for your site",
     };
   return {
     big: short(lab!),
+    ms: lab!,
     text: `How long the main content took to appear in Google's phone test, which acts like a mid-range phone on a slower connection. Google's target is 2.5 seconds.${real !== null ? ` Your real phone visitors see it sooner (3 in 4 within ${long(real)}), but shoppers on slower phones and networks wait closer to this.` : ""}`,
     source:
       real !== null
@@ -227,6 +240,21 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
     return typeof value === "number" ? value : null;
   })();
   const secs = (value: number) => `${(value / 1000).toFixed(1)} seconds`;
+  // What a phone downloaded to show the home page (the network tab's totals).
+  const load = (() => {
+    const runs = input.samples.filter(
+      (sample) => sample.strategy === "mobile" && sample.sample === 1,
+    );
+    const run =
+      runs.find((sample) => ownerPage(sample.url) === "your home page") ??
+      runs[0];
+    const d = run?.diagnostics as Record<string, any> | undefined;
+    const files = d?.["network-requests"]?.details?.items?.length;
+    const bytes = d?.["total-byte-weight"]?.numericValue;
+    return typeof files === "number" && files > 0 && typeof bytes === "number"
+      ? { files, bytes }
+      : null;
+  })();
   const product = input.product_speed ?? null;
 
   const header = () => {
@@ -435,13 +463,13 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
       ? `On a phone, Google rates your home page's speed ${Math.round(phoneScore)} out of 100, which it counts as ${band(phoneScore, true).word.toLowerCase()}.`
       : "We couldn't get a reliable phone speed score in this check.",
     lcp !== null
-      ? `In Google's test, which acts like a mid-range phone on a slower connection, the main content took about ${secs(lcp)} to appear. Google recommends under 2.5 seconds.`
+      ? `In Google's phone test, which acts like a mid-range phone on a slower connection, the main content took about ${secs(lcp)} to appear, against a target of 2.5 seconds${load ? `, and the phone downloaded ${load.files} files (${size(load.bytes)})` : ""}.`
       : "",
     realLcp !== null
       ? `Real visitors see it sooner: 3 in 4 within ${secs(realLcp)}${realLcp > 2500 ? ", still over the target" : ""}.`
       : "",
     product?.lcp_ms != null
-      ? `A product page, where shoppers decide to buy, took about ${secs(product.lcp_ms)} in the same test${product.lcp_ms > 2500 ? "" : ", within the target"}.`
+      ? `A product page, where shoppers decide to buy, took about ${secs(product.lcp_ms)}${product.lcp_ms > 2500 ? "" : ", within the target"}.`
       : "",
     verified.length
       ? `We found ${verified.length} ${verified.length === 1 ? "thing" : "things"} worth fixing${toCheck.length ? `, and ${toCheck.length} more to check by hand` : ""}. The ones that matter most are below.`
@@ -594,16 +622,28 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
       "Speed, search basics and ease of use on your public pages. Nothing stood out as clearly broken, so there's no list of fixes.",
       { color: muted },
     );
-  verified.slice(0, 3).forEach((issue, i) => {
+  // The fixes that cost the most measured time go first.
+  const firstFixes = ownerOrder(verified).slice(0, 3);
+  for (const [i, issue] of firstFixes.entries()) {
     const copy = plain(issue);
+    const now = ownerNow(issue, input.findings);
+    const lead = now ?? copy.why;
+    const after = `After the fix: ${copy.gain}`;
     doc.font("Helvetica").fontSize(9.5);
-    ensure(
-      22 +
-        doc.heightOfString(readable(copy.why), {
-          width: W - 30,
-          lineGap: 2.5,
-        }),
-    );
+    const height =
+      30 +
+      doc.heightOfString(readable(lead), { width: W - 30, lineGap: 2.5 }) +
+      doc.heightOfString(readable(after), { width: W - 30, lineGap: 2.5 });
+    // Page 1 keeps what fits; a fix alone on a page of its own reads as an
+    // afterthought, and every fix is in "What we found" anyway.
+    if (i > 0 && doc.y + height > bottom) {
+      text(
+        `${firstFixes.length - i === 1 ? "One more fix is" : `${firstFixes.length - i} more fixes are`} in "What we found", with the rest.`,
+        { size: 9.5, color: muted },
+      );
+      break;
+    }
+    ensure(height);
     const y = doc.y;
     doc.circle(M + 10, y + 9, 10).fill(ink);
     doc
@@ -623,20 +663,31 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
       priorityTag[issue.severity],
     );
     doc.y = Math.max(doc.y, y + 18) + 2;
-    text(copy.why, {
+    // What it costs now: the store's own number when the check measured one.
+    text(lead, {
       x: M + 30,
       width: W - 30,
       size: 9.5,
-      color: muted,
+      color: now ? ink : muted,
       gap: 2.5,
-      after: 6,
+      after: 3,
     });
-  });
-  doc.y += 4;
-  text(
-    "This check looks only at your store's public pages, the way a shopper sees them. Scores come from Google PageSpeed Insights and can move a little between tests. It doesn't predict sales.",
-    { size: 8.5, color: subtle },
-  );
+    doc.font("Helvetica-Bold").fontSize(9.5);
+    const labelW = doc.widthOfString("After the fix: ");
+    const ay = doc.y;
+    doc.fillColor(goldDark).text("After the fix: ", M + 30, ay, {
+      lineBreak: false,
+    });
+    doc
+      .font("Helvetica")
+      .fillColor(muted)
+      .text(readable(copy.gain), M + 30, ay, {
+        width: W - 30,
+        lineGap: 2.5,
+        indent: labelW,
+      });
+    doc.y += 6;
+  }
 
   // ── Page 2: why phone speed matters ───────────────────────────────────
   doc.addPage();
@@ -699,10 +750,62 @@ export async function createReport(input: ReportInput): Promise<Buffer> {
     });
     doc.y = y + h + 14;
   }
-  text(
-    "The fixes in this report are aimed at the first few seconds on a phone: what shoppers see first, and how soon they can use it.",
-    { color: muted },
-  );
+  // What it could mean for sales: this store's own delay, Google's own
+  // estimate of the biggest saving, and one published study. No promise.
+  const saving = biggestSaving(firstFixes);
+  // Over the target by the same number the card above shows.
+  const over = yours.ms !== null && yours.ms > 2500 ? yours.ms - 2500 : null;
+  if (!verified.length || (!saving && over === null)) {
+    text(
+      "The fixes in this report are aimed at the first few seconds on a phone: what shoppers see first, and how soon they can use it.",
+      { color: muted },
+    );
+    doc.y += 4;
+    text(
+      "This check looks only at your store's public pages, the way a shopper sees them. Scores come from Google PageSpeed Insights and can move a little between tests.",
+      { size: 8.5, color: subtle },
+    );
+  } else {
+    const worth = [
+      over !== null
+        ? `That ${yours.big} above is about ${aboutSeconds(over)} over Google's 2.5-second target.`
+        : "",
+      saving
+        ? `In Google's phone test, fix ${firstFixes.findIndex((f) => f.impact === saving) + 1} alone could cut about ${aboutSeconds(saving.ms!)} from ${ownerPage(saving.url)}, by Google's own estimate.`
+        : "",
+      "Even 0.1 seconds counts: in the Deloitte study above, that was worth 8.4% more retail sales.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const proof =
+      "After the work, we run this same check again and send you both, so you can see the difference for yourself. Time savings are Google's estimates and scores move a little between tests. The sales figure is published research, not a forecast for your store.";
+    doc.font("Helvetica").fontSize(10);
+    const boxH =
+      doc.heightOfString(readable(worth), { width: W - 36, lineGap: 3 }) +
+      doc.heightOfString(readable(proof), { width: W - 36, lineGap: 3 }) +
+      52;
+    ensure(boxH + 8);
+    const by = doc.y + 6;
+    doc.roundedRect(M, by, W, boxH, 8).fill(ink);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .fillColor("#E8CD8C")
+      .text("What fixing these could mean for you", M + 18, by + 14, {
+        width: W - 36,
+      });
+    doc
+      .font("Helvetica")
+      .fontSize(10)
+      .fillColor("#FFFFFF")
+      .text(readable(worth), M + 18, by + 32, { width: W - 36, lineGap: 3 });
+    doc.y += 6;
+    doc
+      .fillColor("#D9D4C7")
+      .text(readable(proof), M + 18, doc.y, { width: W - 36, lineGap: 3 });
+    doc.x = M;
+    doc.y = by + boxH + 10;
+  }
 
   // ── What we found, in plain words ─────────────────────────────────────
   doc.addPage();

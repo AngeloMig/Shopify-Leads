@@ -135,6 +135,30 @@ export type ReportIssue = {
   service: string;
   evidence: string[];
   resources: { url: string; wastedBytes?: number; strategy: string }[];
+  /** Google's own estimate on a phone, from the page where it's largest. */
+  impact: FixImpact | null;
+};
+export type FixImpact = {
+  /** Estimated time saved, in ms, in Google's phone test. */
+  ms: number | null;
+  /** Estimated download saved, in bytes. */
+  bytes: number | null;
+  /** How many files the saving is spread over. */
+  files: number;
+  url: string;
+};
+/** Larger impact first: time saved, then download saved. */
+export const impactOrder = (a: FixImpact | null, b: FixImpact | null) =>
+  (b?.ms ?? 0) - (a?.ms ?? 0) || (b?.bytes ?? 0) - (a?.bytes ?? 0);
+/** "Est savings of 1,829 KiB" → bytes, for insights that give only that. */
+const savedBytes = (display: unknown) => {
+  const m =
+    typeof display === "string"
+      ? display.match(/savings of ([\d,.]+)\s*(KiB|MiB|kB|KB|MB)/i)
+      : null;
+  if (!m) return null;
+  const n = Number(m[1].replace(/,/g, ""));
+  return /^m/i.test(m[2]) ? n * 1024 * 1024 : n * 1024;
 };
 export function reportIssues(
   findings: Finding[],
@@ -162,6 +186,7 @@ export function reportIssues(
       const detail = guidance(first.title, first.recommendation);
       const evidence: string[] = [];
       const resources: ReportIssue["resources"] = [];
+      let impact: FixImpact | null = null;
       for (const finding of group) {
         if (!finding.evidence.startsWith("Lighthouse ")) {
           const alt = finding.evidence.match(
@@ -230,6 +255,35 @@ export function reportIssues(
         evidence.push(
           `${label}: ${parts.join("; ") || "diagnostic flagged in the saved Lighthouse result"}${run ? ` (recorded ${run.tested_at})` : ""}.`,
         );
+        if (strategy === "mobile" && diagnostic) {
+          const savings = diagnostic.metricSavings ?? {};
+          const ms = [
+            diagnostic.details?.overallSavingsMs,
+            savings.LCP,
+            savings.FCP,
+          ].find((value) => finite(value) && value > 0) as number | undefined;
+          const saved = finite(diagnostic.details?.overallSavingsBytes)
+            ? (diagnostic.details.overallSavingsBytes as number)
+            : savedBytes(diagnostic.displayValue);
+          const files = Array.isArray(diagnostic.details?.items)
+            ? diagnostic.details.items.filter(
+                (item: any) =>
+                  finite(item?.wastedBytes) && item.wastedBytes > 0,
+              ).length
+            : 0;
+          const here: FixImpact = {
+            ms: ms ?? null,
+            bytes: saved && saved > 0 ? saved : null,
+            files,
+            url: finding.url,
+          };
+          // Keep the page where it's largest: time first, then size.
+          if (
+            (here.ms || here.bytes) &&
+            (!impact || impactOrder(here, impact) < 0)
+          )
+            impact = here;
+        }
         for (const item of Array.isArray(diagnostic?.details?.items)
           ? diagnostic.details.items
           : [])
@@ -263,6 +317,7 @@ export function reportIssues(
         ids: group.map((finding) => finding.id),
         ...detail,
         evidence: [...new Set(evidence)],
+        impact,
         resources: resources
           .sort((a, b) => (b.wastedBytes ?? 0) - (a.wastedBytes ?? 0))
           .filter(
